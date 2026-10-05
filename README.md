@@ -13,7 +13,7 @@
 1. 到 https://supabase.com 註冊（免費），New project。
 2. 左側 **SQL Editor** → 貼上 `schema.sql` 全部內容 → Run。
 3. **Authentication → Users → Add user → Create new user**
-   - Email：`band@chordbook.app`（要跟 config.js 的 bandEmail 一樣）
+   - Email：`subarunism@gmail.com`（要跟 config.js 的 bandEmail 一樣）
    - Password：你想給團員的樂團密碼
    - 勾選 **Auto Confirm User**
 4. **Project Settings → API**，複製 Project URL 與 anon public key，填進 `config.js`。
