@@ -360,8 +360,7 @@ async function loadAll(){
   songs=data.map(fromRow);if(!songs.find(s=>s.id===curId))curId=songs[0]?.id||null;render();}
 async function startSynced(){
   store='db';prefs=lsGet('cb_prefs',{});$('login').hidden=true;
-  $('sync').innerHTML='已連線・團員共用歌本 <button class="ghost" id="logout" style="padding:0 4px;font-size:12px">登出</button>';$('sync').classList.add('on');
-  $('logout').onclick=async()=>{await sb.auth.signOut();location.reload();};
+  $('sync').innerHTML='已連線・團員共用歌本';$('sync').classList.add('on');
   await loadAll();
   sb.channel('songs').on('postgres_changes',{event:'*',schema:'public',table:'songs'},p=>{
     if(p.eventType==='DELETE'){songs=songs.filter(s=>s.id!==p.old.id);if(curId===p.old.id)curId=songs[0]?.id||null;render();return;}
@@ -374,13 +373,7 @@ async function startSynced(){
   if(!CFG.supabaseUrl||!window.supabase){bootLocal();$('sync').textContent='尚未設定 Supabase，目前只存在這台裝置';return;}
   sb=window.supabase.createClient(CFG.supabaseUrl,CFG.supabaseAnonKey);
   songs=[];curId=null;render();
-  const {data}=await sb.auth.getSession();
-  if(data.session)return startSynced();
-  $('login').hidden=false;$('pw').focus();
-  $('loginForm').onsubmit=async e=>{e.preventDefault();$('loginErr').textContent='登入中…';
-    const {error}=await sb.auth.signInWithPassword({email:CFG.bandEmail,password:$('pw').value});
-    if(error){$('loginErr').textContent='密碼不對，再試一次';return;}
-    startSynced();};
+  startSynced();
 })();
 </script>
 </body>
