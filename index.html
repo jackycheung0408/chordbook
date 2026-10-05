@@ -176,15 +176,6 @@ textarea{width:100%;min-height:460px;resize:vertical;background:var(--bg);border
 </div>
 <div class="toast" id="toast" hidden></div>
 
-<div class="stage" id="login" hidden style="align-items:center;justify-content:center;padding-inline:16px">
-  <form id="loginForm" style="background:var(--panel);color:var(--fg);border-radius:14px;padding:28px;display:grid;gap:12px;width:100%;max-width:340px;box-shadow:var(--shadow)">
-    <div class="brand"><h1>團練<span>和弦本</span></h1></div>
-    <label for="pw" class="small">輸入樂團密碼</label>
-    <input type="password" id="pw" autocomplete="current-password" style="background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px">
-    <button class="primary" type="submit">進入歌本</button>
-    <span class="small" id="loginErr"></span>
-  </form>
-</div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="config.js"></script>
 <script>
@@ -359,7 +350,7 @@ async function loadAll(){
   if(error){$('sync').textContent='讀取失敗：'+error.message;return;}
   songs=data.map(fromRow);if(!songs.find(s=>s.id===curId))curId=songs[0]?.id||null;render();}
 async function startSynced(){
-  store='db';prefs=lsGet('cb_prefs',{});$('login').hidden=true;
+  store='db';prefs=lsGet('cb_prefs',{});
   $('sync').innerHTML='已連線・團員共用歌本';$('sync').classList.add('on');
   await loadAll();
   sb.channel('songs').on('postgres_changes',{event:'*',schema:'public',table:'songs'},p=>{
