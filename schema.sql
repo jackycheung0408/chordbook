@@ -12,6 +12,9 @@ create policy "band read"   on public.songs for select to authenticated using (t
 create policy "band insert" on public.songs for insert to authenticated with check (true);
 create policy "band update" on public.songs for update to authenticated using (true) with check (true);
 create policy "band delete" on public.songs for delete to authenticated using (true);
+-- 開放給登入者（新專案預設不自動開放）
+grant select, insert, update, delete on public.songs to authenticated;
+
 -- 即時同步
 alter publication supabase_realtime add table public.songs;
 
