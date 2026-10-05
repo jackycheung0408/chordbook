@@ -4,6 +4,7 @@ create table if not exists public.songs (
   title text not null default '',
   key int not null default 0,
   src text not null default '',
+  url text not null default '',
   updated_at timestamptz not null default now()
 );
 alter table public.songs enable row level security;

@@ -82,6 +82,11 @@ textarea{width:100%;min-height:460px;resize:vertical;background:var(--bg);border
 .hint{font-size:12px;color:var(--muted);line-height:1.7}
 .hint code{font-family:var(--mono);color:var(--chord)}
 .danger{color:var(--chord)}
+.srclink{font-size:13px;color:var(--accent);text-decoration:none;border-bottom:1px solid var(--line)}
+.srclink:hover{border-color:var(--accent)}
+.imp{display:grid;gap:8px;border:1px dashed var(--line);border-radius:10px;padding:12px;background:var(--bg)}
+.imp textarea{min-height:200px;background:var(--panel)}
+.imp .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 
 /* sheet */
 .sheet{overflow-x:auto;--lyr:17px}
@@ -127,7 +132,7 @@ textarea{width:100%;min-height:460px;resize:vertical;background:var(--bg);border
 
   <main>
     <div class="head">
-      <h2 id="h">—</h2>
+      <div style="display:grid;gap:4px;min-width:0"><h2 id="h">—</h2><a class="srclink" id="srcLink" target="_blank" rel="noopener" hidden>開啟原始連結 ↗</a></div>
       <div class="acts">
         <button id="editBtn">編輯</button>
         <button id="copyBtn">複製文字譜</button>
@@ -153,6 +158,13 @@ textarea{width:100%;min-height:460px;resize:vertical;background:var(--bg);border
         <div class="row">
           <input type="text" id="title" placeholder="歌名" aria-label="歌名">
           <select id="origKey" aria-label="原調"></select>
+        </div>
+        <input type="text" id="url" placeholder="原始連結（91譜、YouTube…，可留空）" aria-label="原始連結" inputmode="url">
+        <div class="row"><button id="impBtn">貼上外部譜轉換</button></div>
+        <div class="imp" id="imp" hidden>
+          <div class="hint">把「和弦在上、歌詞在下」的譜整段貼進來，會自動轉成這裡的格式。請只用在自己團練。</div>
+          <textarea id="impSrc" spellcheck="false" aria-label="貼上的譜" placeholder="C        G&#10;第一句歌詞在這裡&#10;Am       F&#10;第二句歌詞"></textarea>
+          <div class="row"><button class="primary" id="impGo">轉換並取代</button><button id="impAdd">轉換並加在最後</button><button class="ghost" id="impX">取消</button><span class="small" id="impMsg"></span></div>
         </div>
         <textarea id="src" spellcheck="false" aria-label="和弦與歌詞"></textarea>
         <div class="hint">和弦夾在字前面：<code>[Am]今天的[F]風</code>　段落：<code>{副歌}</code>　純和弦行：<code>[C] [G] [Am] [F]</code><br>修改會自動同步給團員。</div>
@@ -265,6 +277,8 @@ function render(){
   if(!$('stage').hidden){$('stTitle').textContent=s.title;$('stKey').textContent=nn(pk,useFlats(pk))+(p.capo?` · Capo ${p.capo}`:'');$('stSheet').innerHTML=sheetHTML();}
   if(document.activeElement!==$('src')) $('src').value=s.src;
   if(document.activeElement!==$('title')) $('title').value=s.title;
+  if(document.activeElement!==$('url')) $('url').value=s.url||'';
+  const u=/^https?:\/\//.test(s.url||'')?s.url:'';$('srcLink').hidden=!u;if(u)$('srcLink').href=u;
   $('origKey').value=s.key;
 }
 
@@ -277,7 +291,7 @@ function saveSong(patch){
   const s=cur(); Object.assign(s,patch,{updatedAt:Date.now()});
   $('saved').textContent='儲存中…';
   clearTimeout(tmr); tmr=setTimeout(async()=>{
-    try{ if(store==='db'){const {error}=await sb.from('songs').update({title:s.title,key:s.key,src:s.src,updated_at:new Date(s.updatedAt).toISOString()}).eq('id',s.id);if(error)throw error;tmr=null;}
+    try{ if(store==='db'){const {error}=await sb.from('songs').update({title:s.title,key:s.key,src:s.src,url:s.url||'',updated_at:new Date(s.updatedAt).toISOString()}).eq('id',s.id);if(error)throw error;tmr=null;}
       else lsSet('cb_songs',songs);
       $('saved').textContent=store==='db'?'已同步給團員':'已存在這台裝置';}
     catch(e){$('saved').textContent='沒有存成功：'+(e.message||'請稍後再試');}
@@ -301,6 +315,41 @@ $('newBtn').onclick=async()=>{await createSong({title:'新歌',key:0,src:'{主�
 function openEditor(on){$('editor').hidden=!on;$('bodyEl').classList.toggle('editing',on);$('editBtn').textContent=on?'完成':'編輯';$('editBtn').classList.toggle('primary',on);}
 $('editBtn').onclick=()=>openEditor($('editor').hidden);
 $('src').oninput=e=>{saveSong({src:e.target.value});$('sheet').innerHTML=sheetHTML();};
+$('url').oninput=e=>{saveSong({url:e.target.value.trim()});render();};
+// ---- 外部譜轉換：和弦在上、歌詞在下 → [C]歌詞 ----
+const CHORD_TOK=/^\(?[A-G](?:#|b|♯|♭)?(?:maj|min|m|M|dim|aug|sus|add|°|ø|\+|-)?[0-9]*(?:(?:b|#|add|sus|maj|no)?[0-9]+)*(?:\/[A-G](?:#|b|♯|♭)?)?\)?$/;
+const SEC_RE=/^\s*[\[【(（]?\s*(前奏|主歌|副歌|間奏|尾奏|橋段|導歌|pre-?chorus|intro|verse|chorus|bridge|interlude|outro|solo|ending|hook|[A-D]\d?|[ABC]段)\s*\d*\s*[\]】)）]?\s*[:：]?\s*$/i;
+const cw=ch=>ch.charCodeAt(0)>0x2e7f?2:1;
+const normChord=c=>c.replace(/[()]/g,'').replace(/♯/g,'#').replace(/♭/g,'b');
+function isChordLine(l){const t=l.replace(/[|｜\/]{1,}(?=\s|$)/g,' ').replace(/\b[xX×]\s?\d\b|\(\s*[xX×]\d\s*\)/g,' ').replace(/[-–—.]{2,}/g,' ').trim().split(/\s+/).filter(Boolean);
+  return t.length>0&&t.every(x=>CHORD_TOK.test(x));}
+function chordsAt(l){const out=[];l.replace(/\S+/g,(m,i)=>{if(CHORD_TOK.test(m)){let col=0;for(const ch of l.slice(0,i))col+=cw(ch);out.push({col,c:normChord(m)});}return m;});return out;}
+function merge(chords,lyr){
+  const chars=[...lyr];let col=0,idx=[];chars.forEach(ch=>{idx.push(col);col+=cw(ch);});
+  let res='',ci=0;
+  chars.forEach((ch,i)=>{while(ci<chords.length&&chords[ci].col<=idx[i]+ (cw(ch)-1)){res+='['+chords[ci].c+']';ci++;}res+=ch;});
+  while(ci<chords.length){res+=(res.endsWith(' ')?'':' ')+'['+chords[ci].c+']';ci++;}
+  return res;}
+function convertSheet(text){
+  const L=text.replace(/\t/g,'    ').replace(/\r/g,'').split('\n');let out=[],key=null,n=0;
+  for(let i=0;i<L.length;i++){const l=L[i].replace(/\s+$/,'');
+    const km=l.match(/^\s*(?:原調|key|調)\s*[:：=]?\s*([A-G](?:#|b)?m?)\b/i);if(km){key=km[1].replace(/m$/,'');continue;}
+    if(/^\s*capo/i.test(l))continue;
+    if(!l.trim()){out.push('');continue;}
+    const sm=l.match(SEC_RE);if(sm&&!isChordLine(l)){out.push('{'+l.replace(/[\[\]【】()（）:：]/g,'').trim()+'}');continue;}
+    if(isChordLine(l)){n++;const ch=chordsAt(l);const nx=L[i+1]?.replace(/\s+$/,'')||'';
+      if(nx.trim()&&!isChordLine(nx)&&!SEC_RE.test(nx)){out.push(merge(ch,nx));i++;}
+      else out.push(ch.map(x=>'['+x.c+']').join(' '));continue;}
+    out.push(l);}
+  return {src:out.join('\n').replace(/\n{3,}/g,'\n\n').trim(),key,n};}
+$('impBtn').onclick=()=>{$('imp').hidden=!$('imp').hidden;if(!$('imp').hidden)$('impSrc').focus();};
+$('impX').onclick=()=>{$('imp').hidden=true;$('impSrc').value='';$('impMsg').textContent='';};
+function doImport(append){const r=convertSheet($('impSrc').value);if(!r.src){$('impMsg').textContent='沒有內容可以轉換';return;}
+  const patch={src:append&&cur().src.trim()?cur().src.trimEnd()+'\n\n'+r.src:r.src};
+  if(r.key&&IDX[r.key]!==undefined)patch.key=KEYS.findIndex(k=>IDX[k]===IDX[r.key]);
+  saveSong(patch);$('src').value=patch.src;render();$('imp').hidden=true;$('impSrc').value='';
+  toast(`已轉換 ${r.n} 行和弦`+(r.key?`，原調設為 ${r.key}`:'')+'。請對一下和弦位置');}
+$('impGo').onclick=()=>doImport(false);$('impAdd').onclick=()=>doImport(true);
 $('title').oninput=e=>{saveSong({title:e.target.value});$('h').textContent=e.target.value;renderList();};
 $('origKey').onchange=e=>{saveSong({key:+e.target.value});render();};
 let armed=false;
@@ -344,7 +393,7 @@ function bootLocal(){
   curId=songs[0].id;$('mine').textContent='';render();}
 const CFG=window.CHORDBOOK_CONFIG||{};
 let sb=null;
-function fromRow(r){return {id:r.id,title:r.title||'',key:+r.key||0,src:r.src||'',updatedAt:Date.parse(r.updated_at)||0};}
+function fromRow(r){return {id:r.id,title:r.title||'',key:+r.key||0,src:r.src||'',url:r.url||'',updatedAt:Date.parse(r.updated_at)||0};}
 async function loadAll(){
   const {data,error}=await sb.from('songs').select('*').order('updated_at',{ascending:false});
   if(error){$('sync').textContent='讀取失敗：'+error.message;return;}
