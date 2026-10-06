@@ -113,14 +113,15 @@
       if (e < maxE * 0.06) { out.push({ t: t0, name: null, conf: 0 }); continue; }
       const mean = v.reduce((s, x) => s + x, 0) / 12;
       const w = v.map(x => Math.max(0, x - mean)); const n = Math.hypot(...w) || 1;
-      const scores = TEMPL.map(T => {
+      const raw = TEMPL.map(T => {
         let s = 0; for (let i = 0; i < 12; i++) s += T.t[i] * w[i] / n;
         const d = ((T.root - opt.keyMajor) % 12 + 12) % 12;
         if (DIA_MAJ[d] === T.q) s += 0.04; // 調內和弦稍微加分
         if (bassStrong && T.root === bassPc) s += 0.08; // 低音是根音
         return { T, s };
-      }).sort((x, y) => y.s - x.s);
-      out.push({ t: t0, root: scores[0].T.root, q: scores[0].T.q, conf: scores[0].s - scores[1].s });
+      });
+      const scores = raw.slice().sort((x, y) => y.s - x.s);
+      out.push({ t: t0, root: scores[0].T.root, q: scores[0].T.q, conf: scores[0].s - scores[1].s, sc: Float32Array.from(raw, x => x.s) });
     }
     // 去掉頭尾的安靜段
     while (out.length && out[0].root === undefined) out.shift();
@@ -178,5 +179,29 @@
     return best;
   }
 
-  window.ChordDetect = { analyze, group, keyFromChords };
+  // 平滑：用 Viterbi 找「整體最合理、不會一直換」的和弦序列。penalty 越大越少換和弦，outPen 是調外和弦的額外成本
+  function smooth(res, { penalty = 0.12, outPen = 0.06, keyMajor = 0 } = {}) {
+    const idx = res.map((r, i) => r.sc ? i : -1).filter(i => i >= 0);
+    if (!idx.length) return res;
+    const S = TEMPL.length, back = [];
+    const local = (r, k) => { const T = TEMPL[k], d = ((T.root - keyMajor) % 12 + 12) % 12; return -r.sc[k] + (DIA_MAJ[d] === T.q ? 0 : outPen); };
+    let cost = new Float64Array(S);
+    idx.forEach((i, n) => {
+      const r = res[i], nc = new Float64Array(S), bp = new Uint8Array(S);
+      let pMin = Infinity, pArg = 0;
+      if (n) for (let j = 0; j < S; j++) if (cost[j] < pMin) { pMin = cost[j]; pArg = j; }
+      for (let k = 0; k < S; k++) {
+        if (!n) { nc[k] = local(r, k); continue; }
+        const stay = cost[k], move = pMin + penalty;
+        if (stay <= move) { nc[k] = stay + local(r, k); bp[k] = k; } else { nc[k] = move + local(r, k); bp[k] = pArg; }
+      }
+      cost = nc; back.push(bp);
+    });
+    let k = 0; for (let j = 1; j < S; j++) if (cost[j] < cost[k]) k = j;
+    const out = res.map(r => ({ ...r }));
+    for (let n = idx.length - 1; n >= 0; n--) { out[idx[n]].root = TEMPL[k].root; out[idx[n]].q = TEMPL[k].q; if (n) k = back[n][k]; }
+    return out;
+  }
+
+  window.ChordDetect = { analyze, group, keyFromChords, smooth };
 })();

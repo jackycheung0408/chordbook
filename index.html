@@ -486,7 +486,8 @@ button,.btn,.tc,.song{-webkit-tap-highlight-color:transparent;touch-action:manip
     <button class="primary big" id="wizTap">這句開始了<small>或按空白鍵</small></button>
   </div>
   <div class="wbar" id="wizBarDone" hidden>
-    <button id="wizRetap">對不準？跟著錄音點一下</button><span style="flex:1"></span><button class="primary big" id="wizApply">套用到歌曲</button>
+    <button id="wizRetap">對不準？跟著錄音點一下</button>
+    <span class="seg" id="wizLevel" role="group" aria-label="簡化程度"><button data-lv="simple">簡單</button><button data-lv="normal">標準</button><button data-lv="detail">詳細</button></span><span style="flex:1"></span><button class="primary big" id="wizApply">套用到歌曲</button>
   </div>
 </div>
 <div class="count" id="count" hidden></div>
@@ -494,7 +495,7 @@ button,.btn,.tc,.song{-webkit-tap-highlight-color:transparent;touch-action:manip
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="config.js"></script>
-<script src="detect.js?v=10"></script>
+<script src="detect.js?v=15"></script>
 <script>
 const SH=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 const FL=['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
@@ -922,26 +923,44 @@ $('wizRetap').onclick=()=>{W.audio.pause();W.auto=false;wizTapStart();};
 W.audio.onended=()=>{if(!$('wizBarTap').hidden&&W.taps.some(t=>typeof t==='number'))wizFinish();};
 document.addEventListener('keydown',e=>{if($('wiz').hidden||$('wizBarTap').hidden)return;
   if(e.key===' '){e.preventDefault();$('wizTap').click();}else if(e.key==='Backspace'){e.preventDefault();$('wizUndo').click();}});
+// 簡化程度：每格多長、換和弦的門檻、調外和弦的門檻、每句最多幾個和弦
+const LEVELS={simple:{bars:1,penalty:.3,outPen:.15,max:2},normal:{bars:1,penalty:.14,outPen:.07,max:3},detail:{bars:.5,penalty:.05,outPen:.03,max:4}};
 function wizBuild(){
-  const an=W.an,bpm=W.bpm,seg=60/bpm*2,fl=FLAT_KEYS.has(an.key.major);
+  const an=W.an,bpm=W.bpm,L=LEVELS[W.level||'simple'],seg=240/bpm*L.bars,fl=FLAT_KEYS.has(an.key.major);
   const marks=W.rows.map((r,j)=>typeof W.taps[j]==='number'?{j,t:W.taps[j]}:null).filter(Boolean);
   const first=marks[0]?.t??0,off=first-Math.floor(first/seg)*seg;
-  const segs=ChordDetect.group(an,{segSec:seg,offset:off,keyMajor:an.key.major}).map(r=>({t:r.t,name:r.root===undefined?null:(fl?FL:SH)[r.root]+r.q}));
+  const raw=ChordDetect.group(an,{segSec:seg,offset:off,keyMajor:an.key.major});
+  const segs=(ChordDetect.smooth?ChordDetect.smooth(raw,{penalty:L.penalty,outPen:L.outPen,keyMajor:an.key.major}):raw)
+    .map(r=>({t:r.t,name:r.root===undefined?null:(fl?FL:SH)[r.root]+r.q}));
   const durs=marks.slice(1).map((m,i)=>m.t-marks[i].t).sort((a,b)=>a-b),med=durs[Math.floor(durs.length/2)]||seg*4,cap=Math.max(med*1.6,seg*2);
   const pick=(a,b)=>segs.filter(x=>x.name&&x.t+seg/2>=a&&x.t+seg/2<b);
-  const dedupe=arr=>arr.filter((x,i)=>i===0||x.name!==arr[i-1].name);
-  const lines=W.lines.map(l=>isLyricLine(l)?l.replace(/\[[^\]]*\]/g,''):l),extra={};
+  // 相同和弦合併，記下長度；超過上限時只留最長的幾個
+  const runs=arr=>{const o=[];arr.forEach(x=>{const l=o[o.length-1];if(l&&l.name===x.name)l.n++;else o.push({name:x.name,t:x.t,n:1});});return o;};
+  const limit=(rs,max)=>rs.length<=max?rs:rs.map((r,i)=>({...r,i})).sort((a,b)=>b.n-a.n).slice(0,max).sort((a,b)=>a.i-b.i);
+  // 每一句先算出和弦序列（含在句中的位置比例）
+  let sec='';const per={};
+  W.rows.forEach((r,j)=>{if(r.sec){sec=r.sec;return;}});
+  const secOf={};let cs='',pos={};W.rows.forEach((r,j)=>{if(r.sec){cs=r.sec.toLowerCase().replace(/\d+/g,'').replace(/\s+/g,' ').trim();pos[cs]=pos[cs]||0;return;}secOf[j]={base:cs,at:null};});
+  let cnt={},curSec=null;W.rows.forEach((r,j)=>{if(r.sec){curSec=secOf[j]?.base;const b=r.sec.toLowerCase().replace(/\d+/g,'').replace(/\s+/g,' ').trim();cnt[b+'#']=(cnt[b+'#']||0);curSec=b;cnt[b]=0;return;}if(secOf[j]){secOf[j].at=cnt[curSec]=(cnt[curSec]??0)+1;}});
+  const seqs={},extra={};
   marks.forEach((m,n)=>{
-    const ts=m.t,next=marks[n+1]?.t??an.duration,te=Math.min(next,ts+cap),li=W.rows[m.j].i;
-    let line=lines[li];const cs=cellsOf(line).filter(c=>!c.end);if(!cs.length)return;
-    const ch=dedupe(pick(ts-seg*0.25,te));let used=-1;
-    ch.map(x=>({nm:x.name,k:Math.min(cs.length-1,Math.max(0,Math.round((x.t-ts)/(te-ts)*cs.length)))}))
-      .map(x=>{if(x.k<=used)x.k=used+1;used=x.k;return x;}).filter(x=>x.k<cs.length)
-      .sort((a,b)=>b.k-a.k).forEach(x=>{line=line.slice(0,cs[x.k].off)+'['+x.nm+']'+line.slice(cs[x.k].off);});
-    lines[li]=line;
-    if(next-te>=seg*2){const g=dedupe(pick(te,next));if(g.length)extra[li]=g.map(x=>'['+x.name+']').join(' ');}});
+    const ts=m.t,next=marks[n+1]?.t??an.duration,te=Math.min(next,ts+cap);
+    seqs[m.j]=limit(runs(pick(ts-seg*0.25,te)),L.max).map(x=>({name:x.name,f:Math.max(0,(x.t-ts)/(te-ts))}));
+    if(next-te>=seg*2){const g=runs(pick(te,next));if(g.length)extra[W.rows[m.j].i]=g.map(x=>'['+x.name+']').join(' ');}});
+  // 同名段落（例如每次副歌）的同一句，用最常出現的和弦，讓重複段落一致
+  const groups={};Object.keys(seqs).forEach(j=>{const o=secOf[j];if(!o||!o.base)return;(groups[o.base+'|'+o.at]=groups[o.base+'|'+o.at]||[]).push(+j);});
+  Object.values(groups).forEach(js=>{if(js.length<2)return;const tally={};js.forEach(j=>{const k=seqs[j].map(x=>x.name).join(' ');tally[k]=(tally[k]||0)+1;});
+    const [win,c]=Object.entries(tally).sort((a,b)=>b[1]-a[1])[0];if(c<2||!win)return;const model=seqs[js.find(j=>seqs[j].map(x=>x.name).join(' ')===win)];js.forEach(j=>seqs[j]=model);});
+  // 放到歌詞上
+  const lines=W.lines.map(l=>isLyricLine(l)?l.replace(/\[[^\]]*\]/g,''):l);
+  Object.entries(seqs).forEach(([j,seq])=>{
+    const li=W.rows[j].i;let line=lines[li];const cells=cellsOf(line).filter(c=>!c.end);if(!cells.length||!seq.length)return;let used=-1;
+    seq.map((x,i)=>({nm:x.name,k:i===0?0:Math.min(cells.length-1,Math.round(x.f*cells.length))}))
+      .map(x=>{if(x.k<=used)x.k=used+1;used=x.k;return x;}).filter(x=>x.k<cells.length)
+      .sort((a,b)=>b.k-a.k).forEach(x=>{line=line.slice(0,cells[x.k].off)+'['+x.nm+']'+line.slice(cells[x.k].off);});
+    lines[li]=line;});
   const out=[];
-  const intro=dedupe(pick(0,first-seg*0.25));
+  const intro=runs(pick(0,first-seg*0.25));
   if(intro.length&&!W.rows.some(r=>r.sec&&/前奏|intro/i.test(r.sec)))out.push('{前奏}',intro.map(x=>'['+x.name+']').join(' '),'');
   lines.forEach((l,i)=>{out.push(l);if(extra[i])out.push(extra[i]);});
   return out.join('\n');}
@@ -951,6 +970,7 @@ function wizAutoTaps(){
   let w=0;const ws=W.rows.map(r=>{if(r.sec){w+=8;return null;}const x=[...r.lyric].length+6;const at=w;w+=x;return at;});
   const scale=(end-start)/Math.max(1,w);W.taps=ws.map(v=>v==null?null:start+v*scale);W.auto=true;}
 function wizFinish(){
+  W.level=W.level||lsGet('cb_level','simple');document.querySelectorAll('#wizLevel [data-lv]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.lv===W.level));
   W.audio.pause();$('wizBarTap').hidden=true;$('wizBarDone').hidden=false;
   W.src=wizBuild();const s=cur(),tmp={...s,src:W.src,key:W.an.key.major};
   const n=W.taps.filter(t=>typeof t==='number').length;
@@ -958,6 +978,7 @@ function wizFinish(){
     <div class="hint" style="margin-bottom:12px">${W.auto?'每句的位置是用字數估計的，可能會偏移。想要更準，按下面「跟著錄音點一下」。':''}這是預覽，還沒存。套用後可以播放 Demo 對照，用「✎ 點字加和弦」修正；不滿意可以從「版本紀錄」還原。</div>
     <div class="card"><div class="sheet">${sheetHTML(tmp,0,0,false)}</div></div></div>`;
   $('wizBody').scrollTop=0;}
+$('wizLevel').onclick=e=>{const b=e.target.closest('[data-lv]');if(!b)return;W.level=b.dataset.lv;lsSet('cb_level',W.level);wizFinish();};
 $('wizApply').onclick=()=>{W.auto=false;const patch={src:W.src,key:W.an.key.major,bpm:W.bpm};
   saveSong(patch);$('src').value=W.src;wizClose();showTab('chords');render();toast('已配好和弦，播放 Demo 對照看看');};
 $('wizGo').onclick=()=>{const u=cur()?.audio_url;if(!u){toast('這首還沒有 Demo，請先上傳，或用別的錄音檔');return;}
