@@ -206,6 +206,16 @@ details.more[open] summary{margin-bottom:2px}
 .pk .row{display:flex;gap:6px;flex-wrap:wrap}
 .pk input{flex:1;min-width:0;font-family:var(--mono);font-size:16px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
 @media (max-width:640px){.pk{left:0!important;right:0;top:auto!important;bottom:0;width:100%;border-radius:16px 16px 0 0;padding-bottom:calc(12px + env(safe-area-inset-bottom,0px))}}
+.bars{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.bar{all:unset;cursor:pointer;display:grid;gap:1px;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--panel)}
+.bar:hover,.bar:focus-visible{border-color:var(--accent)}
+.bar b{font-family:var(--mono);color:var(--chord);font-size:15px}
+.bar small{font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums}
+.bar.weak{border-style:dashed}
+.bar.weak b{opacity:.7}
+.bar.now{box-shadow:0 0 0 2px var(--accent)}
+.meter{height:6px;border-radius:3px;background:var(--line);overflow:hidden}
+.meter i{display:block;height:100%;background:var(--accent);width:0}
 .toast{position:fixed;z-index:40;left:50%;bottom:calc(84px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:9px 14px;border-radius:8px;font-size:13px;max-width:calc(100vw - 32px)}
 @media (prefers-reduced-motion:no-preference){.song,button{transition:background .12s,border-color .12s}}
 </style>
@@ -288,6 +298,7 @@ details.more[open] summary{margin-bottom:2px}
           <div class="row">
             <button id="impBtn">貼上外部譜轉換</button>
             <button id="histBtn">版本紀錄</button>
+            <button id="detBtn">從錄音抓和弦</button>
             <label class="btn" for="demoFile">上傳 Demo</label>
             <input type="file" id="demoFile" accept="audio/*" hidden>
             <button class="ghost" id="demoDel" hidden>移除 Demo</button>
@@ -297,6 +308,26 @@ details.more[open] summary{margin-bottom:2px}
             <div class="hint">把「和弦在上、歌詞在下」的譜整段貼進來，會自動轉成這裡的格式。請只用在自己團練。</div>
             <textarea id="impSrc" spellcheck="false" aria-label="貼上的譜" placeholder="C        G&#10;第一句歌詞在這裡&#10;Am       F&#10;第二句歌詞"></textarea>
             <div class="row"><button class="primary" id="impGo">轉換並取代</button><button id="impAdd">轉換並加在最後</button><button class="ghost" id="impX">取消</button><span class="small" id="impMsg"></span></div>
+          </div>
+          <div class="box" id="det" hidden>
+            <div class="hint">分析錄音，猜出調性和每小節的和弦（只分辨大三、小三和弦）。在你的瀏覽器裡算，不會上傳。吉他或鋼琴加人聲最準，整團混音會比較不準，結果請再校正。</div>
+            <div class="row">
+              <button id="detDemo">用這首的 Demo</button>
+              <label class="btn" for="detFile">選錄音檔</label><input type="file" id="detFile" accept="audio/*" hidden>
+              <span class="small" id="detMsg"></span>
+            </div>
+            <div class="meter" id="detMeter" hidden><i></i></div>
+            <div id="detOut" hidden style="display:grid;gap:10px">
+              <div class="row"><span>調性：<b id="detKey"></b></span><button id="detSetKey">設為原調</button></div>
+              <div class="row">
+                <span class="lbl">BPM</span><input type="number" id="detBpm" min="40" max="240" style="width:76px" aria-label="BPM">
+                <span class="lbl">每格</span><select id="detSeg" aria-label="每格長度"><option value="1">1 小節</option><option value="0.5">半小節</option><option value="2">2 小節</option></select>
+                <span class="lbl">第一拍在</span><input type="number" id="detOff" step="0.05" min="0" style="width:84px" aria-label="第一拍秒數"><span class="small">秒</span>
+              </div>
+              <audio id="detAudio" controls preload="auto"></audio>
+              <div class="bars" id="detBars"></div>
+              <div class="row"><button class="primary" id="detIns">插入到游標位置</button><button id="detEnd">加在歌曲最後</button><span class="small">虛線框是不太確定的</span></div>
+            </div>
           </div>
           <div class="box" id="hist" hidden>
             <div class="hint">每次開始修改前會自動存一份。還原後，目前的內容也會先存一份，可以再還原回來。</div>
@@ -368,6 +399,7 @@ details.more[open] summary{margin-bottom:2px}
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="config.js"></script>
+<script src="detect.js"></script>
 <script>
 const SH=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 const FL=['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
@@ -693,7 +725,7 @@ function convertSheet(text){
       else out.push(ch.map(x=>'['+x.c+']').join(' '));continue;}
     out.push(l);}
   return {src:out.join('\n').replace(/\n{3,}/g,'\n\n').trim(),key,n};}
-$('impBtn').onclick=()=>{$('imp').hidden=!$('imp').hidden;$('hist').hidden=true;if(!$('imp').hidden)$('impSrc').focus();};
+$('impBtn').onclick=()=>{$('imp').hidden=!$('imp').hidden;$('hist').hidden=true;$('det').hidden=true;if(!$('imp').hidden)$('impSrc').focus();};
 $('impX').onclick=()=>{$('imp').hidden=true;$('impSrc').value='';$('impMsg').textContent='';};
 function doImport(append){const r=convertSheet($('impSrc').value);if(!r.src){$('impMsg').textContent='沒有內容可以轉換';return;}
   const patch={src:append&&cur().src.trim()?cur().src.trimEnd()+'\n\n'+r.src:r.src};
@@ -701,6 +733,39 @@ function doImport(append){const r=convertSheet($('impSrc').value);if(!r.src){$('
   saveSong(patch);$('src').value=patch.src;render();$('imp').hidden=true;$('impSrc').value='';
   toast(`已轉換 ${r.n} 行和弦`+(r.key?`，原調設為 ${r.key}`:'')+'。請對一下和弦位置');}
 $('impGo').onclick=()=>doImport(false);$('impAdd').onclick=()=>doImport(true);
+
+// ---- 從錄音抓和弦 ----
+let detAn=null,detUrl=null,detRes=[];
+const fmt=t=>`${Math.floor(t/60)}:${String(Math.floor(t%60)).padStart(2,'0')}`;
+$('detBtn').onclick=()=>{$('det').hidden=!$('det').hidden;$('hist').hidden=true;$('imp').hidden=true;$('detDemo').disabled=!cur()?.audio_url;};
+async function runDetect(buf,url){
+  $('detOut').hidden=true;$('detMeter').hidden=false;
+  try{detAn=await ChordDetect.analyze(buf,(p,t)=>{$('detMsg').textContent=t;$('detMeter').firstChild.style.width=Math.round(p*100)+'%';});}
+  catch(e){$('detMsg').textContent='讀不了這個檔案，請換成 mp3、m4a 或 wav';$('detMeter').hidden=true;return;}
+  $('detMeter').hidden=true;$('detMsg').textContent=`分析完成，共 ${fmt(detAn.duration)}`;
+  if(detUrl&&detUrl.startsWith('blob:'))URL.revokeObjectURL(detUrl);detUrl=url;$('detAudio').src=url;
+  const k=detAn.key;$('detKey').textContent=(k.minor?`${(FLAT_KEYS.has(k.major)?FL:SH)[k.tonic]} 小調（關係大調 ${KEYS[k.major]}）`:`${KEYS[k.major]} 大調`);
+  $('detSetKey').textContent=`設為原調 ${KEYS[k.major]}`;
+  $('detBpm').value=cur()?.bpm||'';$('detOff').value=detAn.firstSound.toFixed(2);$('detOut').hidden=false;regroup();}
+function regroup(){
+  if(!detAn)return;const bpm=+$('detBpm').value||0;
+  const seg=bpm?60/bpm*4*(+$('detSeg').value):2*(+$('detSeg').value);
+  detRes=ChordDetect.group(detAn,{segSec:seg,offset:+$('detOff').value||0,keyMajor:detAn.key.major});
+  const fl=FLAT_KEYS.has(detAn.key.major);
+  detRes.forEach(r=>r.name=r.root===undefined?'N.C.':(fl?FL:SH)[r.root]+r.q);
+  $('detBars').innerHTML=(bpm?'':'<div class="small" style="grid-column:1/-1">還沒有 BPM，暫時每 2 秒一格。填 BPM 會切得更準。</div>')+
+    detRes.map((r,i)=>`<button class="bar${r.conf<0.05?' weak':''}" data-t="${r.t}"><small>${bpm?'第 '+(i+1)+' 格':''} ${fmt(r.t)}</small><b>${r.name}</b></button>`).join('');}
+['detBpm','detSeg','detOff'].forEach(id=>$(id).addEventListener('input',regroup));
+$('detBars').onclick=e=>{const b=e.target.closest('.bar');if(!b)return;const a=$('detAudio');a.currentTime=+b.dataset.t;a.play().catch(()=>{});};
+$('detAudio').ontimeupdate=()=>{const t=$('detAudio').currentTime;document.querySelectorAll('#detBars .bar').forEach(b=>{const s=+b.dataset.t;b.classList.toggle('now',t>=s&&t<s+(detRes[1]?.t-detRes[0]?.t||2));});};
+$('detDemo').onclick=async()=>{const u=cur()?.audio_url;if(!u)return;$('detMsg').textContent='下載 Demo…';
+  try{const r=await fetch(u);if(!r.ok)throw 0;runDetect(await r.arrayBuffer(),u);}catch(e){$('detMsg').textContent='下載 Demo 失敗，請確認網路';}};
+$('detFile').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(f)runDetect(await f.arrayBuffer(),URL.createObjectURL(f));};
+$('detSetKey').onclick=()=>{saveSong({key:detAn.key.major});render();toast('原調已設為 '+KEYS[detAn.key.major]);};
+function detText(){const bpm=+$('detBpm').value||0,per=4,lines=['{偵測和弦（請校正）}',`> 從 ${fmt(+$('detOff').value||0)} 開始，每格${bpm?$('detSeg').selectedOptions[0].text:'約 2 秒'}`];
+  for(let i=0;i<detRes.length;i+=per)lines.push(detRes.slice(i,i+per).map(r=>'['+r.name+']').join(' '));return lines.join('\n');}
+$('detIns').onclick=()=>{if(detRes.length)insertAtCursor('\n'+detText()+'\n');toast('已插入，記得校正和弦');};
+$('detEnd').onclick=()=>{if(!detRes.length)return;const s=cur();saveSong({src:s.src.trimEnd()+'\n\n'+detText()});render();toast('已加在最後');};
 
 // ---- 版本紀錄 / 最近刪除 ----
 let versions=[];

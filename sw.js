@@ -1,6 +1,6 @@
 // 離線用：網頁本身先用網路、失敗才用快取；外部函式庫與字型用快取
-const CACHE = 'chordbook-v4';
-const SHELL = ['./', './index.html', './config.js', './manifest.json', './icon.svg',
+const CACHE = 'chordbook-v5';
+const SHELL = ['./', './index.html', './config.js', './manifest.json', './icon.svg', './detect.js',
   'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
