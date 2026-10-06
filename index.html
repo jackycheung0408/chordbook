@@ -44,7 +44,11 @@ select,input[type=text],input[type=number]{background:var(--panel);border:1px so
 /* library */
 .lib{position:sticky;top:calc(16px + env(safe-area-inset-top,0px));display:grid;gap:12px}
 @media (max-width:860px){.lib{position:static}}
+.brand{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .brand h1{margin:0;font-size:20px;letter-spacing:.03em}
+.libbody{display:grid;gap:12px}
+.libtoggle{display:none}
+@media (max-width:860px){.libtoggle{display:inline-flex}.lib:not(.open) .libbody{display:none}.lib:not(.open) .sync{display:none}}
 .brand h1 span{color:var(--chord)}
 .sync{font-size:12px;color:var(--muted)}
 .sync::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--muted);margin-right:5px;vertical-align:1px}
@@ -263,8 +267,9 @@ details.more[open] summary{margin-bottom:2px}
 <body>
 <div class="app">
   <aside class="lib">
-    <div class="brand"><h1>團練<span>和弦本</span></h1></div>
+    <div class="brand"><h1>團練<span>和弦本</span></h1><button class="libtoggle" id="libToggle" aria-expanded="false">☰ 歌曲清單</button></div>
     <div class="sync" id="sync">連線中…</div>
+    <div class="libbody" id="libBody">
     <div class="tabs" role="tablist">
       <button role="tab" id="tabSongs" aria-selected="true">歌曲</button>
       <button role="tab" id="tabSets" aria-selected="false">歌單</button>
@@ -275,6 +280,7 @@ details.more[open] summary{margin-bottom:2px}
     </div>
     <nav class="list" id="list" aria-label="清單"></nav>
     <div class="libfoot"><button class="ghost" id="trashBtn">最近刪除</button></div>
+    </div>
   </aside>
 
   <main>
@@ -302,7 +308,7 @@ details.more[open] summary{margin-bottom:2px}
       <audio id="player" controls preload="none" hidden></audio>
       <div class="memo" id="memoShow" hidden></div>
 
-      <section class="keybar" aria-label="移調">
+      <section class="keybar" id="keybar" aria-label="移調">
         <div class="ctl"><span class="lbl">原調</span><span class="keybig" style="font-size:16px;color:var(--fg)" id="origShow">C</span></div>
         <div class="ctl"><span class="lbl">我的調</span>
           <button class="step" id="down" aria-label="降半音">−</button>
@@ -753,14 +759,16 @@ $('list').onclick=e=>{
   const r=e.target.closest('[data-restore]');if(r)return restoreDeleted(+r.dataset.restore);
   const b=e.target.closest('.song');if(!b)return;
   if(b.dataset.id){curId=b.dataset.id;lsSet('cb_cur',curId);view='song';}else{curSet=b.dataset.set;view='set';}
-  render();window.scrollTo({top:0});};
+  setLib(false);render();window.scrollTo({top:0});};
 $('q').oninput=renderList;
 $('newBtn').onclick=async()=>{
   if(tab==='songs'){await createSong({title:'新歌',key:0,src:''});openEditor(true,'info');$('title').select();}
   else{await createSet('新歌單');$('setName').select();}};
-function openEditor(on,tabName){$('editor').hidden=!on;$('bodyEl').classList.toggle('editing',on);$('editBtn').hidden=on;$('stageBtn').hidden=on;closePicker();
+function openEditor(on,tabName){$('editor').hidden=!on;$('keybar').hidden=on;$('bodyEl').classList.toggle('editing',on);$('editBtn').hidden=on;$('stageBtn').hidden=on;closePicker();
   if(on)showTab(tabName||(cur()?.src.split('\n').some(l=>isLyricLine(l))?'chords':'text'));renderSheet();}
-$('editBtn').onclick=()=>openEditor(true);$('doneBtn').onclick=()=>openEditor(false);
+$('editBtn').onclick=()=>openEditor(true);
+function setLib(open){document.querySelector('.lib').classList.toggle('open',open);$('libToggle').setAttribute('aria-expanded',open);$('libToggle').textContent=open?'✕ 收起':'☰ 歌曲清單';}
+$('libToggle').onclick=()=>setLib(!document.querySelector('.lib').classList.contains('open'));$('doneBtn').onclick=()=>openEditor(false);
 function showTab(t){document.querySelectorAll('.etabs [data-tab]').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===t));
   document.querySelectorAll('.epane').forEach(p=>p.hidden=p.dataset.pane!==t);if(t==='hist')loadHist();}
 document.querySelector('.etabs').onclick=e=>{const b=e.target.closest('[data-tab]');if(b)showTab(b.dataset.tab);};
