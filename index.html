@@ -174,7 +174,27 @@ pre.preview{margin:0;max-height:240px;overflow:auto;font-family:var(--mono);font
 @media (max-width:640px){.stage .hide-sm{display:none}.stage .top{gap:6px 8px}}
 .sheetbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;margin:-4px 0 14px;padding-bottom:12px;border-bottom:1px solid var(--line)}
 .sheetbar .small{flex:1;min-width:12em}
-#tapToggle[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:var(--accent-fg);font-weight:700}
+.menuwrap{position:relative}
+.menu{position:absolute;right:0;top:calc(100% + 6px);z-index:15;min-width:240px;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 18px 50px -12px rgba(10,15,25,.4);padding:6px;display:grid;gap:2px}
+.menu button{border:0;background:transparent;justify-content:space-between;padding:9px 10px;border-radius:8px;width:100%;text-align:left}
+.menu button:hover{background:var(--soft)}
+.menu .danger{color:var(--warn)}
+.menusub{border-block:1px solid var(--line);padding:6px 0;margin:4px 0;display:grid}
+.menusub .lbl{padding:2px 10px 4px}
+.etop{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.etabs{display:flex;border-bottom:1px solid var(--line);gap:2px;overflow-x:auto;margin-inline:-18px;padding-inline:12px}
+.etabs button{border:0;border-radius:0;background:transparent;color:var(--muted);padding:9px 12px;border-bottom:2px solid transparent;margin-bottom:-1px}
+.etabs button[aria-selected=true]{color:var(--fg);font-weight:700;border-bottom-color:var(--chord)}
+.epane{display:grid;gap:12px}
+.field{display:grid;gap:4px;flex:1;min-width:0}
+.field input,.field select{width:100%}
+.box.feature{background:var(--soft);border-style:solid}
+.box.feature > b{font-size:15px}
+.primary-btn{background:var(--accent);border-color:var(--accent);color:var(--accent-fg);font-weight:700}
+.guide{max-width:34em;display:grid;gap:12px;line-height:1.7}
+.guide b:first-child{font-size:18px}
+.guide ol{margin:0;padding-left:1.3em;display:grid;gap:6px}
+@media (max-width:1000px){.body.editing #editor{order:-1}}
 .tl{display:flex;gap:6px;align-items:flex-end;margin-bottom:8px}
 .tools{display:flex;flex-direction:column;gap:2px;opacity:.35;transition:opacity .12s}
 .tl:hover .tools,.tl:focus-within .tools{opacity:1}
@@ -265,10 +285,17 @@ details.more[open] summary{margin-bottom:2px}
           <div class="headmeta" id="headmeta"></div>
         </div>
         <div class="acts">
-          <select id="addToSet" aria-label="加入歌單"></select>
-          <button id="editBtn">編輯</button>
-          <button id="copyBtn">複製文字譜</button>
+          <button id="editBtn">✎ 編輯</button>
           <button class="primary" id="stageBtn">▶ 舞台模式</button>
+          <div class="menuwrap">
+            <button id="moreBtn" aria-haspopup="true" aria-expanded="false" aria-label="更多">⋯</button>
+            <div class="menu" id="moreMenu" hidden role="menu">
+              <button role="menuitem" id="copyBtn">複製文字譜（貼到 LINE）</button>
+              <div class="menusub"><span class="lbl">加入歌單</span><div id="addToSetList"></div></div>
+              <button role="menuitem" id="menuHist">版本紀錄</button>
+              <button role="menuitem" class="danger" id="delBtn">刪除這首歌</button>
+            </div>
+          </div>
         </div>
       </div>
       <audio id="player" controls preload="none" hidden></audio>
@@ -288,53 +315,23 @@ details.more[open] summary{margin-bottom:2px}
 
       <div class="body" id="bodyEl">
         <article class="card">
-          <div class="sheetbar"><span class="small" id="sheetHint"></span><button id="tapToggle" aria-pressed="false">✎ 點字加和弦</button></div>
+          <div class="sheetbar"><span class="small" id="sheetHint"></span></div>
           <div class="sheet" id="sheet"></div>
         </article>
         <section class="card editor" id="editor" hidden>
-          <div class="row">
-            <input type="text" id="title" placeholder="歌名" aria-label="歌名">
-            <select id="origKey" aria-label="原調"></select>
+          <div class="etop"><span class="small" id="saved">修改會自動存檔並同步給團員</span><button class="primary" id="doneBtn">完成</button></div>
+          <div class="etabs" role="tablist">
+            <button role="tab" data-tab="chords" aria-selected="true">和弦</button>
+            <button role="tab" data-tab="text" aria-selected="false">文字</button>
+            <button role="tab" data-tab="info" aria-selected="false">資訊</button>
+            <button role="tab" data-tab="demo" aria-selected="false">Demo</button>
+            <button role="tab" data-tab="hist" aria-selected="false">紀錄</button>
           </div>
-          <details class="more"><summary>歌曲資訊：BPM、原始連結、給團員的備註</summary>
-          <div class="row">
-            <span class="lbl">BPM</span><input type="number" id="bpm" min="0" max="300" inputmode="numeric" aria-label="BPM">
-            <button id="tapBtn">點我測速</button><span class="small" id="tapInfo"></span>
-          </div>
-          <input type="text" id="url" placeholder="原始連結（91譜、YouTube…，可留空）" aria-label="原始連結" inputmode="url">
-          <textarea id="memoIn" placeholder="給團員的備註（例如：前奏吉他先進，副歌第二次全團停一拍）" aria-label="給團員的備註"></textarea>
 
-          </details>
-          <details class="more"><summary>和弦小幫手（常用進行）</summary>
-            <span class="lbl" id="harmLbl">這個調的和弦　點一下插入</span>
-            <div class="chips" id="chipsIn"></div>
-            <span class="lbl">常用借用和弦</span>
-            <div class="chips" id="chipsOut"></div>
-            <span class="lbl">常用進行　插入一行</span>
-            <div class="chips" id="chipsProg"></div>
-          </details>
-
-          <div class="row">
-            <button id="impBtn">貼上外部譜轉換</button>
-            <button id="histBtn">版本紀錄</button>
-            <button id="detBtn">自動配和弦</button>
-            <label class="btn" for="demoFile">上傳 Demo</label>
-            <input type="file" id="demoFile" accept="audio/*" hidden>
-            <button id="demoUrlBtn">用網址當 Demo</button>
-            <button class="ghost" id="demoDel" hidden>移除 Demo</button>
-            <span class="small" id="demoMsg"></span>
-          </div>
-          <div class="box" id="demoUrlBox" hidden>
-            <div class="hint">貼錄音檔的網址（mp3、m4a、wav）。Dropbox、Google Drive 的分享連結會自動轉成下載連結。YouTube、StreetVoice 等網頁連結不能用。</div>
-            <div class="row"><input type="text" id="demoUrl" placeholder="https://…" inputmode="url" aria-label="錄音網址" style="flex:1;min-width:0"><button class="primary" id="demoUrlOk">使用</button></div>
-          </div>
-          <div class="box" id="imp" hidden>
-            <div class="hint">把「和弦在上、歌詞在下」的譜整段貼進來，會自動轉成這裡的格式。請只用在自己團練。</div>
-            <textarea id="impSrc" spellcheck="false" aria-label="貼上的譜" placeholder="C        G&#10;第一句歌詞在這裡&#10;Am       F&#10;第二句歌詞"></textarea>
-            <div class="row"><button class="primary" id="impGo">轉換並取代</button><button id="impAdd">轉換並加在最後</button><button class="ghost" id="impX">取消</button><span class="small" id="impMsg"></span></div>
-          </div>
-          <div class="box" id="det" hidden>
-            <b style="font-size:15px">自動配和弦</b>
+          <div class="epane" data-pane="chords">
+            <div class="hint">在左邊的譜上<b>點任何一個字</b>，就能在它前面加和弦；點已有的和弦可以改、移動或刪除。每行左邊的「複製／貼上」可以把同樣的和弦套到下一段。</div>
+          <div class="box feature" id="det">
+            <b>用錄音自動配和弦</b>
             <div class="hint">分析錄音，自動把和弦配到歌詞上，先給你預覽再決定要不要套用。上傳 Demo 時也會自動執行。</div>
             <div class="row">
               <button class="primary" id="wizGo">▶ 用這首的 Demo 配和弦</button>
@@ -354,20 +351,68 @@ details.more[open] summary{margin-bottom:2px}
               <div class="row"><button id="detIns">只插入和弦行</button><button id="detEnd">加在歌曲最後</button><span class="small">虛線框是不太確定的</span></div>
             </details>
           </div>
-          <div class="box" id="hist" hidden>
+
+            <details class="more"><summary>貼上外部的譜（和弦在上、歌詞在下）</summary>
+              <button id="impBtn" hidden></button>
+          <div id="imp" style="display:grid;gap:8px">
+            <div class="hint">把「和弦在上、歌詞在下」的譜整段貼進來，會自動轉成這裡的格式。請只用在自己團練。</div>
+            <textarea id="impSrc" spellcheck="false" aria-label="貼上的譜" placeholder="C        G&#10;第一句歌詞在這裡&#10;Am       F&#10;第二句歌詞"></textarea>
+            <div class="row"><button class="primary" id="impGo">轉換並取代</button><button id="impAdd">轉換並加在最後</button><button class="ghost" id="impX">清空</button><span class="small" id="impMsg"></span></div>
+          </div>
+            </details>
+            <details class="more"><summary>和弦小幫手：調內和弦、借用和弦、常用進行</summary>
+              <div class="hint">先在「文字」分頁點好游標位置，再點這裡插入。</div>
+            <span class="lbl" id="harmLbl">這個調的和弦　點一下插入</span>
+            <div class="chips" id="chipsIn"></div>
+            <span class="lbl">常用借用和弦</span>
+            <div class="chips" id="chipsOut"></div>
+            <span class="lbl">常用進行　插入一行</span>
+            <div class="chips" id="chipsProg"></div>
+            </details>
+          </div>
+
+          <div class="epane" data-pane="text" hidden>
+            <textarea id="src" spellcheck="false" aria-label="和弦與歌詞" placeholder="把歌詞貼在這裡，一行一句。&#10;段落可以寫 [Verse 1]、[Chorus] 或 {副歌}。"></textarea>
+            <div class="hint">
+              和弦：<code>[Am]今天的[F]風</code>　純和弦行：<code>[C] [G] [Am] [F]</code><br>
+              段落：<code>[Chorus]</code> 或 <code>{副歌}</code>　重複：<code>{副歌 x2}</code>　再唱一次：<code>{@副歌}</code><br>
+              團員備註：整行 <code>&gt;</code> 開頭，例如 <code>&gt; 鼓在這裡停一拍</code>
+            </div>
+          </div>
+
+          <div class="epane" data-pane="info" hidden>
+            <label class="field"><span class="lbl">歌名</span><input type="text" id="title" aria-label="歌名"></label>
+            <div class="row">
+              <label class="field"><span class="lbl">原調</span><select id="origKey" aria-label="原調"></select></label>
+              <label class="field"><span class="lbl">BPM</span><input type="number" id="bpm" min="0" max="300" inputmode="numeric" aria-label="BPM"></label>
+              <button id="tapBtn" style="align-self:end">點我測速</button><span class="small" id="tapInfo" style="align-self:end"></span>
+            </div>
+            <label class="field"><span class="lbl">給團員的備註</span><textarea id="memoIn" placeholder="例如：前奏吉他先進，副歌第二次全團停一拍" aria-label="給團員的備註"></textarea></label>
+            <label class="field"><span class="lbl">原始連結</span><input type="text" id="url" placeholder="91譜、YouTube…（可留空）" aria-label="原始連結" inputmode="url"></label>
+          </div>
+
+          <div class="epane" data-pane="demo" hidden>
+            <div class="hint">上傳 Demo 後會自動分析調性、BPM，並把和弦配到歌詞上給你預覽。</div>
+            <div class="row">
+              <label class="btn primary-btn" for="demoFile">上傳錄音檔</label>
+              <input type="file" id="demoFile" accept="audio/*" hidden>
+              <button id="demoUrlBtn">用網址</button>
+              <button class="ghost danger" id="demoDel" hidden>移除 Demo</button>
+              <span class="small" id="demoMsg"></span>
+            </div>
+          <div class="box" id="demoUrlBox" hidden>
+            <div class="hint">貼錄音檔的網址（mp3、m4a、wav）。Dropbox、Google Drive 的分享連結會自動轉成下載連結。YouTube、StreetVoice 等網頁連結不能用。</div>
+            <div class="row"><input type="text" id="demoUrl" placeholder="https://…" inputmode="url" aria-label="錄音網址" style="flex:1;min-width:0"><button class="primary" id="demoUrlOk">使用</button></div>
+          </div>
+          </div>
+
+          <div class="epane" data-pane="hist" hidden>
+            <button id="histBtn" hidden></button>
+          <div class="box" id="hist">
             <div class="hint">每次開始修改前會自動存一份。還原後，目前的內容也會先存一份，可以再還原回來。</div>
             <div class="hist" id="histList"></div>
             <pre class="preview" id="histPrev" hidden></pre>
-          </div>
-
-          <textarea id="src" spellcheck="false" aria-label="和弦與歌詞"></textarea>
-          <div class="hint">
-            和弦：<code>[Am]今天的[F]風</code>　純和弦行：<code>[C] [G] [Am] [F]</code><br>
-            段落：<code>{副歌}</code>　重複次數：<code>{副歌 x2}</code>　再唱一次前面的段落：<code>{@副歌}</code><br>
-            團員備註：整行用 <code>&gt;</code> 開頭，例如 <code>&gt; 鼓在這裡停一拍</code><br>
-            虛線底的和弦是調外和弦（借用或轉調）。修改會自動同步給團員。
-          </div>
-          <div class="row"><span class="small" id="saved"></span><span style="flex:1"></span><button class="ghost danger" id="delBtn">刪除這首歌</button></div>
+          </div>          </div>
         </section>
       </div>
     </div>
@@ -563,7 +608,7 @@ function render(){
   $('capoHint').textContent=p.capo?`按 ${keyName(fk)} 指型`:'';
   [['mSharp','sharp'],['mFlat','flat'],['mNash','nash']].forEach(([id,v])=>$(id).setAttribute('aria-pressed',mode===v||(mode==='auto'&&v===(useFlats(pk)?'flat':'sharp'))));
   renderSheet();
-  $('addToSet').innerHTML='<option value="">加入歌單…</option>'+setlists.map(x=>`<option value="${x.id}">${esc(x.name||'未命名歌單')}</option>`).join('')+'<option value="__new">＋ 新歌單</option>';
+  $('wizGo').disabled=!s.audio_url;$('wizGo').title=s.audio_url?'':'先在 Demo 分頁上傳錄音';
   const a=document.activeElement;
   if(a!==$('src'))$('src').value=s.src;
   if(a!==$('title'))$('title').value=s.title;
@@ -576,7 +621,7 @@ function render(){
   if(!$('stage').hidden)renderStage();}
 
 // ---- 點字加和弦 ----
-let tapMode=lsGet('cb_tap',false),lineClip=null;
+let lineClip=null;const isEditing=()=>!$('editor').hidden;
 function cellsOf(line){const cells=[];let pend=null,i=0;
   while(i<line.length){
     if(line[i]==='['){const j=line.indexOf(']',i);if(j>i){pend={name:line.slice(i+1,j),s:i,e:j+1};i=j+1;continue;}}
@@ -593,10 +638,12 @@ function tapHTML(s){
       cells.map((c,k)=>`<button class="tc${c.end?' end':''}" data-l="${i}" data-k="${k}" aria-label="${c.end?'行尾':esc(c.ch)}${c.chord?' 和弦 '+esc(c.chord.name):''}"><span class="tch">${c.chord?esc(c.chord.name):''}</span><span class="tly">${c.end?'＋':c.ch===' '?' ':esc(c.ch)}</span></button>`).join('')+'</div></div>';
   }).join('');}
 function renderSheet(){const s=cur();if(!s)return;
-  $('tapToggle').setAttribute('aria-pressed',tapMode);
-  if(tapMode){$('sheetHint').textContent=`點任何一個字，在它前面加和弦；點已有的和弦可以改、移動或刪除。以原調 ${KEYS[s.key]} 顯示。`;$('sheet').innerHTML=tapHTML(s);}
+  const hasLyrics=s.src.split('\n').some(l=>isLyricLine(l));
+  if(isEditing()&&!hasLyrics){$('sheetHint').textContent='';$('sheet').innerHTML=`<div class="guide"><b>三步驟完成一首歌</b>
+    <ol><li><b>貼上歌詞</b>：右邊「文字」分頁，一行一句。</li><li><b>上傳 Demo</b>：「Demo」分頁上傳錄音，會自動抓調性、BPM，並把和弦配到歌詞上。</li><li><b>點字修正</b>：回到這裡，點任何一個字就能加或改和弦。</li></ol>
+    <button class="primary" id="guideText">開始貼歌詞</button></div>`;$('guideText').onclick=()=>{showTab('text');$('src').focus();};return;}
+  if(isEditing()){$('sheetHint').textContent=`點任何一個字，在它前面加和弦；點已有的和弦可以改、移動或刪除。以原調 ${KEYS[s.key]} 顯示。`;$('sheet').innerHTML=tapHTML(s);}
   else{const p=prefOf(s.id);$('sheetHint').textContent='';$('sheet').innerHTML=sheetHTML(s,p.shift,p.capo,true);}}
-$('tapToggle').onclick=()=>{tapMode=!tapMode;lsSet('cb_tap',tapMode);closePicker();renderSheet();};
 function commitLines(lines){const src=lines.join('\n');saveSong({src});$('src').value=src;renderSheet();}
 
 // 和弦選擇器
@@ -637,7 +684,7 @@ function moveChord(d){const lines=cur().src.split('\n'),c=cellsOf(lines[pk.l])[p
   lines[pk.l]=stripped.slice(0,cells[k2].off)+'['+c.chord.name+']'+stripped.slice(cells[k2].off);
   const l=pk.l;commitLines(lines);openPicker(l,k2,document.querySelector(`.tc[data-l="${l}"][data-k="${k2}"]`));}
 $('sheet').addEventListener('click',e=>{
-  if(!tapMode)return;
+  if(!isEditing())return;
   const cp=e.target.closest('[data-copy]'),ps=e.target.closest('[data-paste]'),tc=e.target.closest('.tc');
   if(cp){const cells=cellsOf(cur().src.split('\n')[+cp.dataset.copy]);lineClip=cells.map((c,k)=>c.chord?{k,name:c.chord.name}:null).filter(Boolean);
     toast(lineClip.length?`已複製 ${lineClip.length} 個和弦的位置，到別行按「貼上」`:'這行沒有和弦');if(!lineClip.length)lineClip=null;renderSheet();return;}
@@ -708,27 +755,39 @@ $('list').onclick=e=>{
   render();window.scrollTo({top:0});};
 $('q').oninput=renderList;
 $('newBtn').onclick=async()=>{
-  if(tab==='songs'){await createSong({title:'新歌',key:0,src:'{主歌}\n[C]第一句[G]歌詞\n'});openEditor(true);$('title').select();}
+  if(tab==='songs'){await createSong({title:'新歌',key:0,src:''});openEditor(true,'info');$('title').select();}
   else{await createSet('新歌單');$('setName').select();}};
-function openEditor(on){$('editor').hidden=!on;$('bodyEl').classList.toggle('editing',on);$('editBtn').textContent=on?'完成':'編輯';$('editBtn').classList.toggle('primary',on);if(!on){$('hist').hidden=true;$('imp').hidden=true;}}
-$('editBtn').onclick=()=>openEditor($('editor').hidden);
+function openEditor(on,tabName){$('editor').hidden=!on;$('bodyEl').classList.toggle('editing',on);$('editBtn').hidden=on;$('stageBtn').hidden=on;closePicker();
+  if(on)showTab(tabName||(cur()?.src.split('\n').some(l=>isLyricLine(l))?'chords':'text'));renderSheet();}
+$('editBtn').onclick=()=>openEditor(true);$('doneBtn').onclick=()=>openEditor(false);
+function showTab(t){document.querySelectorAll('.etabs [data-tab]').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===t));
+  document.querySelectorAll('.epane').forEach(p=>p.hidden=p.dataset.pane!==t);if(t==='hist')loadHist();}
+document.querySelector('.etabs').onclick=e=>{const b=e.target.closest('[data-tab]');if(b)showTab(b.dataset.tab);};
+// ⋯ 選單
+function closeMenu(){$('moreMenu').hidden=true;$('moreBtn').setAttribute('aria-expanded','false');}
+$('moreBtn').onclick=e=>{e.stopPropagation();const open=$('moreMenu').hidden;
+  if(open){$('addToSetList').innerHTML=setlists.map(x=>`<button role="menuitem" data-addset="${x.id}">${esc(x.name||'未命名歌單')} <span class="small">${x.items.length} 首</span></button>`).join('')+'<button role="menuitem" data-addset="__new">＋ 新歌單</button>';}
+  $('moreMenu').hidden=!open;$('moreBtn').setAttribute('aria-expanded',open);};
+document.addEventListener('click',e=>{if(!$('moreMenu').hidden&&!e.target.closest('.menuwrap'))closeMenu();});
+$('moreMenu').addEventListener('click',async e=>{const b=e.target.closest('[data-addset]');if(!b||!cur())return;closeMenu();
+  const item={song:curId,shift:prefOf(curId).shift},v=b.dataset.addset;
+  if(v==='__new'){const keep=curId;await createSet('新歌單',[item]);toast('已建立歌單並加入，可以改名');return;}
+  const x=setlists.find(y=>y.id===v);x.items.push(item);const k=curSet;curSet=x.id;saveSet();curSet=k;toast(`已加入「${x.name||'歌單'}」`);renderList();});
+$('menuHist').onclick=()=>{closeMenu();openEditor(true,'hist');};
 $('src').oninput=e=>{saveSong({src:e.target.value});renderSheet();};
 $('title').oninput=e=>{saveSong({title:e.target.value});$('h').textContent=e.target.value;renderList();};
 $('url').oninput=e=>{saveSong({url:e.target.value.trim()});render();};
 $('memoIn').oninput=e=>{saveSong({memo:e.target.value});render();};
 $('bpm').oninput=e=>{saveSong({bpm:Math.max(0,Math.min(300,parseInt(e.target.value)||0))});render();};
 $('origKey').onchange=e=>{saveSong({key:+e.target.value});render();};
-$('copyBtn').onclick=()=>{const s=cur();if(!s)return;const p=prefOf(s.id);navigator.clipboard.writeText(textOut(s,p.shift,p.capo)).then(()=>toast('已複製，可以貼到 LINE')).catch(()=>toast('這個瀏覽器不允許複製'));};
+$('copyBtn').onclick=()=>{closeMenu();const s=cur();if(!s)return;const p=prefOf(s.id);navigator.clipboard.writeText(textOut(s,p.shift,p.capo)).then(()=>toast('已複製，可以貼到 LINE')).catch(()=>toast('這個瀏覽器不允許複製'));};
 let armed=false;
 $('delBtn').onclick=async()=>{
-  if(!armed){armed=true;$('delBtn').textContent='再按一次確定刪除（可以在「最近刪除」還原）';setTimeout(()=>{armed=false;$('delBtn').textContent='刪除這首歌'},3000);return;}
+  if(!armed){armed=true;event?.stopPropagation?.();$('delBtn').textContent='再按一次確定刪除（可以在「最近刪除」還原）';setTimeout(()=>{armed=false;$('delBtn').textContent='刪除這首歌'},3000);return;}
   armed=false;$('delBtn').textContent='刪除這首歌';const id=curId;
-  songs=songs.filter(s=>s.id!==id);curId=songs[0]?.id||null;openEditor(false);render();cacheAll();
+  closeMenu();songs=songs.filter(s=>s.id!==id);curId=songs[0]?.id||null;openEditor(false);render();cacheAll();
   const {error}=await sb.from('songs').delete().eq('id',id);if(error)toast('沒有刪除成功');else toast('已刪除，可以在「最近刪除」還原');};
-$('addToSet').onchange=async e=>{const v=e.target.value;e.target.value='';if(!v||!cur())return;
-  const item={song:curId,shift:prefOf(curId).shift};
-  if(v==='__new'){await createSet('新歌單',[item]);toast('已建立歌單並加入');return;}
-  const x=setlists.find(y=>y.id===v);x.items.push(item);curSet=x.id;saveSet();curSet=null;toast(`已加入「${x.name||'歌單'}」`);renderList();};
+
 
 // 點擊測速
 let taps=[];
@@ -763,19 +822,17 @@ function convertSheet(text){
       else out.push(ch.map(x=>'['+x.c+']').join(' '));continue;}
     out.push(l);}
   return {src:out.join('\n').replace(/\n{3,}/g,'\n\n').trim(),key,n};}
-$('impBtn').onclick=()=>{$('imp').hidden=!$('imp').hidden;$('hist').hidden=true;$('det').hidden=true;if(!$('imp').hidden)$('impSrc').focus();};
-$('impX').onclick=()=>{$('imp').hidden=true;$('impSrc').value='';$('impMsg').textContent='';};
+$('impX').onclick=()=>{$('impSrc').value='';$('impMsg').textContent='';};
 function doImport(append){const r=convertSheet($('impSrc').value);if(!r.src){$('impMsg').textContent='沒有內容可以轉換';return;}
   const patch={src:append&&cur().src.trim()?cur().src.trimEnd()+'\n\n'+r.src:r.src};
   if(r.key&&IDX[r.key]!==undefined)patch.key=KEYS.findIndex(k=>IDX[k]===IDX[r.key]);
-  saveSong(patch);$('src').value=patch.src;render();$('imp').hidden=true;$('impSrc').value='';
+  saveSong(patch);$('src').value=patch.src;render();$('impSrc').value='';
   toast(`已轉換 ${r.n} 行和弦`+(r.key?`，原調設為 ${r.key}`:'')+'。請對一下和弦位置');}
 $('impGo').onclick=()=>doImport(false);$('impAdd').onclick=()=>doImport(true);
 
 // ---- 從錄音抓和弦 ----
 let detAn=null,detUrl=null,detRes=[];
 const fmt=t=>`${Math.floor(t/60)}:${String(Math.floor(t%60)).padStart(2,'0')}`;
-$('detBtn').onclick=()=>{$('det').hidden=!$('det').hidden;$('hist').hidden=true;$('imp').hidden=true;$('wizGo').disabled=!cur()?.audio_url;};
 async function runDetect(buf,url){
   $('detOut').hidden=true;$('detMeter').hidden=false;
   try{detAn=await ChordDetect.analyze(buf,(p,t)=>{$('detMsg').textContent=t;$('detMeter').firstChild.style.width=Math.round(p*100)+'%';});}
@@ -886,14 +943,14 @@ function wizFinish(){
     <div class="card"><div class="sheet">${sheetHTML(tmp,0,0,false)}</div></div></div>`;
   $('wizBody').scrollTop=0;}
 $('wizApply').onclick=()=>{W.auto=false;const patch={src:W.src,key:W.an.key.major,bpm:W.bpm};
-  saveSong(patch);$('src').value=W.src;wizClose();$('det').hidden=true;render();toast('已配好和弦，播放 Demo 對照看看');};
+  saveSong(patch);$('src').value=W.src;wizClose();showTab('chords');render();toast('已配好和弦，播放 Demo 對照看看');};
 $('wizGo').onclick=()=>{const u=cur()?.audio_url;if(!u){toast('這首還沒有 Demo，請先上傳，或用別的錄音檔');return;}
   wizStart(async()=>{const r=await fetch(u);if(!r.ok)throw 0;return r.arrayBuffer();},u);};
 
 // ---- 版本紀錄 / 最近刪除 ----
 let versions=[];
-$('histBtn').onclick=async()=>{
-  $('hist').hidden=!$('hist').hidden;$('imp').hidden=true;$('histPrev').hidden=true;if($('hist').hidden)return;
+async function loadHist(){
+  $('histPrev').hidden=true;
   $('histList').innerHTML='<div class="small">讀取中…</div>';
   const {data,error}=await sb.from('song_versions').select('*').eq('song_id',curId).order('created_at',{ascending:false}).limit(40);
   if(error){$('histList').innerHTML=`<div class="small">讀不到版本紀錄：${esc(error.message)}</div>`;return;}
