@@ -128,6 +128,24 @@
     return out;
   }
 
+  // 速度：用音量起伏（onset）做自相關，找 70–180 BPM 中最明顯的週期
+  function estimateTempo(data) {
+    const hop = 256, frames = Math.floor(data.length / hop), env = new Float32Array(frames);
+    let prev = 0;
+    for (let f = 0; f < frames; f++) {
+      let e = 0; for (let i = 0; i < hop; i++) { const v = data[f * hop + i]; e += v * v; }
+      e = Math.log1p(1000 * e); env[f] = Math.max(0, e - prev); prev = e;
+    }
+    const fps = SR / hop; let best = 0, bestBpm = 0;
+    for (let bpm = 70; bpm <= 180; bpm += 0.5) {
+      const lag = fps * 60 / bpm, l0 = Math.floor(lag), fr = lag - l0; let s = 0;
+      for (let f = 0; f + l0 + 1 < frames; f++) s += env[f] * (env[f + l0] * (1 - fr) + env[f + l0 + 1] * fr);
+      s *= Math.exp(-0.5 * (Math.log2(bpm / 110) / 0.9) ** 2); // 稍微偏好常見速度
+      if (s > best) { best = s; bestBpm = bpm; }
+    }
+    return Math.round(bestBpm);
+  }
+
   async function analyze(arrayBuffer, onProgress) {
     onProgress?.(0, '解碼音訊…');
     const { data, duration } = await toMono(arrayBuffer);
@@ -139,6 +157,7 @@
     const maxE = an.E.reduce((m, x) => Math.max(m, x), 0);
     let first = 0; while (first < an.frames && an.E[first] < maxE * 0.12) first++;
     an.firstSound = first * an.frameSec;
+    an.bpm = estimateTempo(data);
     return an;
   }
 
