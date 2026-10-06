@@ -743,6 +743,7 @@ async function runDetect(buf,url){
   try{detAn=await ChordDetect.analyze(buf,(p,t)=>{$('detMsg').textContent=t;$('detMeter').firstChild.style.width=Math.round(p*100)+'%';});}
   catch(e){$('detMsg').textContent='讀不了這個檔案，請換成 mp3、m4a 或 wav';$('detMeter').hidden=true;return;}
   $('detMeter').hidden=true;$('detMsg').textContent=`分析完成，共 ${fmt(detAn.duration)}`;
+  {const bpm0=cur()?.bpm||0,seg0=bpm0?240/bpm0:2;const k2=ChordDetect.keyFromChords(ChordDetect.group(detAn,{segSec:seg0,offset:detAn.firstSound,keyMajor:detAn.key.major}));if(k2)detAn.key=k2;}
   if(detUrl&&detUrl.startsWith('blob:'))URL.revokeObjectURL(detUrl);detUrl=url;$('detAudio').src=url;
   const k=detAn.key;$('detKey').textContent=(k.minor?`${(FLAT_KEYS.has(k.major)?FL:SH)[k.tonic]} 小調（關係大調 ${KEYS[k.major]}）`:`${KEYS[k.major]} 大調`);
   $('detSetKey').textContent=`設為原調 ${KEYS[k.major]}`;

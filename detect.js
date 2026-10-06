@@ -37,16 +37,18 @@
   }
 
   // 每個 FFT bin 對應到哪個音級（只用 65–2000Hz，避開低頻轟鳴與高頻泛音）
-  const binPc = new Int8Array(N / 2).fill(-1);
+  // 低音（50–250Hz）另外記一份，通常就是和弦根音
+  const binPc = new Int8Array(N / 2).fill(-1), binBass = new Uint8Array(N / 2);
   for (let k = 1; k < N / 2; k++) {
     const f = k * SR / N;
-    if (f >= 65 && f <= 2000) binPc[k] = ((Math.round(12 * Math.log2(f / 440)) + 9) % 12 + 12) % 12;
+    if (f >= 50 && f <= 2000) binPc[k] = ((Math.round(12 * Math.log2(f / 440)) + 9) % 12 + 12) % 12;
+    if (f >= 50 && f <= 250) binBass[k] = 1;
   }
   const win = new Float64Array(N).map((_, i) => 0.5 - 0.5 * Math.cos(2 * Math.PI * i / (N - 1)));
 
   async function chroma(data, onProgress) {
     const frames = Math.max(0, Math.floor((data.length - N) / HOP) + 1);
-    const C = new Float32Array(frames * 12), E = new Float32Array(frames);
+    const C = new Float32Array(frames * 12), B = new Float32Array(frames * 12), E = new Float32Array(frames);
     const re = new Float64Array(N), im = new Float64Array(N);
     for (let f = 0; f < frames; f++) {
       const o = f * HOP; let e = 0;
@@ -55,11 +57,13 @@
       fft(re, im);
       for (let k = 1; k < N / 2; k++) {
         const pc = binPc[k]; if (pc < 0) continue;
-        C[f * 12 + pc] += Math.log1p(100 * Math.hypot(re[k], im[k]));
+        const m = Math.sqrt(Math.hypot(re[k], im[k]));
+        C[f * 12 + pc] += m;
+        if (binBass[k]) B[f * 12 + pc] += m;
       }
       if (f % 200 === 0) { onProgress?.(f / frames); await new Promise(r => setTimeout(r)); }
     }
-    return { C, E, frames, frameSec: HOP / SR };
+    return { C, B, E, frames, frameSec: HOP / SR };
   }
 
   const MAJ = [6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88];
@@ -87,7 +91,9 @@
   const TEMPL = [];
   for (let r = 0; r < 12; r++) {
     for (const [q, iv] of [['', [0, 4, 7]], ['m', [0, 3, 7]]]) {
-      const t = new Array(12).fill(0); t[r] = 1; t[(r + iv[1]) % 12] = 0.8; t[(r + iv[2]) % 12] = 0.9;
+      // 樣板含泛音：每個音的第 2–6 泛音落在 同音、五度、同音、大三度、五度
+      const t = new Array(12).fill(0);
+      iv.forEach(x => [[0, 1], [0, .6], [7, .36], [0, .22], [4, .13], [7, .08]].forEach(([o, w]) => { t[(r + x + o) % 12] += w; }));
       const n = Math.hypot(...t); TEMPL.push({ root: r, q, t: t.map(x => x / n) });
     }
   }
@@ -100,8 +106,9 @@
     const out = [];
     for (let t0 = start; t0 < an.duration - seg * 0.25; t0 += seg) {
       const a = Math.max(0, Math.floor(t0 / frameSec)), b = Math.min(frames, Math.floor((t0 + seg) / frameSec));
-      const v = new Array(12).fill(0); let e = 0;
-      for (let f = a; f < b; f++) { e += E[f]; for (let i = 0; i < 12; i++) v[i] += C[f * 12 + i]; }
+      const v = new Array(12).fill(0), bass = new Array(12).fill(0); let e = 0;
+      for (let f = a; f < b; f++) { e += E[f]; for (let i = 0; i < 12; i++) { v[i] += C[f * 12 + i]; bass[i] += an.B[f * 12 + i]; } }
+      const bassPc = bass.indexOf(Math.max(...bass)), bassStrong = Math.max(...bass) > 1.5 * (bass.reduce((s, x) => s + x, 0) / 12);
       e /= Math.max(1, b - a);
       if (e < maxE * 0.06) { out.push({ t: t0, name: null, conf: 0 }); continue; }
       const mean = v.reduce((s, x) => s + x, 0) / 12;
@@ -110,6 +117,7 @@
         let s = 0; for (let i = 0; i < 12; i++) s += T.t[i] * w[i] / n;
         const d = ((T.root - opt.keyMajor) % 12 + 12) % 12;
         if (DIA_MAJ[d] === T.q) s += 0.04; // 調內和弦稍微加分
+        if (bassStrong && T.root === bassPc) s += 0.08; // 低音是根音
         return { T, s };
       }).sort((x, y) => y.s - x.s);
       out.push({ t: t0, root: scores[0].T.root, q: scores[0].T.q, conf: scores[0].s - scores[1].s });
@@ -134,5 +142,22 @@
     return an;
   }
 
-  window.ChordDetect = { analyze, group };
+  // 用辨識出的和弦決定調性：哪個大調能涵蓋最多和弦，主和弦出現多、開頭結尾是主和弦再加分
+  function keyFromChords(res) {
+    const ch = res.filter(r => r.root !== undefined);
+    if (!ch.length) return null;
+    let best = null;
+    for (let k = 0; k < 12; k++) {
+      let s = 0, tonic = 0, rel = 0;
+      ch.forEach(r => { const d = ((r.root - k) % 12 + 12) % 12; if (DIA_MAJ[d] === r.q) s++; if (d === 0 && r.q === '') tonic++; if (d === 9 && r.q === 'm') rel++; });
+      const ends = [ch[0], ch[ch.length - 1]];
+      const endT = ends.filter(r => r.root === k && r.q === '').length, endR = ends.filter(r => r.root === (k + 9) % 12 && r.q === 'm').length;
+      const score = s + 0.3 * (tonic + rel) + endT + endR;
+      if (!best || score > best.score) best = { score, major: k, tonic: k, minor: false, tonicN: tonic, relN: rel, endT, endR };
+    }
+    if (best.relN + best.endR > best.tonicN + best.endT) { best.minor = true; best.tonic = (best.major + 9) % 12; }
+    return best;
+  }
+
+  window.ChordDetect = { analyze, group, keyFromChords };
 })();
