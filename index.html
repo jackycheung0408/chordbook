@@ -301,8 +301,13 @@ details.more[open] summary{margin-bottom:2px}
             <button id="detBtn">從錄音抓和弦</button>
             <label class="btn" for="demoFile">上傳 Demo</label>
             <input type="file" id="demoFile" accept="audio/*" hidden>
+            <button id="demoUrlBtn">用網址當 Demo</button>
             <button class="ghost" id="demoDel" hidden>移除 Demo</button>
             <span class="small" id="demoMsg"></span>
+          </div>
+          <div class="box" id="demoUrlBox" hidden>
+            <div class="hint">貼錄音檔的網址（mp3、m4a、wav）。Dropbox、Google Drive 的分享連結會自動轉成下載連結。YouTube、StreetVoice 等網頁連結不能用。</div>
+            <div class="row"><input type="text" id="demoUrl" placeholder="https://…" inputmode="url" aria-label="錄音網址" style="flex:1;min-width:0"><button class="primary" id="demoUrlOk">使用</button></div>
           </div>
           <div class="box" id="imp" hidden>
             <div class="hint">把「和弦在上、歌詞在下」的譜整段貼進來，會自動轉成這裡的格式。請只用在自己團練。</div>
@@ -760,7 +765,7 @@ function regroup(){
 $('detBars').onclick=e=>{const b=e.target.closest('.bar');if(!b)return;const a=$('detAudio');a.currentTime=+b.dataset.t;a.play().catch(()=>{});};
 $('detAudio').ontimeupdate=()=>{const t=$('detAudio').currentTime;document.querySelectorAll('#detBars .bar').forEach(b=>{const s=+b.dataset.t;b.classList.toggle('now',t>=s&&t<s+(detRes[1]?.t-detRes[0]?.t||2));});};
 $('detDemo').onclick=async()=>{const u=cur()?.audio_url;if(!u)return;$('detMsg').textContent='下載 Demo…';
-  try{const r=await fetch(u);if(!r.ok)throw 0;runDetect(await r.arrayBuffer(),u);}catch(e){$('detMsg').textContent='下載 Demo 失敗，請確認網路';}};
+  try{const r=await fetch(u);if(!r.ok)throw 0;runDetect(await r.arrayBuffer(),u);}catch(e){$('detMsg').textContent=u.includes('/demos/')?'下載 Demo 失敗，請確認網路':'這個網址的網站不允許分析（可以播放但不能讀取）。請把檔案下載後用「選錄音檔」';}};
 $('detFile').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(f)runDetect(await f.arrayBuffer(),URL.createObjectURL(f));};
 $('detSetKey').onclick=()=>{saveSong({key:detAn.key.major});render();toast('原調已設為 '+KEYS[detAn.key.major]);};
 function detText(){const bpm=+$('detBpm').value||0,per=4,lines=['{偵測和弦（請校正）}',`> 從 ${fmt(+$('detOff').value||0)} 開始，每格${bpm?$('detSeg').selectedOptions[0].text:'約 2 秒'}`];
@@ -804,6 +809,22 @@ $('demoFile').onchange=async e=>{
   $('demoMsg').textContent='已上傳';render();removeDemoFile(old);};
 function removeDemoFile(url){const m=(url||'').match(/\/demos\/(.+)$/);if(m)sb.storage.from('demos').remove([decodeURIComponent(m[1])]);}
 $('demoDel').onclick=()=>{const old=cur().audio_url;saveSong({audio_url:''});$('demoMsg').textContent='已移除';render();removeDemoFile(old);};
+
+// 把常見的分享連結轉成直接下載的網址
+function directAudioUrl(u){
+  u=u.trim();let m;
+  if(/dropbox\.com/.test(u))return u.replace('www.dropbox.com','dl.dropboxusercontent.com').replace(/[?&]dl=\d/,'').replace(/[?&]raw=\d/,'');
+  if((m=u.match(/drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?.*id=)([\w-]+)/)))return `https://drive.google.com/uc?export=download&id=${m[1]}`;
+  return u;}
+$('demoUrlBtn').onclick=()=>{$('demoUrlBox').hidden=!$('demoUrlBox').hidden;if(!$('demoUrlBox').hidden)$('demoUrl').focus();};
+$('demoUrlOk').onclick=async()=>{
+  const raw=$('demoUrl').value;if(!/^https?:\/\//.test(raw.trim())){toast('請貼 https:// 開頭的網址');return;}
+  if(/youtu\.?be|streetvoice|spotify|soundcloud\.com\/(?!.*\.(mp3|m4a|wav))/i.test(raw)){toast('這是網頁連結，不是錄音檔。請改用上傳檔案');return;}
+  const u=directAudioUrl(raw),old=cur().audio_url;$('demoMsg').textContent='檢查中…';
+  const ok=await new Promise(res=>{const a=new Audio();a.preload='metadata';a.onloadedmetadata=()=>res(true);a.onerror=()=>res(false);a.src=u;setTimeout(()=>res(false),10000);});
+  if(!ok){$('demoMsg').textContent='這個網址播不出聲音，請確認是公開的錄音檔';return;}
+  saveSong({audio_url:u});$('demoUrlBox').hidden=true;$('demoUrl').value='';$('demoMsg').textContent='已設定';render();
+  if(old&&old.includes('/demos/'))removeDemoFile(old);};
 
 // ---- 歌單 ----
 function renderSet(){
