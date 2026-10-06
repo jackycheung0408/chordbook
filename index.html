@@ -4,33 +4,39 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>團練和弦本</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#22385a">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=JetBrains+Mono:wght@500;700&display=swap">
 <style>
-html,body{margin:0}body{font-size:15px}[hidden]{display:none!important}
-/* Layout: song library sidebar + main sheet; sticky key bar; editor slides in; stage mode is a full overlay */
+html,body{margin:0}[hidden]{display:none!important}
+/* Layout: library sidebar (songs / setlists) + main view; sticky key bar; editor beside sheet; stage is a full overlay with a thumb bar */
 :root{
   --bg:#e8e9ec; --panel:#f8f8f6; --fg:#18202c; --muted:#6b7280; --line:#d5d7dc;
-  --accent:#22385a; --accent-fg:#f5f1e8; --chord:#9a5b12; --soft:#e3e7ee; --stage:#0e131b; --stage-fg:#ece9e2;
+  --accent:#22385a; --accent-fg:#f5f1e8; --chord:#9a5b12; --soft:#e3e7ee; --note:#f3ead8; --warn:#b4432f;
+  --stage:#0e131b; --stage-fg:#ece9e2; --stage-line:#232a36; --stage-btn:#1a2130; --stage-chord:#dca85a; --stage-accent:#a9bfe3;
   --shadow:0 1px 2px rgba(20,30,50,.06),0 8px 24px -12px rgba(20,30,50,.18);
   --body:"Noto Sans TC",system-ui,sans-serif; --mono:"JetBrains Mono",ui-monospace,monospace;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
   --bg:#0f131a; --panel:#171c25; --fg:#e8e6e1; --muted:#8e95a3; --line:#262d39;
-  --accent:#a9bfe3; --accent-fg:#111722; --chord:#dca85a; --soft:#1e2737; color-scheme:dark;
+  --accent:#a9bfe3; --accent-fg:#111722; --chord:#dca85a; --soft:#1e2737; --note:#2a2618; --warn:#e8836f; color-scheme:dark;
   --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px -14px rgba(0,0,0,.6)}}
 :root[data-theme="dark"]{
   --bg:#0f131a; --panel:#171c25; --fg:#e8e6e1; --muted:#8e95a3; --line:#262d39;
-  --accent:#a9bfe3; --accent-fg:#111722; --chord:#dca85a; --soft:#1e2737; color-scheme:dark;
+  --accent:#a9bfe3; --accent-fg:#111722; --chord:#dca85a; --soft:#1e2737; --note:#2a2618; --warn:#e8836f; color-scheme:dark;
   --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px -14px rgba(0,0,0,.6)}
 *{box-sizing:border-box}
 body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px}
 select,input,button,textarea{font:inherit;color:var(--fg)}
-button{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:7px 12px;cursor:pointer;white-space:nowrap}
-button:hover{border-color:var(--accent)}
-button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-visible,.song:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+button,.btn{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:7px 12px;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
+button:hover,.btn:hover{border-color:var(--accent)}
+button:disabled{opacity:.5;cursor:default}
+button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-visible,.song:focus-visible,.btn:focus-within{outline:2px solid var(--accent);outline-offset:1px}
 button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-fg);font-weight:700}
 button.ghost{background:transparent;border-color:transparent;color:var(--muted)}
-select,input[type=text]{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:7px 9px}
+select,input[type=text],input[type=number]{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:7px 9px}
 
 .app{max-width:1280px;margin:0 auto;padding-inline:16px;padding-block:16px 48px;display:grid;grid-template-columns:260px minmax(0,1fr);gap:20px;align-items:start}
 @media (max-width:860px){.app{grid-template-columns:1fr}}
@@ -38,33 +44,46 @@ select,input[type=text]{background:var(--panel);border:1px solid var(--line);bor
 /* library */
 .lib{position:sticky;top:calc(16px + env(safe-area-inset-top,0px));display:grid;gap:12px}
 @media (max-width:860px){.lib{position:static}}
-.brand{display:flex;align-items:baseline;gap:8px}
 .brand h1{margin:0;font-size:20px;letter-spacing:.03em}
 .brand h1 span{color:var(--chord)}
 .sync{font-size:12px;color:var(--muted)}
 .sync::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--muted);margin-right:5px;vertical-align:1px}
 .sync.on::before{background:var(--accent)}
+.sync.off::before{background:var(--warn)}
+.tabs{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.tabs button{border:0;border-radius:0;justify-content:center}
+.tabs button[aria-selected=true]{background:var(--soft);color:var(--accent);font-weight:700}
 .libtools{display:flex;gap:8px}
 .libtools input{flex:1;min-width:0}
-.list{display:grid;gap:2px;max-height:calc(100vh - 170px);overflow:auto}
-@media (max-width:860px){.list{max-height:220px;border:1px solid var(--line);border-radius:10px;padding:4px;background:var(--panel)}}
+.list{display:grid;gap:2px;max-height:calc(100vh - 260px);overflow:auto}
+@media (max-width:860px){.list{max-height:240px;border:1px solid var(--line);border-radius:10px;padding:4px;background:var(--panel)}}
 .song{all:unset;display:grid;gap:2px;padding:9px 10px;border-radius:8px;cursor:pointer}
 .song:hover{background:var(--panel)}
 .song[aria-current=true]{background:var(--panel);box-shadow:inset 3px 0 0 var(--chord),var(--shadow)}
 .song b{font-weight:500;font-size:14px}
 .song small{font-family:var(--mono);font-size:11px;color:var(--muted)}
-.empty{font-size:13px;color:var(--muted);padding:10px}
+.delrow{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;font-size:13px}
+.empty{font-size:13px;color:var(--muted);padding:10px;line-height:1.7}
+.libfoot{display:flex;justify-content:space-between}
 
 /* main */
-main{display:grid;gap:14px;min-width:0}
+main{min-width:0}
+.view{display:grid;gap:14px;min-width:0}
 .head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px}
 .head h2{margin:0;font-size:26px;text-wrap:balance;min-width:0}
-.head .acts{display:flex;gap:8px;flex-wrap:wrap}
+.headmeta{display:flex;flex-wrap:wrap;gap:4px 14px;align-items:center;font-size:13px;color:var(--muted)}
+.headmeta b{font-family:var(--mono);color:var(--fg)}
+.acts{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.srclink{color:var(--accent);text-decoration:none;border-bottom:1px solid var(--line)}
+.srclink:hover{border-color:var(--accent)}
+audio{width:100%;max-width:520px;height:36px}
+.memo{background:var(--note);border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:14px;line-height:1.7;white-space:pre-wrap}
+.memo .lbl{display:block;margin-bottom:2px}
 .keybar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--panel);box-shadow:var(--shadow);border:1px solid var(--line);border-radius:12px;padding:10px 14px;display:flex;flex-wrap:wrap;gap:10px 22px;align-items:center}
 .ctl{display:flex;align-items:center;gap:8px}
 .lbl{font-size:11px;color:var(--muted);letter-spacing:.1em}
 .keybig{font-family:var(--mono);font-size:24px;font-weight:700;color:var(--chord);min-width:3ch;text-align:center}
-.step{width:36px;height:36px;padding:0;font-size:18px;border-radius:50%}
+.step{width:36px;height:36px;padding:0;font-size:18px;border-radius:50%;justify-content:center}
 .small{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
 .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
 .seg button{border:0;border-radius:0;padding:6px 11px}
@@ -75,117 +94,225 @@ main{display:grid;gap:14px;min-width:0}
 .body.editing{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
 @media (max-width:1000px){.body.editing{grid-template-columns:1fr}}
 .card{background:var(--panel);border:1px solid var(--line);box-shadow:var(--shadow);border-radius:12px;padding:18px;min-width:0}
-.editor{display:grid;gap:10px}
-.editor .row{display:flex;gap:8px;flex-wrap:wrap}
-.editor .row input{flex:1;min-width:0}
-textarea{width:100%;min-height:460px;resize:vertical;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:12px;font-family:var(--mono);font-size:13px;line-height:1.75}
-.hint{font-size:12px;color:var(--muted);line-height:1.7}
+.editor{display:grid;gap:12px}
+.editor .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.editor .row input[type=text]{flex:1;min-width:0}
+#bpm{width:80px}
+textarea{width:100%;resize:vertical;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:12px;font-family:var(--mono);font-size:13px;line-height:1.75}
+#src{min-height:420px}
+#memoIn{min-height:64px;font-family:var(--body);font-size:14px}
+.hint{font-size:12px;color:var(--muted);line-height:1.8}
 .hint code{font-family:var(--mono);color:var(--chord)}
-.danger{color:var(--chord)}
-.srclink{font-size:13px;color:var(--accent);text-decoration:none;border-bottom:1px solid var(--line)}
-.srclink:hover{border-color:var(--accent)}
-.imp{display:grid;gap:8px;border:1px dashed var(--line);border-radius:10px;padding:12px;background:var(--bg)}
-.imp textarea{min-height:200px;background:var(--panel)}
-.imp .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.danger{color:var(--warn)}
+.box{display:grid;gap:8px;border:1px dashed var(--line);border-radius:10px;padding:12px;background:var(--bg)}
+.box textarea{min-height:180px;background:var(--panel)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.chip{font-family:var(--mono);font-size:13px;font-weight:700;padding:4px 9px;border-radius:999px;color:var(--chord)}
+.chip.prog{font-family:var(--body);font-weight:500;color:var(--fg)}
+.chip small{font-weight:400;color:var(--muted);font-size:10px}
+.hist{display:grid;gap:6px;max-height:320px;overflow:auto}
+.hrow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px;padding:6px 8px;border-radius:8px;background:var(--panel);border:1px solid var(--line)}
+.hrow span{flex:1;min-width:0}
+pre.preview{margin:0;max-height:240px;overflow:auto;font-family:var(--mono);font-size:12px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px;white-space:pre-wrap}
 
 /* sheet */
 .sheet{overflow-x:auto;--lyr:17px}
 .sec{margin:22px 0 6px;font-size:12px;font-weight:700;color:var(--accent);letter-spacing:.12em;display:flex;align-items:center;gap:10px}
 .sec::after{content:"";flex:1;height:1px;background:var(--line)}
 .sec:first-child{margin-top:0}
+.rep{font-family:var(--mono);font-size:11px;letter-spacing:0;border:1px solid currentColor;border-radius:999px;padding:0 7px}
 .ln{display:flex;flex-wrap:wrap;align-items:flex-end;margin-bottom:6px}
 .ln.gap{height:10px}
+.ln.again{opacity:.72}
 .sg{display:inline-flex;flex-direction:column;white-space:pre}
 .sg .c{font-family:var(--mono);font-weight:700;color:var(--chord);font-size:calc(var(--lyr) * .85);min-height:1.3em;padding-right:.7ch}
+.sg .c.out{text-decoration:underline dotted;text-underline-offset:4px}
 .sg .l{font-size:var(--lyr);line-height:1.5}
 .ln.only .sg .l{display:none}
 .ln.only .sg .c{padding-right:2ch}
+.note{display:inline-flex;gap:8px;align-items:baseline;margin:2px 0 8px;padding:3px 10px;border-radius:6px;background:var(--note);font-size:calc(var(--lyr) * .78);line-height:1.5}
+.note::before{content:"團員";font-size:10px;letter-spacing:.1em;color:var(--muted)}
+
+/* setlist */
+.setrow{display:grid;grid-template-columns:2.2em minmax(0,1fr) auto auto;gap:10px;align-items:center;padding:10px 12px;border-bottom:1px solid var(--line)}
+.setrow:last-child{border-bottom:0}
+.setrow .n{font-family:var(--mono);color:var(--muted);text-align:right}
+.setrow .t{all:unset;cursor:pointer;font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.setrow .t:hover{color:var(--accent)}
+.setrow .k{display:flex;align-items:center;gap:4px}
+.setrow .k b{font-family:var(--mono);color:var(--chord);min-width:2.6ch;text-align:center}
+.setrow .k button,.setrow .mv button{padding:3px 8px}
+.setrow .mv{display:flex;gap:4px}
+@media (max-width:560px){.setrow{grid-template-columns:2em minmax(0,1fr) auto}.setrow .mv{grid-column:2/-1}}
+.addrow{display:flex;gap:8px;flex-wrap:wrap}
+.addrow select{flex:1;min-width:0}
 
 /* stage */
 .stage{position:fixed;inset:0;z-index:20;background:var(--stage);color:var(--stage-fg);display:flex;flex-direction:column}
-.stage .top{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;padding:calc(10px + env(safe-area-inset-top,0px)) 16px 10px;border-bottom:1px solid #232a36}
-.stage .top b{font-size:16px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.stage button{background:#1a2130;border-color:#2e3747;color:var(--stage-fg)}
-.stage button.on{background:#a9bfe3;color:#111722;border-color:#a9bfe3}
-.stage .k{font-family:var(--mono);color:#dca85a;font-weight:700}
-.stage .scroll{flex:1;overflow:auto;padding:24px 16px calc(40vh + env(safe-area-inset-bottom,0px))}
+.stage .top{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;padding:calc(10px + env(safe-area-inset-top,0px)) 16px 10px;border-bottom:1px solid var(--stage-line)}
+.stage .ttl{flex:1;min-width:0;display:grid}
+.stage .ttl b{font-size:17px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stage .ttl small{color:#8e95a3;font-size:12px;font-variant-numeric:tabular-nums}
+.stage button{background:var(--stage-btn);border-color:#2e3747;color:var(--stage-fg)}
+.stage button.on{background:var(--stage-accent);color:#111722;border-color:var(--stage-accent)}
+.stage .k{font-family:var(--mono);color:var(--stage-chord);font-weight:700}
+.stage .grp{display:flex;align-items:center;gap:6px}
+.stage .scroll{flex:1;overflow:auto;padding:24px 16px 45vh;overscroll-behavior:contain}
 .stage .sheet{--lyr:26px;max-width:900px;margin:0 auto}
-.stage .sg .c{color:#dca85a}
-.stage .sec{color:#a9bfe3}
-.stage .sec::after{background:#232a36}
-.toast{position:fixed;z-index:30;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:9px 14px;border-radius:8px;font-size:13px}
+.stage .sg .c{color:var(--stage-chord)}
+.stage .sec{color:var(--stage-accent)}
+.stage .sec::after{background:var(--stage-line)}
+.stage .note{background:#2a2618;color:var(--stage-fg)}
+.stage .memo{background:#2a2618;border-color:var(--stage-line);color:var(--stage-fg);max-width:900px;margin:0 auto 16px}
+.stbar{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;padding:10px 12px calc(10px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--stage-line)}
+.stbar button{justify-content:center;min-height:54px;font-size:15px;flex-direction:column;gap:2px}
+.stbar button small{font-size:11px;color:inherit;opacity:.7}
+.beat{width:12px;height:12px;border-radius:50%;background:var(--stage-line)}
+.beat.hit{background:var(--stage-chord)}
+.beat.acc{background:var(--stage-accent)}
+.count{position:fixed;inset:0;z-index:25;display:grid;place-items:center;font-family:var(--mono);font-size:min(40vw,240px);font-weight:700;color:var(--stage-chord);pointer-events:none}
+@media (max-width:640px){.stage .hide-sm{display:none}.stage .top{gap:6px 8px}}
+.toast{position:fixed;z-index:40;left:50%;bottom:calc(84px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:9px 14px;border-radius:8px;font-size:13px;max-width:calc(100vw - 32px)}
 @media (prefers-reduced-motion:no-preference){.song,button{transition:background .12s,border-color .12s}}
 </style>
-
 </head>
 <body>
 <div class="app">
   <aside class="lib">
     <div class="brand"><h1>團練<span>和弦本</span></h1></div>
     <div class="sync" id="sync">連線中…</div>
+    <div class="tabs" role="tablist">
+      <button role="tab" id="tabSongs" aria-selected="true">歌曲</button>
+      <button role="tab" id="tabSets" aria-selected="false">歌單</button>
+    </div>
     <div class="libtools">
-      <input type="text" id="q" placeholder="搜尋歌名" aria-label="搜尋歌名">
+      <input type="text" id="q" placeholder="搜尋歌名" aria-label="搜尋">
       <button class="primary" id="newBtn">＋ 新歌</button>
     </div>
-    <nav class="list" id="list" aria-label="歌曲清單"></nav>
+    <nav class="list" id="list" aria-label="清單"></nav>
+    <div class="libfoot"><button class="ghost" id="trashBtn">最近刪除</button></div>
   </aside>
 
   <main>
-    <div class="head">
-      <div style="display:grid;gap:4px;min-width:0"><h2 id="h">—</h2><a class="srclink" id="srcLink" target="_blank" rel="noopener" hidden>開啟原始連結 ↗</a></div>
-      <div class="acts">
-        <button id="editBtn">編輯</button>
-        <button id="copyBtn">複製文字譜</button>
-        <button class="primary" id="stageBtn">▶ 舞台模式</button>
+    <!-- 單首歌 -->
+    <div class="view" id="songView">
+      <div class="head">
+        <div style="display:grid;gap:6px;min-width:0">
+          <h2 id="h">—</h2>
+          <div class="headmeta" id="headmeta"></div>
+        </div>
+        <div class="acts">
+          <select id="addToSet" aria-label="加入歌單"></select>
+          <button id="editBtn">編輯</button>
+          <button id="copyBtn">複製文字譜</button>
+          <button class="primary" id="stageBtn">▶ 舞台模式</button>
+        </div>
+      </div>
+      <audio id="player" controls preload="none" hidden></audio>
+      <div class="memo" id="memoShow" hidden></div>
+
+      <section class="keybar" aria-label="移調">
+        <div class="ctl"><span class="lbl">原調</span><span class="keybig" style="font-size:16px;color:var(--fg)" id="origShow">C</span></div>
+        <div class="ctl"><span class="lbl">我的調</span>
+          <button class="step" id="down" aria-label="降半音">−</button>
+          <span class="keybig" id="playKey">C</span>
+          <button class="step" id="up" aria-label="升半音">+</button>
+          <span class="small" id="semis">±0</span></div>
+        <div class="ctl"><span class="lbl">CAPO</span><select id="capo" aria-label="移調夾"></select><span class="small" id="capoHint"></span></div>
+        <div class="ctl"><span class="seg"><button id="mSharp">♯</button><button id="mFlat">♭</button><button id="mNash">級數</button></span></div>
+        <span class="mine">移調與 Capo 只存給你自己</span>
+      </section>
+
+      <div class="body" id="bodyEl">
+        <article class="card"><div class="sheet" id="sheet"></div></article>
+        <section class="card editor" id="editor" hidden>
+          <div class="row">
+            <input type="text" id="title" placeholder="歌名" aria-label="歌名">
+            <select id="origKey" aria-label="原調"></select>
+          </div>
+          <div class="row">
+            <span class="lbl">BPM</span><input type="number" id="bpm" min="0" max="300" inputmode="numeric" aria-label="BPM">
+            <button id="tapBtn">點我測速</button><span class="small" id="tapInfo"></span>
+          </div>
+          <input type="text" id="url" placeholder="原始連結（91譜、YouTube…，可留空）" aria-label="原始連結" inputmode="url">
+          <textarea id="memoIn" placeholder="給團員的備註（例如：前奏吉他先進，副歌第二次全團停一拍）" aria-label="給團員的備註"></textarea>
+
+          <div class="box">
+            <span class="lbl" id="harmLbl">這個調的和弦　點一下插入</span>
+            <div class="chips" id="chipsIn"></div>
+            <span class="lbl">常用借用和弦</span>
+            <div class="chips" id="chipsOut"></div>
+            <span class="lbl">常用進行　插入一行</span>
+            <div class="chips" id="chipsProg"></div>
+          </div>
+
+          <div class="row">
+            <button id="impBtn">貼上外部譜轉換</button>
+            <button id="histBtn">版本紀錄</button>
+            <label class="btn" for="demoFile">上傳 Demo</label>
+            <input type="file" id="demoFile" accept="audio/*" hidden>
+            <button class="ghost" id="demoDel" hidden>移除 Demo</button>
+            <span class="small" id="demoMsg"></span>
+          </div>
+          <div class="box" id="imp" hidden>
+            <div class="hint">把「和弦在上、歌詞在下」的譜整段貼進來，會自動轉成這裡的格式。請只用在自己團練。</div>
+            <textarea id="impSrc" spellcheck="false" aria-label="貼上的譜" placeholder="C        G&#10;第一句歌詞在這裡&#10;Am       F&#10;第二句歌詞"></textarea>
+            <div class="row"><button class="primary" id="impGo">轉換並取代</button><button id="impAdd">轉換並加在最後</button><button class="ghost" id="impX">取消</button><span class="small" id="impMsg"></span></div>
+          </div>
+          <div class="box" id="hist" hidden>
+            <div class="hint">每次開始修改前會自動存一份。還原後，目前的內容也會先存一份，可以再還原回來。</div>
+            <div class="hist" id="histList"></div>
+            <pre class="preview" id="histPrev" hidden></pre>
+          </div>
+
+          <textarea id="src" spellcheck="false" aria-label="和弦與歌詞"></textarea>
+          <div class="hint">
+            和弦：<code>[Am]今天的[F]風</code>　純和弦行：<code>[C] [G] [Am] [F]</code><br>
+            段落：<code>{副歌}</code>　重複次數：<code>{副歌 x2}</code>　再唱一次前面的段落：<code>{@副歌}</code><br>
+            團員備註：整行用 <code>&gt;</code> 開頭，例如 <code>&gt; 鼓在這裡停一拍</code><br>
+            虛線底的和弦是調外和弦（借用或轉調）。修改會自動同步給團員。
+          </div>
+          <div class="row"><span class="small" id="saved"></span><span style="flex:1"></span><button class="ghost danger" id="delBtn">刪除這首歌</button></div>
+        </section>
       </div>
     </div>
 
-    <section class="keybar" aria-label="移調">
-      <div class="ctl"><span class="lbl">原調</span><span class="keybig" style="font-size:16px;color:var(--fg)" id="origShow">C</span></div>
-      <div class="ctl"><span class="lbl">我的調</span>
-        <button class="step" id="down" aria-label="降半音">−</button>
-        <span class="keybig" id="playKey">C</span>
-        <button class="step" id="up" aria-label="升半音">+</button>
-        <span class="small" id="semis">±0</span></div>
-      <div class="ctl"><span class="lbl">CAPO</span><select id="capo" aria-label="移調夾"></select><span class="small" id="capoHint"></span></div>
-      <div class="ctl"><span class="seg"><button id="mSharp">♯</button><button id="mFlat">♭</button><button id="mNash">級數</button></span></div>
-      <span class="mine" id="mine">移調與 Capo 只存給你自己</span>
-    </section>
-
-    <div class="body" id="bodyEl">
-      <article class="card"><div class="sheet" id="sheet"></div></article>
-      <section class="card editor" id="editor" hidden>
-        <div class="row">
-          <input type="text" id="title" placeholder="歌名" aria-label="歌名">
-          <select id="origKey" aria-label="原調"></select>
+    <!-- 歌單 -->
+    <div class="view" id="setView" hidden>
+      <div class="head">
+        <input type="text" id="setName" aria-label="歌單名稱" style="font-size:22px;font-weight:700;flex:1;min-width:0">
+        <div class="acts">
+          <button class="primary" id="setPlay">▶ 從頭演出</button>
+          <button class="ghost danger" id="setDel">刪除歌單</button>
         </div>
-        <input type="text" id="url" placeholder="原始連結（91譜、YouTube…，可留空）" aria-label="原始連結" inputmode="url">
-        <div class="row"><button id="impBtn">貼上外部譜轉換</button></div>
-        <div class="imp" id="imp" hidden>
-          <div class="hint">把「和弦在上、歌詞在下」的譜整段貼進來，會自動轉成這裡的格式。請只用在自己團練。</div>
-          <textarea id="impSrc" spellcheck="false" aria-label="貼上的譜" placeholder="C        G&#10;第一句歌詞在這裡&#10;Am       F&#10;第二句歌詞"></textarea>
-          <div class="row"><button class="primary" id="impGo">轉換並取代</button><button id="impAdd">轉換並加在最後</button><button class="ghost" id="impX">取消</button><span class="small" id="impMsg"></span></div>
-        </div>
-        <textarea id="src" spellcheck="false" aria-label="和弦與歌詞"></textarea>
-        <div class="hint">和弦夾在字前面：<code>[Am]今天的[F]風</code>　段落：<code>{副歌}</code>　純和弦行：<code>[C] [G] [Am] [F]</code><br>修改會自動同步給團員。</div>
-        <div class="row"><span class="small" id="saved"></span><span style="flex:1"></span><button class="ghost danger" id="delBtn">刪除這首歌</button></div>
-      </section>
+      </div>
+      <div class="small" id="setInfo"></div>
+      <div class="card" style="padding:0" id="setItems"></div>
+      <div class="addrow"><select id="setAddSel" aria-label="選擇歌曲"></select><button id="setAddBtn">加入</button></div>
+      <div class="hint">每首歌可以設定這場演出要用的調，不會影響歌曲本身和每個人自己的設定。</div>
     </div>
   </main>
 </div>
 
 <div class="stage" id="stage" hidden>
   <div class="top">
-    <b id="stTitle"></b>
-    <span>Key <span class="k" id="stKey"></span></span>
-    <button id="stDown" aria-label="降半音">−</button><button id="stUp" aria-label="升半音">+</button>
-    <button id="stSmall" aria-label="縮小字">A−</button><button id="stBig" aria-label="放大字">A+</button>
-    <button id="stPlay">▶ 捲動</button>
-    <button id="stSlow" aria-label="慢一點">慢</button><span class="small" id="stSpd" style="color:#8e95a3">3</span><button id="stFast" aria-label="快一點">快</button>
+    <div class="ttl"><b id="stTitle"></b><small id="stPos"></small></div>
+    <div class="grp"><span class="k" id="stKey"></span><button id="stDown" aria-label="降半音">−</button><button id="stUp" aria-label="升半音">+</button></div>
+    <div class="grp hide-sm"><button id="stSmall" aria-label="縮小字">A−</button><button id="stBig" aria-label="放大字">A+</button></div>
+    <div class="grp"><button id="stSlow" aria-label="捲慢一點">慢</button><span class="small" id="stSpd" style="color:#8e95a3;min-width:5.5em;text-align:center"></span><button id="stFast" aria-label="捲快一點">快</button></div>
+    <span class="beat" id="beat"></span>
     <button id="stClose">關閉</button>
   </div>
-  <div class="scroll" id="stScroll"><div class="sheet" id="stSheet"></div></div>
+  <div class="scroll" id="stScroll"><div class="memo" id="stMemo" hidden></div><div class="sheet" id="stSheet"></div></div>
+  <div class="stbar">
+    <button id="stPrev">◀<small>上一首</small></button>
+    <button id="stCount">1234<small>預備拍</small></button>
+    <button id="stPlay">▶<small>捲動</small></button>
+    <button id="stMet">♩<small>節拍器</small></button>
+    <button id="stNext">▶▶<small>下一首</small></button>
+  </div>
 </div>
+<div class="count" id="count" hidden></div>
 <div class="toast" id="toast" hidden></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
@@ -199,123 +326,216 @@ const FLAT_KEYS=new Set([1,3,5,8,10]);
 const DEG=['1','b2','2','b3','3','4','#4','5','b6','6','b7','7'];
 const $=id=>document.getElementById(id);
 const mod=n=>((n%12)+12)%12;
-const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-
-const SAMPLE={title:'範例｜夜車',key:7,src:`{前奏}
-[G] [D/F#] [Em7] [Cmaj7]
-
-{主歌}
-[G]末班的車窗[D/F#]映著城市的光
-[Em7]妳說今晚[Cmaj7]不想回家
-[G]耳機裡循環[D/F#]那首舊的歌
-[Am7]好像什麼都[D]還沒說
-
-{副歌}
-[C]讓風吹[D]過我們的[Bm7]夜[Em]
-[Am7]就算明天[Bsus4]還是一[B7]樣
-[C]把心事[D]寫成一首[G]歌[Em]
-[Am7]等妳[D]跟著[G]唱`};
-
-// ---- state ----
-let songs=[];          // [{id,title,key,src,updatedAt}]
-let curId=null;
-let prefs={};          // songId -> {shift,capo}  (per viewer)
-let mode='auto';
-let db=null, uid=null, store='local';
-const cur=()=>songs.find(s=>s.id===curId);
-const pref=()=>prefs[curId]||(prefs[curId]={shift:0,capo:0});
-
-// ---- local fallback ----
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function lsGet(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch(e){return d}}
 function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+function toast(t){const el=$('toast');el.textContent=t;el.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>el.hidden=true,2200);}
+
+// ---- state ----
+let songs=[], setlists=[], curId=lsGet('cb_cur',null), curSet=null, tab='songs', view='song', showTrash=false, trash=[];
+let prefs=lsGet('cb_prefs',{}), mode='auto', sb=null, online=false;
+const cur=()=>songs.find(s=>s.id===curId);
+const song=id=>songs.find(s=>s.id===id);
+const prefOf=id=>prefs[id]||(prefs[id]={shift:0,capo:0});
+const set=()=>setlists.find(x=>x.id===curSet);
 
 // ---- music ----
 const CH=/^([A-G](?:#|b)?)([^/\s]*)(?:\/([A-G](?:#|b)?))?$/;
 const useFlats=k=>mode==='flat'||(mode==='auto'&&FLAT_KEYS.has(mod(k)));
 const nn=(n,flat)=>(flat?FL:SH)[mod(n)];
+const keyName=k=>nn(k,useFlats(k));
 function xpose(ch,shift,key,tonic){
   const m=ch.match(CH); if(!m||IDX[m[1]]===undefined) return ch;
   if(mode==='nash'){let s=DEG[mod(IDX[m[1]]-tonic)]+m[2]; if(m[3]) s+='/'+DEG[mod(IDX[m[3]]-tonic)]; return s;}
   const f=useFlats(key); let s=nn(IDX[m[1]]+shift,f)+m[2]; if(m[3]) s+='/'+nn(IDX[m[3]]+shift,f); return s;}
+const DIA={0:'maj',2:'min',4:'min',5:'maj',7:'maj',9:'min',11:'dim'};
+function quality(q){return /^(dim|°|m7b5|ø)/.test(q)?'dim':/^m(?!aj)/.test(q)?'min':/^(sus|5$)/.test(q)?'any':'maj';}
+function inKey(ch,tonic){const m=ch.match(CH);if(!m||IDX[m[1]]===undefined)return true;
+  const d=mod(IDX[m[1]]-tonic),e=DIA[d],q=quality(m[2]);if(!e)return false;return q==='any'||q===e;}
+
+// 段落：{名稱}、{名稱 x2}、{@名稱}；備註：> 開頭
+function secHead(t){t=t.trim();const ref=/^[@=]/.test(t);if(ref)t=t.slice(1).trim();
+  const r=t.match(/\s*[x×]\s*(\d+)\s*$/i);return {name:r?t.slice(0,r.index).trim():t,rep:r?+r[1]:0,ref};}
+function parseLine(line){
+  if(/^\s*>/.test(line)) return {note:line.replace(/^\s*>\s?/,'')};
+  if(!line.trim()) return {gap:true};
+  const segs=[],re=/\[([^\]]+)\]/g;let last=0,m,chord='';
+  while((m=re.exec(line))){segs.push({c:chord,l:line.slice(last,m.index)});chord=m[1];last=re.lastIndex;}
+  segs.push({c:chord,l:line.slice(last)});
+  const clean=segs.filter((s,i)=>i>0||s.l);
+  return {segs:clean,only:clean.every(s=>!s.l.trim())};}
 function parse(src){
-  return (src||'').split('\n').map(line=>{
-    const sec=line.match(/^\s*\{(.+)\}\s*$/); if(sec) return {sec:sec[1]};
-    if(!line.trim()) return {gap:true};
-    const segs=[],re=/\[([^\]]+)\]/g; let last=0,m,chord='';
-    while((m=re.exec(line))){segs.push({c:chord,l:line.slice(last,m.index)});chord=m[1];last=re.lastIndex;}
-    segs.push({c:chord,l:line.slice(last)});
-    const clean=segs.filter((s,i)=>i>0||s.l);
-    return {segs:clean,only:clean.every(s=>!s.l.trim())};});}
-function ctx(){const s=cur(),p=pref(),pk=mod(s.key+p.shift),fk=mod(pk-p.capo);return {s,p,pk,fk,shape:p.shift-p.capo};}
-function sheetHTML(){
-  const {s,fk,shape}=ctx();
+  const lines=(src||'').split('\n'),body={};let collecting=null;
+  for(const l of lines){const m=l.match(/^\s*\{(.+)\}\s*$/);
+    if(m){const h=secHead(m[1]);collecting=(!h.ref&&!(h.name in body))?h.name:null;if(collecting)body[collecting]=[];continue;}
+    if(collecting)body[collecting].push(l);}
+  const out=[];
+  for(const l of lines){const m=l.match(/^\s*\{(.+)\}\s*$/);
+    if(m){const h=secHead(m[1]);out.push({sec:h.name,rep:h.rep,ref:h.ref});
+      if(h.ref){const b=(body[h.name]||[]).slice();while(b.length&&!b[b.length-1].trim())b.pop();
+        if(!body[h.name])out.push({note:`找不到前面叫「${h.name}」的段落`});
+        b.forEach(x=>{const r=parseLine(x);r.again=true;out.push(r);});out.push({gap:true});}
+      continue;}
+    out.push(parseLine(l));}
+  return out;}
+
+// 某首歌在某個移調下的樂譜
+function sheetHTML(s,shift,capo,mark){
+  const pk=mod(s.key+shift),fk=mod(pk-capo),sh=shift-capo;
   return parse(s.src).map(r=>{
-    if(r.sec) return `<div class="sec">${esc(r.sec)}</div>`;
+    if(r.sec) return `<div class="sec">${esc(r.sec)}${r.ref?' <span class="rep">再一次</span>':''}${r.rep>1?` <span class="rep">×${r.rep}</span>`:''}</div>`;
+    if(r.note!==undefined) return `<div><span class="note">${esc(r.note)}</span></div>`;
     if(r.gap) return '<div class="ln gap"></div>';
-    return `<div class="ln${r.only?' only':''}">`+r.segs.map(g=>`<span class="sg"><span class="c">${esc(g.c?xpose(g.c,shape,fk,s.key):'')}</span><span class="l">${esc(g.l)||' '}</span></span>`).join('')+'</div>';
+    return `<div class="ln${r.only?' only':''}${r.again?' again':''}">`+r.segs.map(g=>{
+      const out=mark&&g.c&&!inKey(g.c,s.key);
+      return `<span class="sg"><span class="c${out?' out':''}"${out?' title="調外和弦"':''}>${esc(g.c?xpose(g.c,sh,fk,s.key):'')}</span><span class="l">${esc(g.l)||' '}</span></span>`;}).join('')+'</div>';
   }).join('');}
+function textOut(s,shift,capo){
+  const pk=mod(s.key+shift),fk=mod(pk-capo),sh=shift-capo,w=t=>[...t].reduce((a,c)=>a+(c.charCodeAt(0)>255?2:1),0);
+  const out=[s.title,`Key ${keyName(pk)}`+(capo?`  Capo ${capo}`:'')+(s.bpm?`  ♩=${s.bpm}`:''),''];
+  if(s.memo)out.push('※ '+s.memo,'');
+  parse(s.src).forEach(r=>{
+    if(r.sec){out.push('','['+r.sec+(r.ref?' 再一次':'')+(r.rep>1?' x'+r.rep:'')+']');return;}
+    if(r.note!==undefined){out.push('※ '+r.note);return;}
+    if(r.gap){out.push('');return;}
+    let a='',b='';r.segs.forEach(g=>{const c=g.c?xpose(g.c,sh,fk,s.key):'';const n=Math.max(w(g.l),c.length+1);a+=c.padEnd(n);b+=g.l+' '.repeat(n-w(g.l));});
+    out.push(a.trimEnd());if(!r.only)out.push(b.trimEnd());});
+  return out.join('\n').replace(/\n{3,}/g,'\n\n');}
 
 // ---- render ----
+function renderTabs(){
+  $('tabSongs').setAttribute('aria-selected',tab==='songs');$('tabSets').setAttribute('aria-selected',tab==='sets');
+  $('newBtn').textContent=tab==='songs'?'＋ 新歌':'＋ 新歌單';
+  $('q').placeholder=tab==='songs'?'搜尋歌名':'搜尋歌單';
+  $('trashBtn').hidden=tab!=='songs';$('trashBtn').textContent=showTrash?'回到歌曲':'最近刪除';}
 function renderList(){
+  renderTabs();
   const q=$('q').value.trim().toLowerCase();
-  const items=songs.filter(s=>!q||(s.title||'').toLowerCase().includes(q));
-  $('list').innerHTML=items.length?items.map(s=>{const p=prefs[s.id];const k=p&&p.shift?` → ${nn(s.key+p.shift,FLAT_KEYS.has(mod(s.key+p.shift)))}`:'';
-    return `<button class="song" data-id="${s.id}" aria-current="${s.id===curId}"><b>${esc(s.title||'未命名')}</b><small>${KEYS[s.key]}${k}</small></button>`}).join('')
-    :`<div class="empty">${songs.length?'找不到這首歌':'還沒有歌。按「＋ 新歌」寫第一首。'}</div>`;}
+  if(tab==='songs'&&showTrash){
+    $('list').innerHTML=trash.length?trash.map(t=>`<div class="delrow"><span>${esc(t.title||'未命名')}<br><span class="small">${new Date(t.created_at).toLocaleString('zh-TW')}</span></span><button data-restore="${t.id}">還原</button></div>`).join('')
+      :'<div class="empty">沒有最近刪除的歌。</div>';return;}
+  if(tab==='songs'){
+    const items=songs.filter(s=>!q||(s.title||'').toLowerCase().includes(q));
+    $('list').innerHTML=items.length?items.map(s=>{const p=prefs[s.id];const k=p&&p.shift?` → ${nn(s.key+p.shift,FLAT_KEYS.has(mod(s.key+p.shift)))}`:'';
+      return `<button class="song" data-id="${s.id}" aria-current="${view==='song'&&s.id===curId}"><b>${esc(s.title||'未命名')}</b><small>${KEYS[s.key]}${k}${s.bpm?` · ♩${s.bpm}`:''}${s.audio_url?' · demo':''}</small></button>`}).join('')
+      :`<div class="empty">${songs.length?'找不到這首歌':'還沒有歌。按「＋ 新歌」寫第一首。'}</div>`;
+  }else{
+    const items=setlists.filter(x=>!q||(x.name||'').toLowerCase().includes(q));
+    $('list').innerHTML=items.length?items.map(x=>`<button class="song" data-set="${x.id}" aria-current="${view==='set'&&x.id===curSet}"><b>${esc(x.name||'未命名歌單')}</b><small>${x.items.length} 首</small></button>`).join('')
+      :'<div class="empty">還沒有歌單。按「＋ 新歌單」排練習或演出的順序。</div>';}}
 function render(){
   renderList();
-  const s=cur(); if(!s){$('h').textContent='還沒有歌';$('sheet').innerHTML='<div class="empty">按左上「＋ 新歌」開始，團員打開同一個連結就會看到。</div>';return;}
-  const {p,pk,fk}=ctx();
+  $('songView').hidden=view!=='song';$('setView').hidden=view!=='set';
+  if(view==='set')return renderSet();
+  const s=cur();
+  if(!s){$('h').textContent='還沒有歌';$('headmeta').innerHTML='';$('sheet').innerHTML='<div class="empty">按左上「＋ 新歌」開始，團員打開同一個連結就會看到。</div>';$('player').hidden=true;$('memoShow').hidden=true;return;}
+  const p=prefOf(s.id),pk=mod(s.key+p.shift),fk=mod(pk-p.capo);
   $('h').textContent=s.title||'未命名';
+  const u=/^https?:\/\//.test(s.url||'')?s.url:'';
+  $('headmeta').innerHTML=[s.bpm?`<span>♩ = <b>${s.bpm}</b></span>`:'',u?`<a class="srclink" href="${esc(u)}" target="_blank" rel="noopener">開啟原始連結 ↗</a>`:''].join('');
+  if(s.audio_url){if($('player').dataset.src!==s.audio_url){$('player').src=s.audio_url;$('player').dataset.src=s.audio_url;}$('player').hidden=false;}else{$('player').hidden=true;}
+  $('memoShow').hidden=!s.memo;$('memoShow').innerHTML=s.memo?`<span class="lbl">給團員</span>${esc(s.memo)}`:'';
   $('origShow').textContent=KEYS[s.key];
-  $('playKey').textContent=nn(pk,useFlats(pk));
+  $('playKey').textContent=keyName(pk);
   $('semis').textContent=(p.shift>0?'+':p.shift<0?'':'±')+p.shift;
   $('capo').value=p.capo;
-  $('capoHint').textContent=p.capo?`按 ${nn(fk,useFlats(fk))} 指型`:'';
+  $('capoHint').textContent=p.capo?`按 ${keyName(fk)} 指型`:'';
   [['mSharp','sharp'],['mFlat','flat'],['mNash','nash']].forEach(([id,v])=>$(id).setAttribute('aria-pressed',mode===v||(mode==='auto'&&v===(useFlats(pk)?'flat':'sharp'))));
-  $('sheet').innerHTML=sheetHTML();
-  if(!$('stage').hidden){$('stTitle').textContent=s.title;$('stKey').textContent=nn(pk,useFlats(pk))+(p.capo?` · Capo ${p.capo}`:'');$('stSheet').innerHTML=sheetHTML();}
-  if(document.activeElement!==$('src')) $('src').value=s.src;
-  if(document.activeElement!==$('title')) $('title').value=s.title;
-  if(document.activeElement!==$('url')) $('url').value=s.url||'';
-  const u=/^https?:\/\//.test(s.url||'')?s.url:'';$('srcLink').hidden=!u;if(u)$('srcLink').href=u;
+  $('sheet').innerHTML=sheetHTML(s,p.shift,p.capo,true);
+  $('addToSet').innerHTML='<option value="">加入歌單…</option>'+setlists.map(x=>`<option value="${x.id}">${esc(x.name||'未命名歌單')}</option>`).join('')+'<option value="__new">＋ 新歌單</option>';
+  const a=document.activeElement;
+  if(a!==$('src'))$('src').value=s.src;
+  if(a!==$('title'))$('title').value=s.title;
+  if(a!==$('url'))$('url').value=s.url||'';
+  if(a!==$('memoIn'))$('memoIn').value=s.memo||'';
+  if(a!==$('bpm'))$('bpm').value=s.bpm||'';
   $('origKey').value=s.key;
-}
+  $('demoDel').hidden=!s.audio_url;
+  renderHarmony(s);
+  if(!$('stage').hidden)renderStage();}
 
-// ---- persistence ----
-function savePref(){
-  const p={...pref()};
-  lsSet('cb_prefs',prefs);}
-let tmr=null;
+// ---- 和弦建議 ----
+const PROGS=[['1-5-6-4',[0,7,9,5]],['1-6-4-5',[0,9,5,7]],['6-4-1-5',[9,5,0,7]],['4-5-3-6 王道',[5,7,4,9]],['2-5-1',[2,7,0]],['卡農',[0,7,9,4,5,0,5,7]]];
+const BORROW=[[10,'maj','♭VII'],[5,'min','iv'],[8,'maj','♭VI'],[2,'maj','II'],[4,'maj','III'],[3,'maj','♭III']];
+const ROMAN={0:'I',2:'ii',4:'iii',5:'IV',7:'V',9:'vi',11:'vii°'};
+function chordName(key,d,q){return nn(key+d,FLAT_KEYS.has(key))+(q==='min'?'m':q==='dim'?'dim':'');}
+function renderHarmony(s){
+  const k=s.key;$('harmLbl').textContent=`${KEYS[k]} 調的和弦　點一下插入`;
+  $('chipsIn').innerHTML=Object.keys(DIA).map(d=>{const c=chordName(k,+d,DIA[d]);return `<button class="chip" data-ins="[${c}]">${c} <small>${ROMAN[d]}</small></button>`}).join('');
+  $('chipsOut').innerHTML=BORROW.map(([d,q,r])=>{const c=chordName(k,d,q);return `<button class="chip" data-ins="[${c}]">${c} <small>${r}</small></button>`}).join('');
+  $('chipsProg').innerHTML=PROGS.map(([n,ds])=>`<button class="chip prog" data-ins="\n${ds.map(d=>'['+chordName(k,d,DIA[d])+']').join(' ')}\n">${n}</button>`).join('');}
+function insertAtCursor(t){const ta=$('src');ta.focus();const a=ta.selectionStart,b=ta.selectionEnd;ta.setRangeText(t,a,b,'end');saveSong({src:ta.value});$('sheet').innerHTML=sheetHTML(cur(),prefOf(curId).shift,prefOf(curId).capo,true);}
+$('editor').addEventListener('mousedown',e=>{if(e.target.closest('[data-ins]'))e.preventDefault();}); // 保留游標位置
+$('editor').addEventListener('click',e=>{const b=e.target.closest('[data-ins]');if(b)insertAtCursor(b.dataset.ins.replace(/\\n/g,'\n'));});
+
+// ---- 儲存 ----
+function savePrefs(){lsSet('cb_prefs',prefs);}
+let tmr=null;const pending=new Set(lsGet('cb_pending',[]));
+function cacheAll(){lsSet('cb_cache',{songs,setlists,at:Date.now()});}
 function saveSong(patch){
-  const s=cur(); Object.assign(s,patch,{updatedAt:Date.now()});
-  $('saved').textContent='儲存中…';
-  clearTimeout(tmr); tmr=setTimeout(async()=>{
-    try{ if(store==='db'){const {error}=await sb.from('songs').update({title:s.title,key:s.key,src:s.src,url:s.url||'',updated_at:new Date(s.updatedAt).toISOString()}).eq('id',s.id);if(error)throw error;tmr=null;}
-      else lsSet('cb_songs',songs);
-      $('saved').textContent=store==='db'?'已同步給團員':'已存在這台裝置';}
-    catch(e){$('saved').textContent='沒有存成功：'+(e.message||'請稍後再試');}
+  const s=cur();if(!s)return;Object.assign(s,patch,{updatedAt:Date.now()});
+  $('saved').textContent='儲存中…';cacheAll();
+  clearTimeout(tmr);tmr=setTimeout(async()=>{
+    if(!online){pending.add(s.id);lsSet('cb_pending',[...pending]);tmr=null;$('saved').textContent='離線中，連線後會自動存到雲端';return;}
+    const {error}=await sb.from('songs').update({title:s.title,key:s.key,src:s.src,url:s.url||'',memo:s.memo||'',bpm:s.bpm||0,audio_url:s.audio_url||'',updated_at:new Date(s.updatedAt).toISOString()}).eq('id',s.id);
+    tmr=null;$('saved').textContent=error?'沒有存成功：'+error.message:'已同步給團員';
   },700);}
 async function createSong(data){
-  if(store==='db'){const id=crypto.randomUUID();songs.unshift({id,...data,updatedAt:Date.now()});curId=id;render();
-    const {error}=await sb.from('songs').insert({id,...data});if(error)toast('沒有新增成功：'+error.message);}
-  else{const id='s'+Date.now();songs.unshift({id,...data,updatedAt:Date.now()});curId=id;lsSet('cb_songs',songs);render();}}
+  const id=crypto.randomUUID();songs.unshift({id,url:'',memo:'',bpm:0,audio_url:'',...data,updatedAt:Date.now()});curId=id;view='song';tab='songs';showTrash=false;render();
+  const {error}=await sb.from('songs').insert({id,...data});if(error)toast('沒有新增成功：'+error.message);}
+let setTmr=null;
+function saveSet(){const x=set();if(!x)return;cacheAll();clearTimeout(setTmr);setTmr=setTimeout(async()=>{
+  const {error}=await sb.from('setlists').update({name:x.name,items:x.items,updated_at:new Date().toISOString()}).eq('id',x.id);setTmr=null;if(error)toast('歌單沒有存成功：'+error.message);},500);}
+async function createSet(name,items=[]){
+  const id=crypto.randomUUID();setlists.unshift({id,name,items});curSet=id;view='set';tab='sets';render();
+  const {error}=await sb.from('setlists').insert({id,name,items});if(error)toast('沒有新增成功：'+error.message);return id;}
 
-// ---- events ----
+// ---- 事件：歌曲 ----
 $('origKey').innerHTML=KEYS.map((k,i)=>`<option value="${i}">原調 ${k}</option>`).join('');
 $('capo').innerHTML=Array.from({length:8},(_,i)=>`<option value="${i}">${i||'不夾'}</option>`).join('');
-const shiftBy=d=>{const p=pref();p.shift+=d;if(p.shift>6)p.shift-=12;if(p.shift<-6)p.shift+=12;savePref();render();};
-$('up').onclick=$('stUp').onclick=()=>shiftBy(1);
-$('down').onclick=$('stDown').onclick=()=>shiftBy(-1);
-$('capo').onchange=e=>{pref().capo=+e.target.value;savePref();render();};
+const wrap=n=>n>6?n-12:n<-6?n+12:n;
+$('up').onclick=()=>{const p=prefOf(curId);p.shift=wrap(p.shift+1);savePrefs();render();};
+$('down').onclick=()=>{const p=prefOf(curId);p.shift=wrap(p.shift-1);savePrefs();render();};
+$('capo').onchange=e=>{prefOf(curId).capo=+e.target.value;savePrefs();render();};
 $('mSharp').onclick=()=>{mode='sharp';render()};$('mFlat').onclick=()=>{mode='flat';render()};$('mNash').onclick=()=>{mode=mode==='nash'?'auto':'nash';render()};
-$('list').onclick=e=>{const b=e.target.closest('.song');if(b){curId=b.dataset.id;render();}};
+$('tabSongs').onclick=()=>{tab='songs';showTrash=false;$('q').value='';renderList();};
+$('tabSets').onclick=()=>{tab='sets';$('q').value='';renderList();};
+$('list').onclick=e=>{
+  const r=e.target.closest('[data-restore]');if(r)return restoreDeleted(+r.dataset.restore);
+  const b=e.target.closest('.song');if(!b)return;
+  if(b.dataset.id){curId=b.dataset.id;lsSet('cb_cur',curId);view='song';}else{curSet=b.dataset.set;view='set';}
+  render();window.scrollTo({top:0});};
 $('q').oninput=renderList;
-$('newBtn').onclick=async()=>{await createSong({title:'新歌',key:0,src:'{主歌}\n[C]第一句[G]歌詞\n'});openEditor(true);$('title').select();};
-function openEditor(on){$('editor').hidden=!on;$('bodyEl').classList.toggle('editing',on);$('editBtn').textContent=on?'完成':'編輯';$('editBtn').classList.toggle('primary',on);}
+$('newBtn').onclick=async()=>{
+  if(tab==='songs'){await createSong({title:'新歌',key:0,src:'{主歌}\n[C]第一句[G]歌詞\n'});openEditor(true);$('title').select();}
+  else{await createSet('新歌單');$('setName').select();}};
+function openEditor(on){$('editor').hidden=!on;$('bodyEl').classList.toggle('editing',on);$('editBtn').textContent=on?'完成':'編輯';$('editBtn').classList.toggle('primary',on);if(!on){$('hist').hidden=true;$('imp').hidden=true;}}
 $('editBtn').onclick=()=>openEditor($('editor').hidden);
-$('src').oninput=e=>{saveSong({src:e.target.value});$('sheet').innerHTML=sheetHTML();};
+$('src').oninput=e=>{saveSong({src:e.target.value});$('sheet').innerHTML=sheetHTML(cur(),prefOf(curId).shift,prefOf(curId).capo,true);};
+$('title').oninput=e=>{saveSong({title:e.target.value});$('h').textContent=e.target.value;renderList();};
 $('url').oninput=e=>{saveSong({url:e.target.value.trim()});render();};
+$('memoIn').oninput=e=>{saveSong({memo:e.target.value});render();};
+$('bpm').oninput=e=>{saveSong({bpm:Math.max(0,Math.min(300,parseInt(e.target.value)||0))});render();};
+$('origKey').onchange=e=>{saveSong({key:+e.target.value});render();};
+$('copyBtn').onclick=()=>{const s=cur();if(!s)return;const p=prefOf(s.id);navigator.clipboard.writeText(textOut(s,p.shift,p.capo)).then(()=>toast('已複製，可以貼到 LINE')).catch(()=>toast('這個瀏覽器不允許複製'));};
+let armed=false;
+$('delBtn').onclick=async()=>{
+  if(!armed){armed=true;$('delBtn').textContent='再按一次確定刪除（可以在「最近刪除」還原）';setTimeout(()=>{armed=false;$('delBtn').textContent='刪除這首歌'},3000);return;}
+  armed=false;$('delBtn').textContent='刪除這首歌';const id=curId;
+  songs=songs.filter(s=>s.id!==id);curId=songs[0]?.id||null;openEditor(false);render();cacheAll();
+  const {error}=await sb.from('songs').delete().eq('id',id);if(error)toast('沒有刪除成功');else toast('已刪除，可以在「最近刪除」還原');};
+$('addToSet').onchange=async e=>{const v=e.target.value;e.target.value='';if(!v||!cur())return;
+  const item={song:curId,shift:prefOf(curId).shift};
+  if(v==='__new'){await createSet('新歌單',[item]);toast('已建立歌單並加入');return;}
+  const x=setlists.find(y=>y.id===v);x.items.push(item);curSet=x.id;saveSet();curSet=null;toast(`已加入「${x.name||'歌單'}」`);renderList();};
+
+// 點擊測速
+let taps=[];
+$('tapBtn').onclick=()=>{const t=performance.now();taps=taps.filter(x=>t-x<3000);taps.push(t);
+  if(taps.length<2){$('tapInfo').textContent='繼續照拍子點…';return;}
+  const iv=(taps[taps.length-1]-taps[0])/(taps.length-1),b=Math.round(60000/iv);
+  $('tapInfo').textContent=`點了 ${taps.length} 下`;$('bpm').value=b;saveSong({bpm:b});render();};
+
 // ---- 外部譜轉換：和弦在上、歌詞在下 → [C]歌詞 ----
 const CHORD_TOK=/^\(?[A-G](?:#|b|♯|♭)?(?:maj|min|m|M|dim|aug|sus|add|°|ø|\+|-)?[0-9]*(?:(?:b|#|add|sus|maj|no)?[0-9]+)*(?:\/[A-G](?:#|b|♯|♭)?)?\)?$/;
 const SEC_RE=/^\s*[\[【(（]?\s*(前奏|主歌|副歌|間奏|尾奏|橋段|導歌|pre-?chorus|intro|verse|chorus|bridge|interlude|outro|solo|ending|hook|[A-D]\d?|[ABC]段)\s*\d*\s*[\]】)）]?\s*[:：]?\s*$/i;
@@ -327,7 +547,7 @@ function chordsAt(l){const out=[];l.replace(/\S+/g,(m,i)=>{if(CHORD_TOK.test(m))
 function merge(chords,lyr){
   const chars=[...lyr];let col=0,idx=[];chars.forEach(ch=>{idx.push(col);col+=cw(ch);});
   let res='',ci=0;
-  chars.forEach((ch,i)=>{while(ci<chords.length&&chords[ci].col<=idx[i]+ (cw(ch)-1)){res+='['+chords[ci].c+']';ci++;}res+=ch;});
+  chars.forEach((ch,i)=>{while(ci<chords.length&&chords[ci].col<=idx[i]+(cw(ch)-1)){res+='['+chords[ci].c+']';ci++;}res+=ch;});
   while(ci<chords.length){res+=(res.endsWith(' ')?'':' ')+'['+chords[ci].c+']';ci++;}
   return res;}
 function convertSheet(text){
@@ -342,7 +562,7 @@ function convertSheet(text){
       else out.push(ch.map(x=>'['+x.c+']').join(' '));continue;}
     out.push(l);}
   return {src:out.join('\n').replace(/\n{3,}/g,'\n\n').trim(),key,n};}
-$('impBtn').onclick=()=>{$('imp').hidden=!$('imp').hidden;if(!$('imp').hidden)$('impSrc').focus();};
+$('impBtn').onclick=()=>{$('imp').hidden=!$('imp').hidden;$('hist').hidden=true;if(!$('imp').hidden)$('impSrc').focus();};
 $('impX').onclick=()=>{$('imp').hidden=true;$('impSrc').value='';$('impMsg').textContent='';};
 function doImport(append){const r=convertSheet($('impSrc').value);if(!r.src){$('impMsg').textContent='沒有內容可以轉換';return;}
   const patch={src:append&&cur().src.trim()?cur().src.trimEnd()+'\n\n'+r.src:r.src};
@@ -350,70 +570,189 @@ function doImport(append){const r=convertSheet($('impSrc').value);if(!r.src){$('
   saveSong(patch);$('src').value=patch.src;render();$('imp').hidden=true;$('impSrc').value='';
   toast(`已轉換 ${r.n} 行和弦`+(r.key?`，原調設為 ${r.key}`:'')+'。請對一下和弦位置');}
 $('impGo').onclick=()=>doImport(false);$('impAdd').onclick=()=>doImport(true);
-$('title').oninput=e=>{saveSong({title:e.target.value});$('h').textContent=e.target.value;renderList();};
-$('origKey').onchange=e=>{saveSong({key:+e.target.value});render();};
-let armed=false;
-$('delBtn').onclick=async()=>{
-  if(!armed){armed=true;$('delBtn').textContent='再按一次確定刪除（團員也會看不到）';setTimeout(()=>{armed=false;$('delBtn').textContent='刪除這首歌'},3000);return;}
-  armed=false;$('delBtn').textContent='刪除這首歌';const id=curId;
-  songs=songs.filter(s=>s.id!==id);curId=songs[0]?.id||null;openEditor(false);render();
-  if(store==='db') sb.from('songs').delete().eq('id',id).then(({error})=>error&&toast('沒有刪除成功'));else lsSet('cb_songs',songs);};
 
-function textOut(){
-  const {s,p,pk,fk,shape}=ctx(); const w=t=>[...t].reduce((a,c)=>a+(c.charCodeAt(0)>255?2:1),0);
-  const out=[s.title,`Key ${nn(pk,useFlats(pk))}`+(p.capo?`  Capo ${p.capo}`:''),''];
-  parse(s.src).forEach(r=>{if(r.sec){out.push('','['+r.sec+']');return;} if(r.gap){out.push('');return;}
-    let a='',b='';r.segs.forEach(g=>{const c=g.c?xpose(g.c,shape,fk,s.key):'';const n=Math.max(w(g.l),c.length+1);a+=c.padEnd(n);b+=g.l+' '.repeat(n-w(g.l));});
-    out.push(a.trimEnd()); if(!r.only) out.push(b.trimEnd());});
-  return out.join('\n');}
-$('copyBtn').onclick=()=>navigator.clipboard.writeText(textOut()).then(()=>toast('已複製，可以貼到 LINE')).catch(()=>toast('這個檢視不允許複製'));
-function toast(t){const el=$('toast');el.textContent=t;el.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>el.hidden=true,1800);}
+// ---- 版本紀錄 / 最近刪除 ----
+let versions=[];
+$('histBtn').onclick=async()=>{
+  $('hist').hidden=!$('hist').hidden;$('imp').hidden=true;$('histPrev').hidden=true;if($('hist').hidden)return;
+  $('histList').innerHTML='<div class="small">讀取中…</div>';
+  const {data,error}=await sb.from('song_versions').select('*').eq('song_id',curId).order('created_at',{ascending:false}).limit(40);
+  if(error){$('histList').innerHTML=`<div class="small">讀不到版本紀錄：${esc(error.message)}</div>`;return;}
+  versions=data;
+  $('histList').innerHTML=data.length?data.map(v=>`<div class="hrow"><span>${new Date(v.created_at).toLocaleString('zh-TW')}　<span class="small">${esc(v.title)}・${(v.src||'').split('\n').length} 行</span></span><button data-vprev="${v.id}">看內容</button><button data-vback="${v.id}">還原</button></div>`).join('')
+    :'<div class="small">還沒有舊版本。這首歌之後被修改時，修改前的內容會自動存在這裡。</div>';};
+$('histList').onclick=e=>{
+  const p=e.target.closest('[data-vprev]'),b=e.target.closest('[data-vback]');
+  if(p){const v=versions.find(x=>x.id==p.dataset.vprev);$('histPrev').textContent=v.src;$('histPrev').hidden=false;}
+  if(b){const v=versions.find(x=>x.id==b.dataset.vback);saveSong({title:v.title,key:v.key,src:v.src,memo:v.memo||''});$('src').value=v.src;$('title').value=v.title;render();$('hist').hidden=true;toast('已還原到 '+new Date(v.created_at).toLocaleString('zh-TW'));}};
+async function loadTrash(){
+  const {data,error}=await sb.from('song_versions').select('*').eq('reason','deleted').order('created_at',{ascending:false}).limit(60);
+  if(error){trash=[];return;}const seen=new Set(songs.map(s=>s.id));trash=data.filter(v=>!seen.has(v.song_id)&&!seen.has('x'+v.song_id)&&(seen.add('x'+v.song_id),true));}
+$('trashBtn').onclick=async()=>{showTrash=!showTrash;if(showTrash){$('list').innerHTML='<div class="empty">讀取中…</div>';await loadTrash();}renderList();};
+async function restoreDeleted(vid){
+  const v=trash.find(x=>x.id===vid);if(!v)return;
+  const row={id:v.song_id,title:v.title,key:v.key,src:v.src,bpm:v.bpm||0,memo:v.memo||'',url:v.url||'',audio_url:v.audio_url||''};
+  const {error}=await sb.from('songs').insert(row);if(error){toast('沒有還原成功：'+error.message);return;}
+  songs.unshift(fromRow({...row,updated_at:new Date().toISOString()}));curId=v.song_id;showTrash=false;view='song';render();toast('已還原「'+v.title+'」');}
 
-// ---- stage mode ----
-let playing=false,speed=3,raf=0,lastT=0,acc=0,wake=null,font=lsGet('cb_font',26);
-function stageFont(){$('stSheet').style.setProperty('--lyr',font+'px');lsSet('cb_font',font);}
-function tick(t){if(!playing)return;const dt=lastT?t-lastT:0;lastT=t;acc+=dt*speed*0.012;const px=Math.floor(acc);if(px){$('stScroll').scrollTop+=px;acc-=px;}
-  const sc=$('stScroll');if(sc.scrollTop+sc.clientHeight>=sc.scrollHeight-1){setPlay(false);return;}raf=requestAnimationFrame(tick);}
-function setPlay(on){playing=on;$('stPlay').textContent=on?'❚❚ 暫停':'▶ 捲動';$('stPlay').classList.toggle('on',on);cancelAnimationFrame(raf);lastT=0;if(on)raf=requestAnimationFrame(tick);}
-$('stageBtn').onclick=async()=>{if(!cur())return;$('stage').hidden=false;$('stScroll').scrollTop=0;stageFont();render();
+// ---- Demo 錄音 ----
+$('demoFile').onchange=async e=>{
+  const f=e.target.files[0];e.target.value='';const s=cur();if(!f||!s)return;
+  if(f.size>20*1024*1024){toast('檔案超過 20MB，請先壓縮成 mp3 或 m4a');return;}
+  $('demoMsg').textContent='上傳中…';
+  const path=`${s.id}/${Date.now()}-${f.name.replace(/[^\w.\-]/g,'_')}`;
+  const {error}=await sb.storage.from('demos').upload(path,f,{contentType:f.type||'audio/mpeg'});
+  if(error){$('demoMsg').textContent='上傳失敗：'+error.message;return;}
+  const old=s.audio_url;saveSong({audio_url:sb.storage.from('demos').getPublicUrl(path).data.publicUrl});
+  $('demoMsg').textContent='已上傳';render();removeDemoFile(old);};
+function removeDemoFile(url){const m=(url||'').match(/\/demos\/(.+)$/);if(m)sb.storage.from('demos').remove([decodeURIComponent(m[1])]);}
+$('demoDel').onclick=()=>{const old=cur().audio_url;saveSong({audio_url:''});$('demoMsg').textContent='已移除';render();removeDemoFile(old);};
+
+// ---- 歌單 ----
+function renderSet(){
+  const x=set();if(!x){view='song';return render();}
+  if(document.activeElement!==$('setName'))$('setName').value=x.name;
+  const n=x.items.length,mins=x.items.reduce((a,it)=>a+(song(it.song)?1:0),0);
+  $('setInfo').textContent=`${n} 首`+(mins!==n?`（其中 ${n-mins} 首已被刪除）`:'');
+  $('setItems').innerHTML=n?x.items.map((it,i)=>{const s=song(it.song);
+    const k=s?keyName(mod(s.key+it.shift)):'—';
+    return `<div class="setrow"><span class="n">${i+1}</span>
+      <button class="t" data-open="${i}"${s?'':' disabled'}>${s?esc(s.title||'未命名'):'（已刪除的歌）'}${s&&s.bpm?` <span class="small">♩${s.bpm}</span>`:''}</button>
+      <span class="k"><button data-kd="${i}" aria-label="降半音">−</button><b>${k}</b><button data-ku="${i}" aria-label="升半音">+</button></span>
+      <span class="mv"><button data-up="${i}" aria-label="往上"${i?'':' disabled'}>↑</button><button data-dn="${i}" aria-label="往下"${i<n-1?'':' disabled'}>↓</button><button data-rm="${i}" aria-label="移除">✕</button></span></div>`}).join('')
+    :'<div class="empty">還沒有歌。從下面選歌加入，或在歌曲頁按「加入歌單」。</div>';
+  $('setAddSel').innerHTML=songs.map(s=>`<option value="${s.id}">${esc(s.title||'未命名')}（${KEYS[s.key]}）</option>`).join('');
+  $('setPlay').disabled=!x.items.some(it=>song(it.song));}
+$('setName').oninput=e=>{set().name=e.target.value;saveSet();renderList();};
+$('setItems').onclick=e=>{const x=set(),b=e.target.closest('button');if(!b)return;const d=b.dataset;
+  if(d.open!==undefined){curId=x.items[+d.open].song;view='song';render();return;}
+  if(d.kd!==undefined)x.items[+d.kd].shift=wrap(x.items[+d.kd].shift-1);
+  if(d.ku!==undefined)x.items[+d.ku].shift=wrap(x.items[+d.ku].shift+1);
+  if(d.up!==undefined){const i=+d.up;[x.items[i-1],x.items[i]]=[x.items[i],x.items[i-1]];}
+  if(d.dn!==undefined){const i=+d.dn;[x.items[i+1],x.items[i]]=[x.items[i],x.items[i+1]];}
+  if(d.rm!==undefined)x.items.splice(+d.rm,1);
+  saveSet();render();};
+$('setAddBtn').onclick=()=>{const id=$('setAddSel').value;if(!id)return;set().items.push({song:id,shift:prefOf(id).shift});saveSet();render();};
+let setArmed=false;
+$('setDel').onclick=async()=>{if(!setArmed){setArmed=true;$('setDel').textContent='再按一次確定刪除';setTimeout(()=>{setArmed=false;$('setDel').textContent='刪除歌單'},3000);return;}
+  setArmed=false;$('setDel').textContent='刪除歌單';const id=curSet;setlists=setlists.filter(x=>x.id!==id);curSet=null;view='song';render();cacheAll();
+  const {error}=await sb.from('setlists').delete().eq('id',id);if(error)toast('沒有刪除成功');};
+$('setPlay').onclick=()=>{const x=set();openStage(x.items.filter(it=>song(it.song)).map(it=>({...it})),0,x.id);};
+$('stageBtn').onclick=()=>{const s=cur();if(s)openStage([{song:s.id,shift:prefOf(s.id).shift}],0,null);};
+
+// ---- 舞台模式 ----
+let queue=[],qi=0,qSet=null,playing=false,raf=0,lastT=0,acc=0,wake=null,font=lsGet('cb_font',26);
+const MULTS=[.5,.6,.7,.8,.9,1,1.1,1.25,1.4,1.6,1.8,2];let mi=lsGet('cb_mult',5);
+const stItem=()=>queue[qi],stSong=()=>song(stItem()?.song);
+async function openStage(q,i,setId){
+  if(!q.length)return;queue=q;qi=i;qSet=setId;$('stage').hidden=false;stageFont();renderStage(true);
   try{wake=await navigator.wakeLock?.request('screen')}catch(e){}
-  try{await $('stage').requestFullscreen?.()}catch(e){}};
-$('stClose').onclick=()=>{setPlay(false);$('stage').hidden=true;try{wake?.release()}catch(e){}if(document.fullscreenElement)document.exitFullscreen().catch(()=>{});};
+  try{await $('stage').requestFullscreen?.()}catch(e){}}
+function renderStage(top){
+  const s=stSong();if(!s)return;const it=stItem(),capo=prefOf(s.id).capo,pk=mod(s.key+it.shift);
+  $('stTitle').textContent=s.title;
+  $('stPos').textContent=(queue.length>1?`${qi+1} / ${queue.length}　`:'')+(s.bpm?`♩=${s.bpm}`:'沒有設定 BPM');
+  $('stKey').textContent=keyName(pk)+(capo?` · Capo ${capo}`:'');
+  $('stMemo').hidden=!s.memo;$('stMemo').textContent=s.memo||'';
+  $('stSheet').innerHTML=sheetHTML(s,it.shift,capo,false);
+  $('stPrev').disabled=qi===0;$('stNext').disabled=qi>=queue.length-1;
+  $('stSpd').textContent=(s.bpm?'依BPM ':'')+'×'+MULTS[mi].toFixed(2).replace(/0$/,'');
+  if(top)$('stScroll').scrollTop=0;}
+function stageFont(){$('stSheet').style.setProperty('--lyr',font+'px');lsSet('cb_font',font);}
+function rate(){const b=stSong()?.bpm||0;return (b?(b/60)*(font*2.7)/4:font*0.55)*MULTS[mi];} // 每秒捲動 px：約一行四拍
+function tick(t){if(!playing)return;const dt=lastT?t-lastT:0;lastT=t;acc+=dt/1000*rate();const px=Math.floor(acc);if(px){$('stScroll').scrollTop+=px;acc-=px;}
+  const sc=$('stScroll');if(sc.scrollTop+sc.clientHeight>=sc.scrollHeight-1){setPlay(false);return;}raf=requestAnimationFrame(tick);}
+function setPlay(on){playing=on;$('stPlay').innerHTML=on?'❚❚<small>暫停</small>':'▶<small>捲動</small>';$('stPlay').classList.toggle('on',on);cancelAnimationFrame(raf);lastT=0;if(on)raf=requestAnimationFrame(tick);}
+function go(d){const n=qi+d;if(n<0||n>=queue.length)return;setPlay(false);setMet(false);qi=n;renderStage(true);}
+function closeStage(){setPlay(false);setMet(false);$('stage').hidden=true;$('count').hidden=true;try{wake?.release()}catch(e){}if(document.fullscreenElement)document.exitFullscreen().catch(()=>{});}
+function stShift(d){const it=stItem();it.shift=wrap(it.shift+d);
+  if(qSet){const x=setlists.find(y=>y.id===qSet);const orig=x?.items.find(y=>y.song===it.song);if(orig){orig.shift=it.shift;const keep=curSet;curSet=qSet;saveSet();curSet=keep;}}
+  else{prefOf(it.song).shift=it.shift;savePrefs();}
+  renderStage();}
+$('stUp').onclick=()=>stShift(1);$('stDown').onclick=()=>stShift(-1);
+$('stPrev').onclick=()=>go(-1);$('stNext').onclick=()=>go(1);
+$('stClose').onclick=()=>{closeStage();render();};
 $('stPlay').onclick=()=>setPlay(!playing);
-$('stSlow').onclick=()=>{speed=Math.max(1,speed-1);$('stSpd').textContent=speed};
-$('stFast').onclick=()=>{speed=Math.min(10,speed+1);$('stSpd').textContent=speed};
+$('stSlow').onclick=()=>{mi=Math.max(0,mi-1);lsSet('cb_mult',mi);renderStage();};
+$('stFast').onclick=()=>{mi=Math.min(MULTS.length-1,mi+1);lsSet('cb_mult',mi);renderStage();};
 $('stBig').onclick=()=>{font=Math.min(48,font+2);stageFont()};
 $('stSmall').onclick=()=>{font=Math.max(16,font-2);stageFont()};
-document.addEventListener('keydown',e=>{if($('stage').hidden)return;if(e.key===' '){e.preventDefault();setPlay(!playing)}if(e.key==='Escape')$('stClose').onclick();});
 
-// ---- boot (Supabase) ----
-function bootLocal(){
-  store='local';songs=lsGet('cb_songs',[]);prefs=lsGet('cb_prefs',{});
-  if(!songs.length){songs=[{id:'s1',...SAMPLE,updatedAt:Date.now()}];}
-  curId=songs[0].id;$('mine').textContent='';render();}
+// 節拍器與預備拍（Web Audio）
+let ac=null,metOn=false,metT=null,beatN=0;
+function click(accent){
+  try{ac=ac||new (window.AudioContext||window.webkitAudioContext)();if(ac.state==='suspended')ac.resume();
+    const o=ac.createOscillator(),g=ac.createGain(),t=ac.currentTime;o.frequency.value=accent?1500:1000;
+    g.gain.setValueAtTime(.35,t);g.gain.exponentialRampToValueAtTime(.001,t+.06);o.connect(g).connect(ac.destination);o.start(t);o.stop(t+.07);}catch(e){}
+  const b=$('beat');b.className='beat '+(accent?'acc':'hit');setTimeout(()=>b.className='beat',90);}
+const bpmNow=()=>stSong()?.bpm||90;
+function setMet(on){metOn=on;clearInterval(metT);$('stMet').classList.toggle('on',on);
+  if(on){beatN=0;click(true);metT=setInterval(()=>{beatN=(beatN+1)%4;click(beatN===0);},60000/bpmNow());}}
+$('stMet').onclick=()=>{if(!stSong()?.bpm)toast('這首歌沒有設定 BPM，先用 90');setMet(!metOn);};
+let countT=null;
+$('stCount').onclick=()=>{
+  clearInterval(countT);setPlay(false);const iv=60000/bpmNow();let i=1;
+  const show=n=>{$('count').hidden=false;$('count').textContent=n;};
+  show(1);click(true);
+  countT=setInterval(()=>{i++;if(i<=4){show(i);click(false);}else{clearInterval(countT);$('count').hidden=true;setPlay(true);}},iv);};
+
+// 手勢與鍵盤（也支援翻頁踏板：PageUp / PageDown）
+let tx=0,ty=0;
+$('stScroll').addEventListener('touchstart',e=>{tx=e.touches[0].clientX;ty=e.touches[0].clientY;},{passive:true});
+$('stScroll').addEventListener('touchend',e=>{const dx=e.changedTouches[0].clientX-tx,dy=e.changedTouches[0].clientY-ty;
+  if(Math.abs(dx)>80&&Math.abs(dy)<50)go(dx<0?1:-1);},{passive:true});
+document.addEventListener('keydown',e=>{if($('stage').hidden)return;
+  const sc=$('stScroll'),k=e.key;
+  if(k===' '){e.preventDefault();setPlay(!playing);}
+  else if(k==='ArrowRight')go(1);else if(k==='ArrowLeft')go(-1);
+  else if(k==='PageDown'||k==='ArrowDown'){e.preventDefault();sc.scrollBy({top:sc.clientHeight*.7,behavior:'smooth'});}
+  else if(k==='PageUp'||k==='ArrowUp'){e.preventDefault();sc.scrollBy({top:-sc.clientHeight*.7,behavior:'smooth'});}
+  else if(k==='m')$('stMet').click();else if(k==='c')$('stCount').click();
+  else if(k==='Escape')$('stClose').click();});
+
+// ---- 連線與同步（含離線） ----
 const CFG=window.CHORDBOOK_CONFIG||{};
-let sb=null;
-function fromRow(r){return {id:r.id,title:r.title||'',key:+r.key||0,src:r.src||'',url:r.url||'',updatedAt:Date.parse(r.updated_at)||0};}
+function fromRow(r){return {id:r.id,title:r.title||'',key:+r.key||0,src:r.src||'',url:r.url||'',memo:r.memo||'',bpm:+r.bpm||0,audio_url:r.audio_url||'',updatedAt:Date.parse(r.updated_at)||0};}
+function setFromRow(r){return {id:r.id,name:r.name||'',items:Array.isArray(r.items)?r.items:[],updatedAt:Date.parse(r.updated_at)||0};}
+function status(t,cls){$('sync').textContent=t;$('sync').className='sync '+(cls||'');}
 async function loadAll(){
-  const {data,error}=await sb.from('songs').select('*').order('updated_at',{ascending:false});
-  if(error){$('sync').textContent='讀取失敗：'+error.message;return;}
-  songs=data.map(fromRow);if(!songs.find(s=>s.id===curId))curId=songs[0]?.id||null;render();}
-async function startSynced(){
-  store='db';prefs=lsGet('cb_prefs',{});
-  $('sync').innerHTML='已連線・團員共用歌本';$('sync').classList.add('on');
-  await loadAll();
-  sb.channel('songs').on('postgres_changes',{event:'*',schema:'public',table:'songs'},p=>{
-    if(p.eventType==='DELETE'){songs=songs.filter(s=>s.id!==p.old.id);if(curId===p.old.id)curId=songs[0]?.id||null;render();return;}
+  const [a,b]=await Promise.all([
+    sb.from('songs').select('*').order('updated_at',{ascending:false}),
+    sb.from('setlists').select('*').order('updated_at',{ascending:false})]);
+  if(a.error||b.error)throw (a.error||b.error);
+  songs=a.data.map(fromRow);setlists=b.data.map(setFromRow);
+  if(!songs.find(s=>s.id===curId))curId=songs[0]?.id||null;
+  cacheAll();online=true;status('已連線・團員共用歌本','on');render();}
+function subscribe(){
+  sb.channel('db').on('postgres_changes',{event:'*',schema:'public',table:'songs'},p=>{
+    if(p.eventType==='DELETE'){songs=songs.filter(s=>s.id!==p.old.id);if(curId===p.old.id)curId=songs[0]?.id||null;cacheAll();render();return;}
     const r=fromRow(p.new);
     if(r.id===curId&&!$('editor').hidden&&tmr)return; // 正在打字，不覆蓋
     const i=songs.findIndex(s=>s.id===r.id);if(i>=0)songs[i]=r;else songs.unshift(r);
-    songs.sort((a,b)=>b.updatedAt-a.updatedAt);render();
+    songs.sort((a,b)=>b.updatedAt-a.updatedAt);cacheAll();render();
+  }).on('postgres_changes',{event:'*',schema:'public',table:'setlists'},p=>{
+    if(p.eventType==='DELETE'){setlists=setlists.filter(x=>x.id!==p.old.id);if(curSet===p.old.id){curSet=null;view='song';}cacheAll();render();return;}
+    if(p.new.id===curSet&&setTmr)return;
+    const r=setFromRow(p.new),i=setlists.findIndex(x=>x.id===r.id);if(i>=0)setlists[i]=r;else setlists.unshift(r);cacheAll();render();
   }).subscribe();}
-(async()=>{
-  if(!CFG.supabaseUrl||!window.supabase){bootLocal();$('sync').textContent='尚未設定 Supabase，目前只存在這台裝置';return;}
+async function flushPending(){
+  for(const id of [...pending]){const s=song(id);if(!s){pending.delete(id);continue;}
+    const {error}=await sb.from('songs').update({title:s.title,key:s.key,src:s.src,url:s.url||'',memo:s.memo||'',bpm:s.bpm||0,audio_url:s.audio_url||'',updated_at:new Date(s.updatedAt).toISOString()}).eq('id',id);
+    if(!error)pending.delete(id);}
+  lsSet('cb_pending',[...pending]);}
+async function connect(){
+  try{if(pending.size){online=true;await flushPending();}await loadAll();}
+  catch(e){online=false;status(navigator.onLine?'連不到資料庫，顯示上次的內容':'離線中，顯示上次同步的內容','off');}}
+window.addEventListener('online',connect);
+window.addEventListener('offline',()=>{online=false;status('離線中，修改會等連線後再存','off');});
+(()=>{
+  const c=lsGet('cb_cache',null);
+  if(c){songs=c.songs||[];setlists=c.setlists||[];if(!songs.find(s=>s.id===curId))curId=songs[0]?.id||null;}
+  render();
+  if(!CFG.supabaseUrl||!window.supabase){status('沒有連上資料庫，顯示上次的內容','off');return;}
   sb=window.supabase.createClient(CFG.supabaseUrl,CFG.supabaseAnonKey);
-  songs=[];curId=null;render();
-  startSynced();
+  connect().then(subscribe);
+  if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 })();
 </script>
 </body>
