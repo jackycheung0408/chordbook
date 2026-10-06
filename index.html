@@ -11,6 +11,8 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=JetBrains+Mono:wght@500;700&display=swap">
 <style>
 html,body{margin:0}[hidden]{display:none!important}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body{overflow-x:hidden}
 /* Layout: library sidebar (songs / setlists) + main view; sticky key bar; editor beside sheet; stage is a full overlay with a thumb bar */
 :root{
   --bg:#e8e9ec; --panel:#f8f8f6; --fg:#18202c; --muted:#6b7280; --line:#d5d7dc;
@@ -260,6 +262,11 @@ details.more[open] summary{margin-bottom:2px}
 .wprog .meter{width:min(320px,80vw)}
 .wsum{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:14px;margin-bottom:14px}
 .wsum b{font-family:var(--mono);color:var(--chord)}
+.list{max-height:calc(100dvh - 260px)}
+.stage,.wiz{height:100dvh}
+/* iPhone：輸入框小於 16px 會自動放大畫面 */
+@media (max-width:860px){input,select,textarea,.pk input{font-size:16px!important}}
+button,.btn,.tc,.song{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
 .toast{position:fixed;z-index:40;left:50%;bottom:calc(84px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:9px 14px;border-radius:8px;font-size:13px;max-width:calc(100vw - 32px)}
 @media (prefers-reduced-motion:no-preference){.song,button{transition:background .12s,border-color .12s}}
 </style>
@@ -1155,7 +1162,12 @@ window.addEventListener('offline',()=>{online=false;status('離線中，修改�
   if(!CFG.supabaseUrl||!window.supabase){status('沒有連上資料庫，顯示上次的內容','off');return;}
   sb=window.supabase.createClient(CFG.supabaseUrl,CFG.supabaseAnonKey);
   connect().then(subscribe);
-  if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+  if('serviceWorker' in navigator){
+    // 有新版本時自動換上（不會在打字或舞台模式中打斷）
+    let reloading=false;const hadCtrl=!!navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener('controllerchange',()=>{if(!hadCtrl||reloading)return;
+      const go=()=>{if(!$('stage').hidden||!$('wiz').hidden||tmr){setTimeout(go,5000);return;}reloading=true;location.reload();};go();});
+    navigator.serviceWorker.register('sw.js').then(r=>{r.update();document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')r.update();});}).catch(()=>{});}
 })();
 </script>
 </body>
