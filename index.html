@@ -196,7 +196,8 @@ pre.preview{margin:0;max-height:240px;overflow:auto;font-family:var(--mono);font
 .guide ol{margin:0;padding-left:1.3em;display:grid;gap:6px}
 @media (max-width:1000px){.body.editing #editor{order:-1}}
 .tl{display:flex;gap:6px;align-items:flex-end;margin-bottom:8px}
-.tools{display:flex;flex-direction:column;gap:2px;opacity:.35;transition:opacity .12s}
+.tools{display:flex;flex-direction:column;gap:2px;opacity:0;transition:opacity .12s}
+@media (hover:none){.tools{opacity:.6}}
 .tl:hover .tools,.tl:focus-within .tools{opacity:1}
 .tools button{padding:1px 6px;font-size:12px;line-height:1.4}
 .tcells{display:flex;flex-wrap:wrap;align-items:flex-end;min-width:0}
