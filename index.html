@@ -1649,6 +1649,7 @@ function directAudioUrl(u){
 $('demoUrlBtn').onclick=()=>{$('demoUrlBox').hidden=!$('demoUrlBox').hidden;if(!$('demoUrlBox').hidden)$('demoUrl').focus();};
 $('demoUrlOk').onclick=async()=>{
   const raw=$('demoUrl').value;if(!/^https?:\/\//.test(raw.trim())){toast('請貼 https:// 開頭的網址');return;}
+  if(/suno\.(com|ai)\//i.test(raw)){toast('Suno 的連結是網頁，聲音有加密，沒辦法直接當 Demo。要配和弦請用「自動配和弦 → 邊播邊抓」；要放 Demo 請從 Suno 下載後上傳');return;}
   if(/youtu\.?be|streetvoice|spotify|soundcloud\.com\/(?!.*\.(mp3|m4a|wav))/i.test(raw)){toast('這是網頁連結，不是錄音檔。請改用上傳檔案');return;}
   const u=directAudioUrl(raw),old=cur().audio_url;$('demoMsg').textContent='檢查中…';
   const ok=await new Promise(res=>{const a=new Audio();a.preload='metadata';a.onloadedmetadata=()=>res(true);a.onerror=()=>res(false);a.src=u;setTimeout(()=>res(false),10000);});
