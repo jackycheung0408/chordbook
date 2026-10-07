@@ -286,7 +286,16 @@ pre.preview{margin:0;max-height:240px;overflow:auto;font-family:var(--mono);font
 .addch{margin-left:auto;font-size:12px;letter-spacing:0;padding:3px 10px;border-radius:999px;color:var(--accent);background:transparent;border-color:var(--line);font-weight:500}
 .secacts{display:flex;gap:6px;margin-left:auto;order:2}
 .sec:has(.secacts)::after{order:1}
-.cline{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 10px}
+.cline{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin:4px 0 10px}
+.barsep{color:var(--muted);opacity:.5;font-family:var(--mono);padding:0 2px}
+.rep.big{font-size:13px;padding:2px 10px;color:var(--chord);margin-left:6px}
+.barline{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));max-width:560px;margin:4px 0 2px;border-left:2px solid var(--line)}
+.bar1{font-family:var(--mono);font-weight:700;color:var(--chord);font-size:calc(var(--lyr) * .9);padding:6px 10px;border-right:2px solid var(--line);border-bottom:1px solid color-mix(in srgb,var(--line) 50%,transparent)}
+.bar1.out{text-decoration:underline dotted;text-underline-offset:4px}
+.barline.again{opacity:.72}
+.barrep{font-family:var(--mono);font-size:12px;color:var(--chord);margin:0 0 10px;font-weight:700}
+.stage .bar1{color:var(--stage-chord);border-color:var(--stage-line)}
+.stage .barline{border-color:var(--stage-line)}
 .cchip{font-family:var(--mono);font-weight:700;color:var(--chord);font-size:16px;padding:6px 14px;border-radius:10px}
 .cchip.add{color:var(--muted);font-weight:400;border-style:dashed}
 .cchip.sel{box-shadow:0 0 0 2px var(--accent)}
@@ -724,6 +733,7 @@ function secHead(t){t=t.trim();const ref=/^[@=]/.test(t);if(ref)t=t.slice(1).tri
   const r=t.match(/\s*[x×]\s*(\d+)\s*$/i);return {name:r?t.slice(0,r.index).trim():t,rep:r?+r[1]:0,ref};}
 function parseLine(line){
   if(/^\s*>/.test(line)) return {note:line.replace(/^\s*>\s?/,'')};
+  if(typeof isChordOnly==='function'&&isChordOnly(line))return {bars:chordTokens(line),rep:lineRep(line)};
   if(!line.trim()) return {gap:true};
   const segs=[],re=/\[([^\]]+)\]/g;let last=0,m,chord='';
   while((m=re.exec(line))){segs.push({c:chord,l:line.slice(last,m.index)});chord=m[1];last=re.lastIndex;}
@@ -752,6 +762,7 @@ function sheetHTML(s,shift,capo,mark){
     if(r.sec) return `<div class="sec">${esc(r.sec)}${r.ref?' <span class="rep">再一次</span>':''}${r.rep>1?` <span class="rep">×${r.rep}</span>`:''}</div>`;
     if(r.note!==undefined) return `<div><span class="note">${esc(r.note)}</span></div>`;
     if(r.gap) return '<div class="ln gap"></div>';
+    if(r.bars) return `<div class="barline${r.again?' again':''}">`+r.bars.map(c=>{const out=mark&&!inKey(c,s.key);return `<span class="bar1${out?' out':''}">${esc(xpose(c,sh,fk,s.key))}</span>`;}).join('')+`</div>${r.rep>1?`<div class="barrep">×${r.rep}</div>`:''}`;
     return `<div class="ln${r.only?' only':''}${r.again?' again':''}">`+r.segs.map(g=>{
       const out=mark&&g.c&&!inKey(g.c,s.key);
       return `<span class="sg"><span class="c${out?' out':''}"${out?' title="調外和弦"':''}>${esc(g.c?xpose(g.c,sh,fk,s.key):'')}</span><span class="l">${esc(g.l)||' '}</span></span>`;}).join('')+'</div>';
@@ -764,6 +775,7 @@ function textOut(s,shift,capo){
     if(r.sec){out.push('','['+r.sec+(r.ref?' 再一次':'')+(r.rep>1?' x'+r.rep:'')+']');return;}
     if(r.note!==undefined){out.push('※ '+r.note);return;}
     if(r.gap){out.push('');return;}
+    if(r.bars){out.push('| '+r.bars.map(c=>xpose(c,sh,fk,s.key)).join(' | ')+' |'+(r.rep>1?' x'+r.rep:''));return;}
     let a='',b='';r.segs.forEach(g=>{const c=g.c?xpose(g.c,sh,fk,s.key):'';const n=Math.max(w(g.l),c.length+1);a+=c.padEnd(n);b+=g.l+' '.repeat(n-w(g.l));});
     out.push(a.trimEnd());if(!r.only)out.push(b.trimEnd());});
   return out.join('\n').replace(/\n{3,}/g,'\n\n');}
@@ -914,7 +926,8 @@ function cellsOf(line){const cells=[];let pend=null,i=0;
   cells.push({ch:'',off:line.length,chord:null,end:true});return cells;}
 const chordTokens=l=>[...l.matchAll(/\[([^\]]+)\]/g)].map(m=>m[1]);
 const isChordOnly=l=>l.trim()&&!secMatch(l)&&!/^\s*>/.test(l)&&/\[/.test(l)&&!l.replace(/\[[^\]]*\]/g,'').replace(/[|｜\s\-–—.xX×\d]/g,'');
-const chordLine=t=>t.map(n=>'['+n+']').join(' ');
+const lineRep=l=>{const m=(l||'').match(/(?:^|\s|\])\s*[xX×]\s*(\d+)\s*$/);return m?+m[1]:0;};
+const chordLine=(t,r)=>t.map(n=>'['+n+']').join(' ')+(r>1?' x'+r:'');
 // 段落裡有沒有歌詞（沒有的才需要「＋ 和弦」，例如前奏、間奏）
 function sectionHasLyrics(lines,i){for(let j=i+1;j<lines.length;j++){if(secMatch(lines[j]))return false;if(isLyricLine(lines[j]))return true;}return false;}
 function tapHTML(s){
@@ -922,7 +935,7 @@ function tapHTML(s){
   return all.map((l,i)=>{
     const m=secMatch(l);
     if(m){const h=secHead(m[1]);return `<div class="sec">${esc(h.name)}${h.ref?' <span class="rep">再一次・內容跟前面一樣</span>':''}${h.rep>1?` <span class="rep">×${h.rep}</span>`:''}<span class="secacts">${h.ref||sectionHasLyrics(all,i)?'':`<button class="addch" data-addafter="${i}">＋ 加和弦</button>`}</span></div>`;}
-    if(isChordOnly(l)){const t=chordTokens(l);return `<div class="cline">`+t.map((n,ci)=>`<button class="cchip" data-cl="${i}" data-ci="${ci}">${esc(n)}</button>`).join('')+`<button class="cchip add" data-cl="${i}" data-ci="-1" aria-label="加一個和弦">＋</button></div>`;}
+    if(isChordOnly(l)){const t=chordTokens(l),rp=lineRep(l);return `<div class="cline"><span class="barsep">|</span>`+t.map((n,ci)=>`<button class="cchip" data-cl="${i}" data-ci="${ci}">${esc(n)}</button><span class="barsep">|</span>`).join('')+(rp>1?`<span class="rep big">×${rp}</span>`:'')+`<button class="cchip add" data-cl="${i}" data-ci="-1" aria-label="加一個和弦">＋</button></div>`;}
     if(/^\s*>/.test(l))return `<div><span class="note">${esc(l.replace(/^\s*>\s?/,''))}</span></div>`;
     if(!l.trim())return '<div class="ln gap"></div>';
     const cells=cellsOf(l);
@@ -970,18 +983,18 @@ function applyChord(name){
   name=(name||'').trim().replace(/[\[\]]/g,'').replace(/♯/g,'#').replace(/♭/g,'b');if(!name||!pk)return;
   if(pk.ins!=null||pk.cl!=null){const lines=cur().src.split('\n');
     if(pk.ins!=null)lines.splice(pk.ins+1,0,'['+name+']');
-    else{const t=chordTokens(lines[pk.cl]);if(pk.ci<0)t.push(name);else t[pk.ci]=name;lines[pk.cl]=chordLine(t);}
+    else{const t=chordTokens(lines[pk.cl]);if(pk.ci<0)t.push(name);else t[pk.ci]=name;lines[pk.cl]=chordLine(t,lineRep(lines[pk.cl]));}
     const o=pk;pushRecent(name);closePicker();commitLines(lines);
     const cl=o.ins!=null?o.ins+1:o.cl;select(o.ci<0||o.ins!=null?{cl,ci:-1}:{cl,ci:o.ci});return;}
   const lines=cur().src.split('\n'),line=lines[pk.l],c=cellsOf(line)[pk.k];
   lines[pk.l]=c.chord?line.slice(0,c.chord.s)+'['+name+']'+line.slice(c.chord.e):line.slice(0,c.off)+'['+name+']'+line.slice(c.off);
   pushRecent(name);const {l,k}=pk,wasEnd=c.end;closePicker();commitLines(lines);select({l,k:wasEnd?k+1:k});}
 function removeChord(){
-  if(pk.cl!=null){const lines=cur().src.split('\n'),t=chordTokens(lines[pk.cl]);t.splice(pk.ci,1);if(t.length)lines[pk.cl]=chordLine(t);else lines.splice(pk.cl,1);closePicker();commitLines(lines);return;}
+  if(pk.cl!=null){const lines=cur().src.split('\n'),t=chordTokens(lines[pk.cl]);t.splice(pk.ci,1);if(t.length)lines[pk.cl]=chordLine(t,lineRep(lines[pk.cl]));else lines.splice(pk.cl,1);closePicker();commitLines(lines);return;}
   const lines=cur().src.split('\n'),c=cellsOf(lines[pk.l])[pk.k];if(!c.chord)return;
   lines[pk.l]=lines[pk.l].slice(0,c.chord.s)+lines[pk.l].slice(c.chord.e);closePicker();commitLines(lines);}
 function moveChord(d){
-  if(pk.cl!=null){const lines=cur().src.split('\n'),t=chordTokens(lines[pk.cl]),j=pk.ci+d;if(pk.ci<0||j<0||j>=t.length)return;[t[pk.ci],t[j]]=[t[j],t[pk.ci]];lines[pk.cl]=chordLine(t);
+  if(pk.cl!=null){const lines=cur().src.split('\n'),t=chordTokens(lines[pk.cl]),j=pk.ci+d;if(pk.ci<0||j<0||j>=t.length)return;[t[pk.ci],t[j]]=[t[j],t[pk.ci]];lines[pk.cl]=chordLine(t,lineRep(lines[pk.cl]));
     const cl=pk.cl;commitLines(lines);select({cl,ci:j});return;}
   const lines=cur().src.split('\n'),c=cellsOf(lines[pk.l])[pk.k];if(!c.chord)return;
   const stripped=lines[pk.l].slice(0,c.chord.s)+lines[pk.l].slice(c.chord.e),cells=cellsOf(stripped),k2=pk.k+d;
@@ -1059,7 +1072,8 @@ function renderPalette(){
     rec.map(n=>`<button class="pkey rec" data-key="${esc(n)}"${info?'':' disabled'}><b>${esc(n)}</b><small>最近</small></button>`).join('')+
     `<button class="pkey other" data-other="1"${info?'':' disabled'}><b>其他…</b><small>7、sus、/低音</small></button>`;
   const li=lineOfSel(),si=li!=null?sectionOf(li):-1,isLyric=sel?.l!=null;
-  $('palActs').innerHTML=(info?.chord?`<button data-act="left" aria-label="往前">←</button><button data-act="right" aria-label="往後">→</button><button data-act="del" class="danger">刪除</button>`:'')+
+  const clActs=sel?.cl!=null?(()=>{const r=lineRep(cur().src.split('\n')[sel.cl]);return `<button data-act="rep">${r>1?'重複 ×'+r:'設定重複'}</button><button data-act="dupline">複製這行到下面</button>`;})():'';
+  $('palActs').innerHTML=clActs+(info?.chord?`<button data-act="left" aria-label="往前">←</button><button data-act="right" aria-label="往後">→</button><button data-act="del" class="danger">刪除</button>`:'')+
     (sel?`<span class="menuwrap"><button data-act="copymenu">複製／貼上 ▾</button><span class="menu up" id="palMenu" hidden>`+
       (isLyric?`<button data-act="copyline">複製這行的和弦</button>${lineClip?'<button data-act="pasteline">貼上到這行</button>':''}`:'')+
       (si>=0?`<button data-act="copysec">複製這段的和弦</button>${secClip?'<button data-act="pastesec">貼上到這段</button>':''}`:'')+
@@ -1076,6 +1090,8 @@ $('palette').addEventListener('click',e=>{const b=e.target.closest('button');if(
   else if(a==='pasteline'){const k={...sel};pasteLine(sel.l);select(k,true);}
   else if(a==='copysec'){copySection(sectionOf(lineOfSel()));renderPalette();}
   else if(a==='pastesec'){const k={...sel};pasteSection(sectionOf(lineOfSel()));select(k,true);}
+  else if(a==='rep'){const lines=cur().src.split('\n'),r=lineRep(lines[sel.cl]),nr=r<2?2:r>=4?0:r+1;lines[sel.cl]=chordLine(chordTokens(lines[sel.cl]),nr);const k={...sel};commitLines(lines);select(k,true);toast(nr?`這行重複 ${nr} 次`:'取消重複');}
+  else if(a==='dupline'){const lines=cur().src.split('\n');lines.splice(sel.cl+1,0,lines[sel.cl]);const k={cl:sel.cl+1,ci:0};commitLines(lines);select(k);toast('已複製一行，改幾個不一樣的和弦就好');}
   else if(a==='clear')select(null);});
 // 有選字時直接打字母、方向鍵、刪除
 document.addEventListener('keydown',e=>{if(!editing||!sel||e.metaKey||e.ctrlKey||e.altKey)return;const t=e.target;if(t.closest?.('input,textarea,select,#pk,#editor'))return;
