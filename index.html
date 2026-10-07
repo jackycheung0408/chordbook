@@ -273,7 +273,10 @@ pre.preview{margin:0;max-height:240px;overflow:auto;font-family:var(--mono);font
 .tc:hover,.tc:focus-visible{background:var(--soft)}
 .tc:focus-visible{outline:2px solid var(--accent)}
 .tc.sel{background:var(--soft);box-shadow:0 0 0 2px var(--accent)}
-.tch{min-height:1.35em;font-family:var(--mono);font-weight:700;color:var(--chord);font-size:14px;white-space:nowrap}
+.tc.dragging .tch{opacity:.3}
+.tc.drop{background:var(--soft);box-shadow:inset 0 -3px 0 var(--chord)}
+.dragghost{position:fixed;left:0;top:0;z-index:50;pointer-events:none;font-family:var(--mono);font-weight:700;font-size:18px;color:var(--accent-fg);background:var(--chord);padding:4px 12px;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+.tch{cursor:grab;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;min-height:1.35em;font-family:var(--mono);font-weight:700;color:var(--chord);font-size:14px;white-space:nowrap}
 .tly{font-size:20px;line-height:1.5;white-space:pre}
 .tc.end .tly{color:var(--muted);font-size:14px}
 .addch{margin-left:auto;font-size:12px;letter-spacing:0;padding:3px 10px;border-radius:999px;color:var(--accent);background:transparent;border-color:var(--line);font-weight:500}
@@ -807,7 +810,7 @@ function renderSheet(){const s=cur();if(!s)return;
   if(isEditing()&&!hasLyrics){$('sheetHint').textContent='';$('sheet').innerHTML=`<div class="guide"><b>三步驟完成一首歌</b>
     <ol><li><b>貼上歌詞</b>：下方「歌詞」，一行一句。</li><li><b>上傳 Demo</b>：下方「Demo」，會自動抓調性、BPM，把和弦配到歌詞上。</li><li><b>點字修正</b>：點譜上任何一個字就能加或改和弦。</li></ol>
     <button class="primary" id="guideText">開始貼歌詞</button></div>`;$('guideText').onclick=()=>openDrawer('text');return;}
-  if(isEditing()){$('sheetHint').textContent=`點字加和弦，點和弦可以改或移動。選好一個字後直接打字母（例如 A）也可以。原調 ${KEYS[s.key]}。`;$('sheet').innerHTML=tapHTML(s);}
+  if(isEditing()){$('sheetHint').textContent=`點字加和弦，點和弦可以改，按住和弦可以拖到別的字。選好一個字後直接打字母（例如 A）也可以。原調 ${KEYS[s.key]}。`;$('sheet').innerHTML=tapHTML(s);}
   else{const p=prefOf(s.id);$('sheetHint').textContent='';$('sheet').innerHTML=sheetHTML(s,p.shift,p.capo,true);}}
 function commitLines(lines){const src=lines.join('\n');saveSong({src});$('src').value=src;renderSheet();}
 
@@ -879,6 +882,41 @@ function pasteSection(i){if(!secClip)return;const lines=cur().src.split('\n'),id
   srcOnly.forEach((x,n)=>{if(only[n]!=null)lines[only[n]]=chordLine(x.only);});
   if(srcOnly.length>only.length&&!lyr.length){lines.splice(i+1,0,...srcOnly.slice(only.length).map(x=>chordLine(x.only)));}
   commitLines(lines);const miss=srcLyr.length!==lyr.length;toast(miss?'已貼上。兩段行數不一樣，多出來的部分請再對一下':'已貼上這段的和弦');}
+// ---- 拖曳和弦：滑鼠直接拖；手機長按約 0.25 秒後拖 ----
+let drag=null,justDragged=false;
+function dropChord(a,b){
+  const lines=cur().src.split('\n'),sc=cellsOf(lines[a.l])[a.k]?.chord,dcell=cellsOf(lines[b.l])[b.k];if(!sc||!dcell)return;
+  if(a.l===b.l&&a.k===b.k)return;
+  if(dcell.chord){ // 目標已有和弦：互換
+    const dc=dcell.chord,swap=[[a.l,sc,dc.name],[b.l,dc,sc.name]].sort((x,y)=>x[0]-y[0]||y[1].s-x[1].s);
+    swap.forEach(([l,c,n])=>{lines[l]=lines[l].slice(0,c.s)+'['+n+']'+lines[l].slice(c.e);});
+  }else{
+    lines[a.l]=lines[a.l].slice(0,sc.s)+lines[a.l].slice(sc.e);
+    const off=a.l===b.l&&dcell.off>sc.s?dcell.off-(sc.e-sc.s):dcell.off;
+    lines[b.l]=lines[b.l].slice(0,off)+'['+sc.name+']'+lines[b.l].slice(off);}
+  commitLines(lines);}
+function dragTarget(x,y){const el=document.elementFromPoint(x,y)?.closest?.('#sheet .tc');return el;}
+$('sheet').addEventListener('pointerdown',e=>{
+  if(!isEditing()||e.button>0)return;const tc=e.target.closest('.tc');if(!tc||!e.target.closest('.tch')||!tc.querySelector('.tch').textContent.trim())return;
+  drag={from:{l:+tc.dataset.l,k:+tc.dataset.k},x:e.clientX,y:e.clientY,on:false,touch:e.pointerType!=='mouse',name:tc.querySelector('.tch').textContent,el:tc,id:e.pointerId};
+  if(drag.touch)drag.timer=setTimeout(()=>drag&&startDrag(),250);});
+function startDrag(){if(!drag||drag.on)return;drag.on=true;closePicker();
+  const g=document.createElement('div');g.className='dragghost';g.textContent=drag.name;document.body.appendChild(g);drag.ghost=g;
+  drag.el.classList.add('dragging');moveGhost(drag.x,drag.y);navigator.vibrate?.(15);}
+function moveGhost(x,y){if(!drag?.ghost)return;drag.ghost.style.transform=`translate(${x}px,${y-34}px) translateX(-50%)`;
+  document.querySelectorAll('.tc.drop').forEach(t=>t.classList.remove('drop'));const t=dragTarget(x,y);if(t&&t!==drag.el)t.classList.add('drop');}
+document.addEventListener('pointermove',e=>{if(!drag||e.pointerId!==drag.id)return;
+  const d=Math.hypot(e.clientX-drag.x,e.clientY-drag.y);
+  if(!drag.on){if(drag.touch){if(d>8){clearTimeout(drag.timer);drag=null;}return;}if(d>5)startDrag();else return;}
+  moveGhost(e.clientX,e.clientY);});
+document.addEventListener('touchmove',e=>{if(drag?.on)e.preventDefault();},{passive:false});
+function endDrag(e,cancel){if(!drag)return;clearTimeout(drag.timer);const d=drag;drag=null;
+  if(!d.on)return;justDragged=true;setTimeout(()=>justDragged=false,50);
+  d.ghost?.remove();d.el.classList.remove('dragging');document.querySelectorAll('.tc.drop').forEach(t=>t.classList.remove('drop'));
+  if(cancel)return;const t=dragTarget(e.clientX,e.clientY);if(t)dropChord(d.from,{l:+t.dataset.l,k:+t.dataset.k});}
+document.addEventListener('pointerup',e=>endDrag(e,false));
+document.addEventListener('pointercancel',e=>endDrag(e,true));
+document.addEventListener('contextmenu',e=>{if(drag)e.preventDefault();});
 function copyLine(i){const cells=cellsOf(cur().src.split('\n')[i]);lineClip=cells.map((c,k)=>c.chord?{k,name:c.chord.name}:null).filter(Boolean);
   toast(lineClip.length?`已複製 ${lineClip.length} 個和弦，點別行的字，選「貼上到這行」`:'這行沒有和弦');if(!lineClip.length)lineClip=null;renderSheet();}
 function pasteLine(i){if(!lineClip)return;const lines=cur().src.split('\n');let line=lines[i].replace(/\[[^\]]*\]/g,'');const cells=cellsOf(line);
@@ -886,6 +924,7 @@ function pasteLine(i){if(!lineClip)return;const lines=cur().src.split('\n');let 
   lines[i]=line;commitLines(lines);toast('已套用和弦，字數不同的地方請再對一下');}
 $('sheet').addEventListener('click',e=>{
   if(!isEditing())return;
+  if(justDragged){justDragged=false;return;}
   const cp=e.target.closest('[data-copy]'),ps=e.target.closest('[data-paste]'),tc=e.target.closest('.tc');
   const aa=e.target.closest('[data-addafter]'),cc=e.target.closest('.cchip');
   if(aa){const i=+aa.dataset.addafter,nx=cur().src.split('\n')[i+1];
