@@ -277,7 +277,8 @@ pre.preview{margin:0;max-height:240px;overflow:auto;font-family:var(--mono);font
 .tly{font-size:20px;line-height:1.5;white-space:pre}
 .tc.end .tly{color:var(--muted);font-size:14px}
 .addch{margin-left:auto;font-size:12px;letter-spacing:0;padding:3px 10px;border-radius:999px;color:var(--accent);background:transparent;border-color:var(--line);font-weight:500}
-.sec:has(.addch)::after{order:1}
+.secacts{display:flex;gap:6px;margin-left:auto;order:2}
+.sec:has(.secacts)::after{order:1}
 .cline{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 10px}
 .cchip{font-family:var(--mono);font-weight:700;color:var(--chord);font-size:16px;padding:6px 14px;border-radius:10px}
 .cchip.add{color:var(--muted);font-weight:400;border-style:dashed}
@@ -777,7 +778,7 @@ function render(){
   if(!$('stage').hidden)renderStage();}
 
 // ---- 點字加和弦 ----
-let lineClip=null,editing=false;const isEditing=()=>editing;
+let lineClip=null,secClip=null,editing=false;const isEditing=()=>editing;
 function cellsOf(line){const cells=[];let pend=null,i=0;
   while(i<line.length){
     if(line[i]==='['){const j=line.indexOf(']',i);if(j>i){if(pend)cells.push({ch:'',off:pend.s,chord:pend,tail:true});pend={name:line.slice(i+1,j),s:i,e:j+1};i=j+1;continue;}}
@@ -793,7 +794,7 @@ function tapHTML(s){
   const all=s.src.split('\n');
   return all.map((l,i)=>{
     const m=secMatch(l);
-    if(m){const h=secHead(m[1]);return `<div class="sec">${esc(h.name)}${h.ref?' <span class="rep">再一次・內容跟前面一樣</span>':''}${h.rep>1?` <span class="rep">×${h.rep}</span>`:''}${h.ref||sectionHasLyrics(all,i)?'':`<button class="addch" data-addafter="${i}">＋ 加和弦</button>`}</div>`;}
+    if(m){const h=secHead(m[1]);return `<div class="sec">${esc(h.name)}${h.ref?' <span class="rep">再一次・內容跟前面一樣</span>':''}${h.rep>1?` <span class="rep">×${h.rep}</span>`:''}<span class="secacts">${h.ref?'':`<button class="addch" data-seccopy="${i}">複製這段和弦</button>`}${!h.ref&&secClip?`<button class="addch" data-secpaste="${i}">貼上和弦</button>`:''}${h.ref||sectionHasLyrics(all,i)?'':`<button class="addch" data-addafter="${i}">＋ 加和弦</button>`}</span></div>`;}
     if(isChordOnly(l)){const t=chordTokens(l);return `<div class="cline">`+t.map((n,ci)=>`<button class="cchip" data-cl="${i}" data-ci="${ci}">${esc(n)}</button>`).join('')+`<button class="cchip add" data-cl="${i}" data-ci="-1" aria-label="加一個和弦">＋</button></div>`;}
     if(/^\s*>/.test(l))return `<div><span class="note">${esc(l.replace(/^\s*>\s?/,''))}</span></div>`;
     if(!l.trim())return '<div class="ln gap"></div>';
@@ -863,6 +864,21 @@ function moveChord(d){
   if(k2<0||k2>=cells.length)return;if(cells[k2].chord){toast('那個字已經有和弦了');return;}
   lines[pk.l]=stripped.slice(0,cells[k2].off)+'['+c.chord.name+']'+stripped.slice(cells[k2].off);
   const l=pk.l;commitLines(lines);openPicker(l,k2,document.querySelector(`.tc[data-l="${l}"][data-k="${k2}"]`));}
+// 整段複製：記下這段每一行（歌詞行依字的位置、純和弦行整行）的和弦
+function sectionLines(lines,i){const out=[];for(let j=i+1;j<lines.length;j++){if(secMatch(lines[j]))break;if(isLyricLine(lines[j])||isChordOnly(lines[j]))out.push(j);}return out;}
+function copySection(i){const lines=cur().src.split('\n'),idx=sectionLines(lines,i);
+  secClip=idx.map(j=>isChordOnly(lines[j])?{only:chordTokens(lines[j])}:{cells:cellsOf(lines[j]).map((c,k)=>c.chord?{k,name:c.chord.name,end:!!(c.end||c.tail)}:null).filter(Boolean)});
+  const n=secClip.reduce((a,x)=>a+(x.only?x.only.length:x.cells.length),0);
+  if(!n){secClip=null;toast('這段還沒有和弦');}else toast(`已複製這段 ${n} 個和弦，到別段標題按「貼上和弦」`);renderSheet();}
+function pasteSection(i){if(!secClip)return;const lines=cur().src.split('\n'),idx=sectionLines(lines,i);
+  const lyr=idx.filter(j=>isLyricLine(lines[j])),srcLyr=secClip.filter(x=>x.cells),srcOnly=secClip.filter(x=>x.only);
+  lyr.forEach((j,n)=>{const c=srcLyr[n];if(!c)return;let line=lines[j].replace(/\[[^\]]*\]/g,'');const cells=cellsOf(line),chars=cells.filter(x=>!x.end);
+    [...c.cells].sort((a,b)=>b.k-a.k).forEach(x=>{const t=x.end?cells[cells.length-1]:(chars[Math.min(x.k,chars.length-1)]||cells[cells.length-1]);line=line.slice(0,t.off)+'['+x.name+']'+line.slice(t.off);});lines[j]=line;});
+  // 純和弦行：目標段落有就覆蓋，沒有就加在段落最前面
+  const only=idx.filter(j=>isChordOnly(lines[j]));
+  srcOnly.forEach((x,n)=>{if(only[n]!=null)lines[only[n]]=chordLine(x.only);});
+  if(srcOnly.length>only.length&&!lyr.length){lines.splice(i+1,0,...srcOnly.slice(only.length).map(x=>chordLine(x.only)));}
+  commitLines(lines);const miss=srcLyr.length!==lyr.length;toast(miss?'已貼上。兩段行數不一樣，多出來的部分請再對一下':'已貼上這段的和弦');}
 function copyLine(i){const cells=cellsOf(cur().src.split('\n')[i]);lineClip=cells.map((c,k)=>c.chord?{k,name:c.chord.name}:null).filter(Boolean);
   toast(lineClip.length?`已複製 ${lineClip.length} 個和弦，點別行的字，選「貼上到這行」`:'這行沒有和弦');if(!lineClip.length)lineClip=null;renderSheet();}
 function pasteLine(i){if(!lineClip)return;const lines=cur().src.split('\n');let line=lines[i].replace(/\[[^\]]*\]/g,'');const cells=cellsOf(line);
@@ -875,6 +891,9 @@ $('sheet').addEventListener('click',e=>{
   if(aa){const i=+aa.dataset.addafter,nx=cur().src.split('\n')[i+1];
     if(nx!=null&&isChordOnly(nx))openChordPicker({cl:i+1,ci:-1},document.querySelector(`.cchip.add[data-cl="${i+1}"]`)||aa);else openChordPicker({ins:i,ci:-1},aa);return;}
   if(cc){openChordPicker({cl:+cc.dataset.cl,ci:+cc.dataset.ci},cc);return;}
+  const sc=e.target.closest('[data-seccopy]'),sp=e.target.closest('[data-secpaste]');
+  if(sc){copySection(+sc.dataset.seccopy);return;}
+  if(sp){pasteSection(+sp.dataset.secpaste);return;}
   if(cp){copyLine(+cp.dataset.copy);return;}
   if(ps&&lineClip){pasteLine(+ps.dataset.paste);return;}
   if(tc)openPicker(+tc.dataset.l,+tc.dataset.k,tc);});
