@@ -276,6 +276,12 @@ pre.preview{margin:0;max-height:240px;overflow:auto;font-family:var(--mono);font
 .tch{min-height:1.35em;font-family:var(--mono);font-weight:700;color:var(--chord);font-size:14px;white-space:nowrap}
 .tly{font-size:20px;line-height:1.5;white-space:pre}
 .tc.end .tly{color:var(--muted);font-size:14px}
+.addch{margin-left:auto;font-size:12px;letter-spacing:0;padding:3px 10px;border-radius:999px;color:var(--accent);background:transparent;border-color:var(--line);font-weight:500}
+.sec:has(.addch)::after{order:1}
+.cline{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 10px}
+.cchip{font-family:var(--mono);font-weight:700;color:var(--chord);font-size:16px;padding:6px 14px;border-radius:10px}
+.cchip.add{color:var(--muted);font-weight:400;border-style:dashed}
+.cchip.sel{box-shadow:0 0 0 2px var(--accent)}
 .tc.end:not(:hover) .tly{opacity:.35}
 details.more{border:1px solid var(--line);border-radius:10px;padding:8px 12px;background:var(--bg)}
 details.more summary{cursor:pointer;font-size:13px;color:var(--muted)}
@@ -334,6 +340,10 @@ details.more[open] summary{margin-bottom:2px}
 /* iPhone：輸入框小於 16px 會自動放大畫面 */
 @media (max-width:860px){input,select,textarea,.pk input{font-size:16px!important}}
 button,.btn,.tc,.song{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.dlg{position:fixed;inset:0;z-index:32;background:rgba(8,12,18,.55);display:grid;place-items:center;padding:16px}
+.dlgbox{width:min(560px,100%);max-height:calc(100dvh - 32px);overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px;display:grid;gap:14px;box-shadow:0 30px 80px -20px rgba(0,0,0,.6)}
+#ndLyrics{min-height:220px;font-family:var(--body);font-size:15px}
+@media (max-width:700px){.dlg{place-items:end stretch;padding:0}.dlgbox{border-radius:18px 18px 0 0;max-height:92dvh;padding-bottom:calc(20px + env(safe-area-inset-bottom,0px))}}
 .toast{position:fixed;z-index:40;left:50%;bottom:calc(84px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:9px 14px;border-radius:8px;font-size:13px;max-width:calc(100vw - 32px)}
 @media (prefers-reduced-motion:no-preference){.song,button{transition:background .12s,border-color .12s}}
 </style>
@@ -562,6 +572,15 @@ button,.btn,.tc,.song{-webkit-tap-highlight-color:transparent;touch-action:manip
   <button data-open="hist"><span class="i">↺</span>紀錄</button>
   <button class="done" id="editDone"><span class="i">✓</span>完成</button>
 </nav>
+<div class="dlg" id="newDlg" hidden role="dialog" aria-modal="true" aria-labelledby="ndH">
+  <form class="dlgbox" id="newForm">
+    <div class="pkhead"><b id="ndH" style="font-size:18px">新增歌曲</b><button type="button" class="ghost" id="ndX" aria-label="關閉">✕</button></div>
+    <label class="field"><span class="lbl">歌名</span><input type="text" id="ndTitle" placeholder="例如：遠方的路口" required></label>
+    <label class="field"><span class="lbl">歌詞（一行一句，可以留空之後再貼）</span><textarea id="ndLyrics" placeholder="[Intro]&#10;&#10;[Verse 1]&#10;第一句歌詞&#10;第二句歌詞&#10;&#10;[Chorus]&#10;…"></textarea></label>
+    <label class="field"><span class="lbl">Demo 錄音（選填）：有的話會自動抓調性、BPM 並配好和弦</span><input type="file" id="ndDemo" accept="audio/*"></label>
+    <div class="row" style="justify-content:flex-end"><button type="button" class="ghost" id="ndCancel">取消</button><button class="primary" type="submit" id="ndOk">建立</button></div>
+  </form>
+</div>
 <div class="wiz" id="wiz" hidden>
   <div class="wtop"><div style="display:grid;min-width:0"><b>自動配和弦</b><span class="small" id="wizInfo"></span></div><button id="wizX">關閉</button></div>
   <div class="wbody" id="wizBody"></div>
@@ -689,7 +708,7 @@ function renderHome(){
     <div class="steps"><div class="step3"><b>貼上歌詞</b>新增歌曲，在「文字」分頁一行一句貼上。</div>
       <div class="step3"><b>上傳 Demo</b>自動抓調性、BPM，把和弦配到歌詞上，先預覽再套用。</div>
       <div class="step3"><b>點字修正</b>按「編輯」，點任何一個字就能加、改、移動和弦。</div></div>`;
-  $('heroNew').onclick=()=>$('newBtn').click();
+  $('heroNew').onclick=openNew;
   $('heroPlay')&&($('heroPlay').onclick=()=>{location.hash='#/sets';});}
 function renderSongs(){
   const q=$('q').value.trim().toLowerCase();
@@ -759,10 +778,14 @@ function cellsOf(line){const cells=[];let pend=null,i=0;
     if(line[i]==='['){const j=line.indexOf(']',i);if(j>i){pend={name:line.slice(i+1,j),s:i,e:j+1};i=j+1;continue;}}
     const ch=String.fromCodePoint(line.codePointAt(i));cells.push({ch,off:i,chord:pend});pend=null;i+=ch.length;}
   cells.push({ch:'',off:line.length,chord:pend,end:true});return cells;}
+const chordTokens=l=>[...l.matchAll(/\[([^\]]+)\]/g)].map(m=>m[1]);
+const isChordOnly=l=>l.trim()&&!secMatch(l)&&!/^\s*>/.test(l)&&/\[/.test(l)&&!l.replace(/\[[^\]]*\]/g,'').replace(/[|｜\s\-–—.xX×\d]/g,'');
+const chordLine=t=>t.map(n=>'['+n+']').join(' ');
 function tapHTML(s){
   return s.src.split('\n').map((l,i)=>{
     const m=secMatch(l);
-    if(m){const h=secHead(m[1]);return `<div class="sec">${esc(h.name)}${h.ref?' <span class="rep">再一次・內容跟前面一樣</span>':''}${h.rep>1?` <span class="rep">×${h.rep}</span>`:''}</div>`;}
+    if(m){const h=secHead(m[1]);return `<div class="sec">${esc(h.name)}${h.ref?' <span class="rep">再一次・內容跟前面一樣</span>':''}${h.rep>1?` <span class="rep">×${h.rep}</span>`:''}${h.ref?'':`<button class="addch" data-addafter="${i}">＋ 和弦</button>`}</div>`;}
+    if(isChordOnly(l)){const t=chordTokens(l);return `<div class="cline">`+t.map((n,ci)=>`<button class="cchip" data-cl="${i}" data-ci="${ci}">${esc(n)}</button>`).join('')+`<button class="cchip add" data-cl="${i}" data-ci="-1" aria-label="加一個和弦">＋</button></div>`;}
     if(/^\s*>/.test(l))return `<div><span class="note">${esc(l.replace(/^\s*>\s?/,''))}</span></div>`;
     if(!l.trim())return '<div class="ln gap"></div>';
     const cells=cellsOf(l);
@@ -783,34 +806,50 @@ let pk=null,pkRoot=null,pkQual='';
 const QUALS=[['',''],['m','m'],['7','7'],['m7','m7'],['maj7','maj7'],['sus4','sus4'],['sus2','sus2'],['add9','add9'],['6','6'],['9','9'],['dim','dim'],['aug','aug']];
 const recent=()=>lsGet('cb_recent',[]);
 function pushRecent(n){lsSet('cb_recent',[n,...recent().filter(x=>x!==n)].slice(0,8));}
-function openPicker(l,k,anchor){
-  const s=cur(),line=s.src.split('\n')[l],c=cellsOf(line)[k];if(!c)return;
-  pk={l,k};document.querySelectorAll('.tc.sel').forEach(x=>x.classList.remove('sel'));anchor?.classList.add('sel');
-  const fl=FLAT_KEYS.has(s.key),word=c.end?'行尾':`「${c.ch}」前面`;
-  $('pkTitle').textContent=c.chord?`修改 ${c.chord.name}（${word}）`:`在${word}加和弦`;
-  $('pkDiaLbl').textContent=`${KEYS[s.key]} 調常用`;
+function fillPicker(title,existing,anchor){
+  const s=cur(),fl=FLAT_KEYS.has(s.key);document.querySelectorAll('.tc.sel,.cchip.sel').forEach(x=>x.classList.remove('sel'));anchor?.classList.add('sel');
+  $('pkTitle').textContent=title;$('pkDiaLbl').textContent=`${KEYS[s.key]} 調常用`;
   $('pkDia').innerHTML=Object.keys(DIA).map(d=>{const n=chordName(s.key,+d,DIA[d]);return `<button class="chip" data-pick="${n}">${n} <small>${ROMAN[d]}</small></button>`}).join('');
   const r=recent();$('pkRecLbl').hidden=!r.length;$('pkRecent').innerHTML=r.map(n=>`<button class="chip" data-pick="${esc(n)}">${esc(n)}</button>`).join('');
   const dia=new Set(Object.keys(DIA).map(d=>mod(s.key+ +d)));
   $('pkRoots').innerHTML=Array.from({length:12},(_,i)=>{const n=(fl?FL:SH)[i];return `<button data-root="${n}" class="${dia.has(i)?'dia':''}">${n}</button>`}).join('');
   $('pkQ').innerHTML=QUALS.map(([v,t])=>`<button data-q="${v}">${t||'大三'}</button>`).join('');
-  $('pkPaste').hidden=!lineClip;pkRoot=null;pkQual='';$('pkIn').value=c.chord?c.chord.name:'';$('pkEdit').hidden=!c.chord;
+  pkRoot=null;pkQual='';$('pkIn').value=existing||'';$('pkEdit').hidden=!existing;
   const el=$('pk');el.hidden=false;
   if(innerWidth>640&&anchor){const rc=anchor.getBoundingClientRect(),h=el.offsetHeight,w=el.offsetWidth;
     let top=rc.bottom+8;if(top+h>innerHeight-8)top=Math.max(8,rc.top-h-8);
     el.style.top=top+'px';el.style.left=Math.min(Math.max(8,rc.left-20),innerWidth-w-8)+'px';}
   if(innerWidth>640)$('pkIn').focus({preventScroll:true});}
-function closePicker(){$('pk').hidden=true;pk=null;document.querySelectorAll('.tc.sel').forEach(x=>x.classList.remove('sel'));}
+function openPicker(l,k,anchor){
+  const line=cur().src.split('\n')[l],c=cellsOf(line)[k];if(!c)return;pk={l,k};
+  $('pkLine').hidden=false;$('pkPaste').hidden=!lineClip;$('pkL').textContent='← 前一字';$('pkR').textContent='後一字 →';
+  const word=c.end?'行尾':`「${c.ch}」前面`;fillPicker(c.chord?`修改 ${c.chord.name}（${word}）`:`在${word}加和弦`,c.chord?.name,anchor);}
+// 純和弦行（前奏、間奏…）：ci 是第幾個和弦，-1 代表加在最後；ins 代表在段落標題下新增一行
+function openChordPicker(o,anchor){pk=o;$('pkLine').hidden=true;$('pkL').textContent='← 往前';$('pkR').textContent='往後 →';
+  const t=o.ins!=null?[]:chordTokens(cur().src.split('\n')[o.cl]),ex=o.ci>=0?t[o.ci]:null;
+  fillPicker(ex?`修改 ${ex}`:'加一個和弦',ex,anchor);}
+function closePicker(){$('pk').hidden=true;pk=null;document.querySelectorAll('.tc.sel,.cchip.sel').forEach(x=>x.classList.remove('sel'));}
 function applyChord(name){
   name=(name||'').trim().replace(/[\[\]]/g,'').replace(/♯/g,'#').replace(/♭/g,'b');if(!name||!pk)return;
+  if(pk.ins!=null||pk.cl!=null){const lines=cur().src.split('\n');
+    if(pk.ins!=null)lines.splice(pk.ins+1,0,'['+name+']');
+    else{const t=chordTokens(lines[pk.cl]);if(pk.ci<0)t.push(name);else t[pk.ci]=name;lines[pk.cl]=chordLine(t);}
+    const o=pk;pushRecent(name);closePicker();commitLines(lines);
+    // 連續加：自動再開一個「＋」
+    const cl=o.ins!=null?o.ins+1:o.cl;if(o.ci<0||o.ins!=null){const b=document.querySelector(`.cchip.add[data-cl="${cl}"]`);b&&openChordPicker({cl,ci:-1},b);}return;}
   const lines=cur().src.split('\n'),line=lines[pk.l],c=cellsOf(line)[pk.k];
   lines[pk.l]=c.chord?line.slice(0,c.chord.s)+'['+name+']'+line.slice(c.chord.e):line.slice(0,c.off)+'['+name+']'+line.slice(c.off);
   pushRecent(name);const {l,k}=pk;closePicker();commitLines(lines);
   // 自動跳到下一個字，方便連續輸入
   const next=document.querySelector(`.tc[data-l="${l}"][data-k="${k+1}"]`);next?.focus({preventScroll:true});}
-function removeChord(){const lines=cur().src.split('\n'),c=cellsOf(lines[pk.l])[pk.k];if(!c.chord)return;
+function removeChord(){
+  if(pk.cl!=null){const lines=cur().src.split('\n'),t=chordTokens(lines[pk.cl]);t.splice(pk.ci,1);if(t.length)lines[pk.cl]=chordLine(t);else lines.splice(pk.cl,1);closePicker();commitLines(lines);return;}
+  const lines=cur().src.split('\n'),c=cellsOf(lines[pk.l])[pk.k];if(!c.chord)return;
   lines[pk.l]=lines[pk.l].slice(0,c.chord.s)+lines[pk.l].slice(c.chord.e);closePicker();commitLines(lines);}
-function moveChord(d){const lines=cur().src.split('\n'),c=cellsOf(lines[pk.l])[pk.k];if(!c.chord)return;
+function moveChord(d){
+  if(pk.cl!=null){const lines=cur().src.split('\n'),t=chordTokens(lines[pk.cl]),j=pk.ci+d;if(pk.ci<0||j<0||j>=t.length)return;[t[pk.ci],t[j]]=[t[j],t[pk.ci]];lines[pk.cl]=chordLine(t);
+    const cl=pk.cl;commitLines(lines);openChordPicker({cl,ci:j},document.querySelector(`.cchip[data-cl="${cl}"][data-ci="${j}"]`));return;}
+  const lines=cur().src.split('\n'),c=cellsOf(lines[pk.l])[pk.k];if(!c.chord)return;
   const stripped=lines[pk.l].slice(0,c.chord.s)+lines[pk.l].slice(c.chord.e),cells=cellsOf(stripped),k2=pk.k+d;
   if(k2<0||k2>=cells.length)return;if(cells[k2].chord){toast('那個字已經有和弦了');return;}
   lines[pk.l]=stripped.slice(0,cells[k2].off)+'['+c.chord.name+']'+stripped.slice(cells[k2].off);
@@ -823,6 +862,10 @@ function pasteLine(i){if(!lineClip)return;const lines=cur().src.split('\n');let 
 $('sheet').addEventListener('click',e=>{
   if(!isEditing())return;
   const cp=e.target.closest('[data-copy]'),ps=e.target.closest('[data-paste]'),tc=e.target.closest('.tc');
+  const aa=e.target.closest('[data-addafter]'),cc=e.target.closest('.cchip');
+  if(aa){const i=+aa.dataset.addafter,nx=cur().src.split('\n')[i+1];
+    if(nx!=null&&isChordOnly(nx))openChordPicker({cl:i+1,ci:-1},document.querySelector(`.cchip.add[data-cl="${i+1}"]`)||aa);else openChordPicker({ins:i,ci:-1},aa);return;}
+  if(cc){openChordPicker({cl:+cc.dataset.cl,ci:+cc.dataset.ci},cc);return;}
   if(cp){copyLine(+cp.dataset.copy);return;}
   if(ps&&lineClip){pasteLine(+ps.dataset.paste);return;}
   if(tc)openPicker(+tc.dataset.l,+tc.dataset.k,tc);});
@@ -840,7 +883,7 @@ $('pkOk').onclick=()=>applyChord($('pkIn').value);
 $('pkIn').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();applyChord($('pkIn').value);}});
 $('pkX').onclick=closePicker;$('pkDel').onclick=removeChord;$('pkL').onclick=()=>moveChord(-1);$('pkR').onclick=()=>moveChord(1);
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('pk').hidden){closePicker();e.stopPropagation();}},true);
-document.addEventListener('mousedown',e=>{if(!$('pk').hidden&&!e.target.closest('#pk')&&!e.target.closest('.tc'))closePicker();});
+document.addEventListener('mousedown',e=>{if(!$('pk').hidden&&!e.target.closest('#pk')&&!e.target.closest('.tc,.cchip,.addch'))closePicker();});
 
 // ---- 和弦建議 ----
 const PROGS=[['1-5-6-4',[0,7,9,5]],['1-6-4-5',[0,9,5,7]],['6-4-1-5',[9,5,0,7]],['4-5-3-6 王道',[5,7,4,9]],['2-5-1',[2,7,0]],['卡農',[0,7,9,4,5,0,5,7]]];
@@ -890,7 +933,18 @@ document.addEventListener('click',e=>{const r=e.target.closest('[data-restore]')
 $('q').oninput=()=>{if(view!=='songs'){showTrash=false;nav('#/');}else renderSongs();};
 $('sortSel').onchange=renderSongs;
 $('newSetBtn').onclick=async()=>{await createSet('新歌單');$('setName').select();};
-$('newBtn').onclick=async()=>{await createSong({title:'新歌',key:0,src:''});openEditor(true,'info');$('title').select();};
+function openNew(){$('newForm').reset();$('newDlg').hidden=false;setTimeout(()=>$('ndTitle').focus(),30);}
+function closeNew(){$('newDlg').hidden=true;}
+$('newBtn').onclick=openNew;$('ndX').onclick=closeNew;$('ndCancel').onclick=closeNew;
+$('newDlg').addEventListener('click',e=>{if(e.target===$('newDlg'))closeNew();});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('newDlg').hidden)closeNew();});
+$('newForm').onsubmit=async e=>{e.preventDefault();
+  const title=$('ndTitle').value.trim()||'新歌',src=$('ndLyrics').value.replace(/\r/g,'').trim(),f=$('ndDemo').files[0];
+  if(f&&f.size>20*1024*1024){toast('Demo 超過 20MB，請先壓縮成 mp3 或 m4a');return;}
+  $('ndOk').disabled=true;closeNew();
+  await createSong({title,key:0,src});
+  if(f){openEditor(true);await uploadDemo(f);}else openEditor(true,src?undefined:'text');
+  $('ndOk').disabled=false;};
 const TAB_TITLES={chords:'自動配和弦・貼上譜・和弦小幫手',text:'歌詞與和弦文字',info:'歌曲資訊',demo:'Demo 錄音',hist:'版本紀錄'};
 function openEditor(on,tabName){
   editing=on;$('keybar').hidden=on;$('ebar').hidden=!on;$('editBtn').hidden=on;$('stageBtn').hidden=on;$('songView').classList.toggle('is-editing',on);closePicker();
@@ -1135,8 +1189,9 @@ async function restoreDeleted(vid){
   songs.unshift(fromRow({...row,updated_at:new Date().toISOString()}));showTrash=false;nav('#/song/'+v.song_id);toast('已還原「'+v.title+'」');}
 
 // ---- Demo 錄音 ----
-$('demoFile').onchange=async e=>{
-  const f=e.target.files[0];e.target.value='';const s=cur();if(!f||!s)return;
+$('demoFile').onchange=e=>{const f=e.target.files[0];e.target.value='';if(f)uploadDemo(f);};
+async function uploadDemo(f){
+  const s=cur();if(!f||!s)return;toast('Demo 上傳中…');
   if(f.size>20*1024*1024){toast('檔案超過 20MB，請先壓縮成 mp3 或 m4a');return;}
   $('demoMsg').textContent='上傳中…';
   const path=`${s.id}/${Date.now()}-${f.name.replace(/[^\w.\-]/g,'_')}`;
@@ -1144,7 +1199,7 @@ $('demoFile').onchange=async e=>{
   if(error){$('demoMsg').textContent='上傳失敗：'+error.message;return;}
   const old=s.audio_url;saveSong({audio_url:sb.storage.from('demos').getPublicUrl(path).data.publicUrl});
   $('demoMsg').textContent='已上傳';render();removeDemoFile(old);
-  if(cur().src.split('\n').some(isLyricLine))wizStart(()=>f.arrayBuffer(),URL.createObjectURL(f));};
+  if(cur().src.split('\n').some(isLyricLine))wizStart(()=>f.arrayBuffer(),URL.createObjectURL(f));else toast('Demo 已上傳。貼上歌詞後可以按「自動配和弦」');}
 function removeDemoFile(url){const m=(url||'').match(/\/demos\/(.+)$/);if(m)sb.storage.from('demos').remove([decodeURIComponent(m[1])]);}
 $('demoDel').onclick=()=>{const old=cur().audio_url;saveSong({audio_url:''});$('demoMsg').textContent='已移除';render();removeDemoFile(old);};
 
