@@ -306,6 +306,9 @@ pre.preview{margin:0;max-height:240px;overflow:auto;font-family:var(--mono);font
 .tc.end .tly{opacity:.3}
 .tl:hover .tc.end .tly,.tc.end:focus-visible .tly,.tc.end.sel .tly{opacity:.8}
 .tc.tail .tly{min-width:.8em}
+.tc.start{margin-right:4px}
+.tc.start .tly{font-size:14px;color:var(--muted);opacity:.3}
+.tl:hover .tc.start .tly,.tc.start.sel .tly,.tc.start:focus-visible .tly{opacity:.8}
 details.more{border:1px solid var(--line);border-radius:10px;padding:8px 12px;background:var(--bg)}
 details.more summary{cursor:pointer;font-size:13px;color:var(--muted)}
 details.more[open]{display:grid;gap:10px}
@@ -942,7 +945,7 @@ function tapHTML(s){
     if(/^\s*>/.test(l))return `<div><span class="note">${esc(l.replace(/^\s*>\s?/,''))}</span></div>`;
     if(!l.trim())return '<div class="ln gap"></div>';
     const cells=cellsOf(l);
-    return `<div class="tl"><div class="tcells">`+
+    return `<div class="tl"><div class="tcells"><button class="tc start" data-l="${i}" data-start="1" aria-label="開始唱之前的和弦"><span class="tch"></span><span class="tly">＋</span></button>`+
       cells.map((c,k)=>`<button class="tc${c.end?' end':''}${c.tail?' tail':''}" data-l="${i}" data-k="${k}" aria-label="${c.end?'行尾，唱完後的和弦':c.tail?'唱完後的和弦':esc(c.ch)}${c.chord?' 和弦 '+esc(c.chord.name):''}"><span class="tch">${c.chord?esc(c.chord.name):''}</span><span class="tly">${c.end?'＋':c.ch===' '?' ':esc(c.ch)}</span></button>`).join('')+'</div></div>';
   }).join('');}
 function renderSheet(){const s=cur();if(!s)return;queueMicrotask(()=>{if(editing)markSel();});
@@ -991,6 +994,7 @@ function applyChord(name){
     const cl=o.ins!=null?o.ins+1:o.cl;
     // 純和弦行一路往後加：自動在「＋」再開一次
     if(o.ci<0||o.ins!=null)setTimeout(()=>select({cl,ci:-1}),0);else{sel={cl,ci:o.ci};markSel();}return;}
+  if(pk.start){const lines=cur().src.split('\n');lines[pk.l]='['+name+'] '+lines[pk.l];const l=pk.l;pushRecent(name);closePicker();commitLines(lines);sel={l,k:0};markSel();return;}
   const lines=cur().src.split('\n'),line=lines[pk.l],c=cellsOf(line)[pk.k];
   lines[pk.l]=c.chord?line.slice(0,c.chord.s)+'['+name+']'+line.slice(c.chord.e):line.slice(0,c.off)+'['+name+']'+line.slice(c.off);
   pushRecent(name);const {l,k}=pk,wasEnd=c.end;closePicker();commitLines(lines);sel={l,k:wasEnd?k+1:k};markSel();}
@@ -1058,9 +1062,10 @@ document.addEventListener('pointercancel',e=>endDrag(e,true));
 document.addEventListener('contextmenu',e=>{if(drag)e.preventDefault();});
 // ---- 和弦鍵盤：① 點一個字 ② 點和弦 ----
 let sel=null;
-function selEl(o){if(!o)return null;if(o.l!=null)return document.querySelector(`#sheet .tc[data-l="${o.l}"][data-k="${o.k}"]`);
+function selEl(o){if(!o)return null;if(o.start)return document.querySelector(`#sheet .tc.start[data-l="${o.l}"]`);if(o.l!=null)return document.querySelector(`#sheet .tc[data-l="${o.l}"][data-k="${o.k}"]`);
   if(o.ins!=null)return document.querySelector(`#sheet [data-addafter="${o.ins}"]`);return document.querySelector(`#sheet .cchip[data-cl="${o.cl}"][data-ci="${o.ci}"]`);}
 function selInfo(){if(!sel)return null;const lines=cur().src.split('\n');
+  if(sel.start)return {chord:null,where:'開始唱之前'};
   if(sel.l!=null){const c=cellsOf(lines[sel.l]||'')[sel.k];if(!c)return null;return {chord:c.chord?.name,where:c.end||c.tail?'這句唱完後':`「${c.ch}」前面`};}
   if(sel.ins!=null)return {chord:null,where:'這段加一個和弦'};
   const t=chordTokens(lines[sel.cl]||'');return {chord:sel.ci>=0?t[sel.ci]:null,where:sel.ci>=0?`第 ${sel.ci+1} 個和弦`:'這行最後加一個和弦'};}
@@ -1070,7 +1075,7 @@ function select(o,noScroll){sel=o;closePicker();const el=markSel();if(o&&el)open
 function openPopup(o,el){
   const info=selInfo();if(!info)return;pk={...o};
   fillPicker(info.chord?`${info.where}：${info.chord}`:`${info.where}`,info.chord,el);
-  const li=lineOfSel(),si=li!=null?sectionOf(li):-1,isLyric=o.l!=null,isCl=o.cl!=null;
+  const li=lineOfSel(),si=li!=null?sectionOf(li):-1,isLyric=o.l!=null&&!o.start,isCl=o.cl!=null;
   const r=isCl?lineRep(cur().src.split('\n')[o.cl]):0,b=(act,t,cls)=>`<button data-act="${act}"${cls?` class="${cls}"`:''}>${t}</button>`;
   $('pkLine').innerHTML=(isCl?b('rep',r>1?`重複 ×${r}`:'設定重複')+b('dupline','複製這行到下面'):'')+
     (isLyric?b('copyline','複製這行和弦')+(lineClip?b('pasteline','貼上到這行'):''):'')+
@@ -1135,7 +1140,7 @@ $('sheet').addEventListener('click',e=>{
   if(sp){pasteSection(+sp.dataset.secpaste);return;}
   if(cp){copyLine(+cp.dataset.copy);return;}
   if(ps&&lineClip){pasteLine(+ps.dataset.paste);return;}
-  if(tc)select({l:+tc.dataset.l,k:+tc.dataset.k});});
+  if(tc)select(tc.dataset.start?{l:+tc.dataset.l,start:true}:{l:+tc.dataset.l,k:+tc.dataset.k});});
 $('sheet').addEventListener('keydown',e=>{const tc=e.target.closest?.('.tc');if(!tc||!isEditing()||e.metaKey||e.ctrlKey)return;
   if(!sel||sel.l!==+tc.dataset.l||sel.k!==+tc.dataset.k)select({l:+tc.dataset.l,k:+tc.dataset.k},true);
   if(/^[a-gA-G]$/.test(e.key)){e.preventDefault();openPicker(+tc.dataset.l,+tc.dataset.k,tc);$('pkIn').value=e.key.toUpperCase();$('pkIn').focus();}
