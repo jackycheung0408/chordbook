@@ -639,7 +639,10 @@ function inKey(ch,tonic){const m=ch.match(CH);if(!m||IDX[m[1]]===undefined)retur
 
 // 段落：{名稱}、{名稱 x2}、{@名稱}，或整行 [Verse 2] 這種不是和弦的方括號；備註：> 開頭
 const CHORD_ONLY=/^[A-G](?:#|b)?(?:maj|min|m|M|dim|aug|sus|add|°|ø|\+|-)?[0-9]*(?:(?:b|#|add|sus|maj|no)?[0-9]+)*(?:\/[A-G](?:#|b)?)?$|^N\.?C\.?$/;
-function secMatch(l){const m=l.match(/^\s*\{(.+)\}\s*$/);if(m)return m;const b=l.match(/^\s*\[([^\]]+)\]\s*$/);return b&&!CHORD_ONLY.test(b[1].trim())?b:null;}
+// 沒有括號的段落名稱也算：Verse 1、verse2、Chorus x2、(Bridge)、副歌：、主歌二、A段…
+const SEC_WORDS=/^\s*[\(（【\[<]?\s*((?:intro|verse|pre-?chorus|chorus|post-?chorus|bridge|interlude|instrumental|outro|solo|hook|refrain|ending|break|前奏|主歌|副歌|導歌|預副歌|橋段|間奏|尾奏|結尾|獨奏|[A-D]段)\s*[\dA-Za-z一二三四五]?\s*(?:[x×]\s*\d+)?)\s*[\)）】\]>]?\s*[:：]?\s*$/i;
+function secMatch(l){const m=l.match(/^\s*\{(.+)\}\s*$/);if(m)return m;const b=l.match(/^\s*\[([^\]]+)\]\s*$/);if(b)return CHORD_ONLY.test(b[1].trim())?null:b;
+  const w=l.match(SEC_WORDS);return w&&!CHORD_ONLY.test(w[1].trim())?w:null;}
 function secHead(t){t=t.trim();const ref=/^[@=]/.test(t);if(ref)t=t.slice(1).trim();
   const r=t.match(/\s*[x×]\s*(\d+)\s*$/i);return {name:r?t.slice(0,r.index).trim():t,rep:r?+r[1]:0,ref};}
 function parseLine(line){
