@@ -282,7 +282,9 @@ pre.preview{margin:0;max-height:240px;overflow:auto;font-family:var(--mono);font
 .cchip{font-family:var(--mono);font-weight:700;color:var(--chord);font-size:16px;padding:6px 14px;border-radius:10px}
 .cchip.add{color:var(--muted);font-weight:400;border-style:dashed}
 .cchip.sel{box-shadow:0 0 0 2px var(--accent)}
-.tc.end:not(:hover) .tly{opacity:.35}
+.tc.end .tly{opacity:0}
+.tl:hover .tc.end .tly,.tc.end:focus-visible .tly,.tc.end.sel .tly{opacity:.5}
+@media (hover:none){.tc.end{display:none}}
 details.more{border:1px solid var(--line);border-radius:10px;padding:8px 12px;background:var(--bg)}
 details.more summary{cursor:pointer;font-size:13px;color:var(--muted)}
 details.more[open]{display:grid;gap:10px}
@@ -781,10 +783,13 @@ function cellsOf(line){const cells=[];let pend=null,i=0;
 const chordTokens=l=>[...l.matchAll(/\[([^\]]+)\]/g)].map(m=>m[1]);
 const isChordOnly=l=>l.trim()&&!secMatch(l)&&!/^\s*>/.test(l)&&/\[/.test(l)&&!l.replace(/\[[^\]]*\]/g,'').replace(/[|｜\s\-–—.xX×\d]/g,'');
 const chordLine=t=>t.map(n=>'['+n+']').join(' ');
+// 段落裡有沒有歌詞（沒有的才需要「＋ 和弦」，例如前奏、間奏）
+function sectionHasLyrics(lines,i){for(let j=i+1;j<lines.length;j++){if(secMatch(lines[j]))return false;if(isLyricLine(lines[j]))return true;}return false;}
 function tapHTML(s){
-  return s.src.split('\n').map((l,i)=>{
+  const all=s.src.split('\n');
+  return all.map((l,i)=>{
     const m=secMatch(l);
-    if(m){const h=secHead(m[1]);return `<div class="sec">${esc(h.name)}${h.ref?' <span class="rep">再一次・內容跟前面一樣</span>':''}${h.rep>1?` <span class="rep">×${h.rep}</span>`:''}${h.ref?'':`<button class="addch" data-addafter="${i}">＋ 和弦</button>`}</div>`;}
+    if(m){const h=secHead(m[1]);return `<div class="sec">${esc(h.name)}${h.ref?' <span class="rep">再一次・內容跟前面一樣</span>':''}${h.rep>1?` <span class="rep">×${h.rep}</span>`:''}${h.ref||sectionHasLyrics(all,i)?'':`<button class="addch" data-addafter="${i}">＋ 加和弦</button>`}</div>`;}
     if(isChordOnly(l)){const t=chordTokens(l);return `<div class="cline">`+t.map((n,ci)=>`<button class="cchip" data-cl="${i}" data-ci="${ci}">${esc(n)}</button>`).join('')+`<button class="cchip add" data-cl="${i}" data-ci="-1" aria-label="加一個和弦">＋</button></div>`;}
     if(/^\s*>/.test(l))return `<div><span class="note">${esc(l.replace(/^\s*>\s?/,''))}</span></div>`;
     if(!l.trim())return '<div class="ln gap"></div>';
