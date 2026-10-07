@@ -265,7 +265,7 @@ pre.preview{margin:0;max-height:240px;overflow:auto;font-family:var(--mono);font
 .etabs{display:none}
 .tl{display:flex;gap:6px;align-items:flex-end;margin-bottom:8px}
 .tools{display:flex;flex-direction:column;gap:2px;opacity:0;transition:opacity .12s}
-@media (hover:none){.tools{opacity:.6}}
+@media (hover:none){.tools{display:none}}
 .tl:hover .tools,.tl:focus-within .tools{opacity:1}
 .tools button{padding:1px 6px;font-size:12px;line-height:1.4}
 .tcells{display:flex;flex-wrap:wrap;align-items:flex-end;min-width:0}
@@ -551,6 +551,7 @@ button,.btn,.tc,.song{-webkit-tap-highlight-color:transparent;touch-action:manip
   <div class="pkq" id="pkQ"></div>
   </details>
   <div class="row"><input id="pkIn" type="text" placeholder="或直接打：F#m7、C/E" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="和弦名稱"><button class="primary" id="pkOk">確定</button></div>
+  <div class="row" id="pkLine"><button id="pkCopy">複製這行的和弦</button><button id="pkPaste" hidden>貼上到這行</button></div>
   <div class="row" id="pkEdit"><button id="pkL">← 前一字</button><button id="pkR">後一字 →</button><span style="flex:1"></span><button class="ghost danger" id="pkDel">刪除</button></div>
 </div>
 <nav class="ebar" id="ebar" hidden aria-label="編輯工具">
@@ -793,7 +794,7 @@ function openPicker(l,k,anchor){
   const dia=new Set(Object.keys(DIA).map(d=>mod(s.key+ +d)));
   $('pkRoots').innerHTML=Array.from({length:12},(_,i)=>{const n=(fl?FL:SH)[i];return `<button data-root="${n}" class="${dia.has(i)?'dia':''}">${n}</button>`}).join('');
   $('pkQ').innerHTML=QUALS.map(([v,t])=>`<button data-q="${v}">${t||'大三'}</button>`).join('');
-  pkRoot=null;pkQual='';$('pkIn').value=c.chord?c.chord.name:'';$('pkEdit').hidden=!c.chord;
+  $('pkPaste').hidden=!lineClip;pkRoot=null;pkQual='';$('pkIn').value=c.chord?c.chord.name:'';$('pkEdit').hidden=!c.chord;
   const el=$('pk');el.hidden=false;
   if(innerWidth>640&&anchor){const rc=anchor.getBoundingClientRect(),h=el.offsetHeight,w=el.offsetWidth;
     let top=rc.bottom+8;if(top+h>innerHeight-8)top=Math.max(8,rc.top-h-8);
@@ -814,14 +815,16 @@ function moveChord(d){const lines=cur().src.split('\n'),c=cellsOf(lines[pk.l])[p
   if(k2<0||k2>=cells.length)return;if(cells[k2].chord){toast('那個字已經有和弦了');return;}
   lines[pk.l]=stripped.slice(0,cells[k2].off)+'['+c.chord.name+']'+stripped.slice(cells[k2].off);
   const l=pk.l;commitLines(lines);openPicker(l,k2,document.querySelector(`.tc[data-l="${l}"][data-k="${k2}"]`));}
+function copyLine(i){const cells=cellsOf(cur().src.split('\n')[i]);lineClip=cells.map((c,k)=>c.chord?{k,name:c.chord.name}:null).filter(Boolean);
+  toast(lineClip.length?`已複製 ${lineClip.length} 個和弦，點別行的字，選「貼上到這行」`:'這行沒有和弦');if(!lineClip.length)lineClip=null;renderSheet();}
+function pasteLine(i){if(!lineClip)return;const lines=cur().src.split('\n');let line=lines[i].replace(/\[[^\]]*\]/g,'');const cells=cellsOf(line);
+  [...lineClip].sort((a,b)=>b.k-a.k).forEach(x=>{const c=cells[Math.min(x.k,cells.length-1)];line=line.slice(0,c.off)+'['+x.name+']'+line.slice(c.off);});
+  lines[i]=line;commitLines(lines);toast('已套用和弦，字數不同的地方請再對一下');}
 $('sheet').addEventListener('click',e=>{
   if(!isEditing())return;
   const cp=e.target.closest('[data-copy]'),ps=e.target.closest('[data-paste]'),tc=e.target.closest('.tc');
-  if(cp){const cells=cellsOf(cur().src.split('\n')[+cp.dataset.copy]);lineClip=cells.map((c,k)=>c.chord?{k,name:c.chord.name}:null).filter(Boolean);
-    toast(lineClip.length?`已複製 ${lineClip.length} 個和弦的位置，到別行按「貼上」`:'這行沒有和弦');if(!lineClip.length)lineClip=null;renderSheet();return;}
-  if(ps&&lineClip){const lines=cur().src.split('\n'),i=+ps.dataset.paste;let line=lines[i].replace(/\[[^\]]*\]/g,'');const cells=cellsOf(line);
-    [...lineClip].sort((a,b)=>b.k-a.k).forEach(x=>{const c=cells[Math.min(x.k,cells.length-1)];line=line.slice(0,c.off)+'['+x.name+']'+line.slice(c.off);});
-    lines[i]=line;commitLines(lines);toast('已套用和弦，字數不同的地方請再對一下');return;}
+  if(cp){copyLine(+cp.dataset.copy);return;}
+  if(ps&&lineClip){pasteLine(+ps.dataset.paste);return;}
   if(tc)openPicker(+tc.dataset.l,+tc.dataset.k,tc);});
 $('sheet').addEventListener('keydown',e=>{const tc=e.target.closest?.('.tc');if(!tc||!isEditing()||e.metaKey||e.ctrlKey)return;
   if(/^[a-gA-G]$/.test(e.key)){e.preventDefault();openPicker(+tc.dataset.l,+tc.dataset.k,tc);$('pkIn').value=e.key.toUpperCase();$('pkIn').focus();}
@@ -831,6 +834,8 @@ $('pk').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)re
   if(d.pick)applyChord(d.pick);
   if(d.root!==undefined){pkRoot=d.root;$('pkIn').value=pkRoot+pkQual;$('pkRoots').querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));}
   if(d.q!==undefined){pkQual=d.q;$('pkIn').value=(pkRoot||($('pkIn').value.match(/^[A-G][#b]?/)||[''])[0])+pkQual;$('pkQ').querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));}});
+$('pkCopy').onclick=()=>{const l=pk.l;closePicker();copyLine(l);};
+$('pkPaste').onclick=()=>{const l=pk.l;closePicker();pasteLine(l);};
 $('pkOk').onclick=()=>applyChord($('pkIn').value);
 $('pkIn').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();applyChord($('pkIn').value);}});
 $('pkX').onclick=closePicker;$('pkDel').onclick=removeChord;$('pkL').onclick=()=>moveChord(-1);$('pkR').onclick=()=>moveChord(1);
