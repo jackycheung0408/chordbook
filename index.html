@@ -282,9 +282,9 @@ pre.preview{margin:0;max-height:240px;overflow:auto;font-family:var(--mono);font
 .cchip{font-family:var(--mono);font-weight:700;color:var(--chord);font-size:16px;padding:6px 14px;border-radius:10px}
 .cchip.add{color:var(--muted);font-weight:400;border-style:dashed}
 .cchip.sel{box-shadow:0 0 0 2px var(--accent)}
-.tc.end .tly{opacity:0}
-.tl:hover .tc.end .tly,.tc.end:focus-visible .tly,.tc.end.sel .tly{opacity:.5}
-@media (hover:none){.tc.end{display:none}}
+.tc.end .tly{opacity:.3}
+.tl:hover .tc.end .tly,.tc.end:focus-visible .tly,.tc.end.sel .tly{opacity:.8}
+.tc.tail .tly{min-width:.8em}
 details.more{border:1px solid var(--line);border-radius:10px;padding:8px 12px;background:var(--bg)}
 details.more summary{cursor:pointer;font-size:13px;color:var(--muted)}
 details.more[open]{display:grid;gap:10px}
@@ -780,9 +780,10 @@ function render(){
 let lineClip=null,editing=false;const isEditing=()=>editing;
 function cellsOf(line){const cells=[];let pend=null,i=0;
   while(i<line.length){
-    if(line[i]==='['){const j=line.indexOf(']',i);if(j>i){pend={name:line.slice(i+1,j),s:i,e:j+1};i=j+1;continue;}}
+    if(line[i]==='['){const j=line.indexOf(']',i);if(j>i){if(pend)cells.push({ch:'',off:pend.s,chord:pend,tail:true});pend={name:line.slice(i+1,j),s:i,e:j+1};i=j+1;continue;}}
     const ch=String.fromCodePoint(line.codePointAt(i));cells.push({ch,off:i,chord:pend});pend=null;i+=ch.length;}
-  cells.push({ch:'',off:line.length,chord:pend,end:true});return cells;}
+  if(pend)cells.push({ch:'',off:pend.s,chord:pend,tail:true});
+  cells.push({ch:'',off:line.length,chord:null,end:true});return cells;}
 const chordTokens=l=>[...l.matchAll(/\[([^\]]+)\]/g)].map(m=>m[1]);
 const isChordOnly=l=>l.trim()&&!secMatch(l)&&!/^\s*>/.test(l)&&/\[/.test(l)&&!l.replace(/\[[^\]]*\]/g,'').replace(/[|｜\s\-–—.xX×\d]/g,'');
 const chordLine=t=>t.map(n=>'['+n+']').join(' ');
@@ -798,7 +799,7 @@ function tapHTML(s){
     if(!l.trim())return '<div class="ln gap"></div>';
     const cells=cellsOf(l);
     return `<div class="tl"><span class="tools"><button data-copy="${i}" title="複製這行的和弦位置">複製</button>${lineClip?`<button data-paste="${i}" title="把複製的和弦套到這行">貼上</button>`:''}</span><div class="tcells">`+
-      cells.map((c,k)=>`<button class="tc${c.end?' end':''}" data-l="${i}" data-k="${k}" aria-label="${c.end?'行尾':esc(c.ch)}${c.chord?' 和弦 '+esc(c.chord.name):''}"><span class="tch">${c.chord?esc(c.chord.name):''}</span><span class="tly">${c.end?'＋':c.ch===' '?' ':esc(c.ch)}</span></button>`).join('')+'</div></div>';
+      cells.map((c,k)=>`<button class="tc${c.end?' end':''}${c.tail?' tail':''}" data-l="${i}" data-k="${k}" aria-label="${c.end?'行尾，唱完後的和弦':c.tail?'唱完後的和弦':esc(c.ch)}${c.chord?' 和弦 '+esc(c.chord.name):''}"><span class="tch">${c.chord?esc(c.chord.name):''}</span><span class="tly">${c.end?'＋':c.ch===' '?' ':esc(c.ch)}</span></button>`).join('')+'</div></div>';
   }).join('');}
 function renderSheet(){const s=cur();if(!s)return;
   const hasLyrics=s.src.split('\n').some(l=>isLyricLine(l));
@@ -816,7 +817,7 @@ const recent=()=>lsGet('cb_recent',[]);
 function pushRecent(n){lsSet('cb_recent',[n,...recent().filter(x=>x!==n)].slice(0,8));}
 function fillPicker(title,existing,anchor){
   const s=cur(),fl=FLAT_KEYS.has(s.key);document.querySelectorAll('.tc.sel,.cchip.sel').forEach(x=>x.classList.remove('sel'));anchor?.classList.add('sel');
-  $('pkTitle').textContent=title;$('pkDiaLbl').textContent=`${KEYS[s.key]} 調常用`;
+  $('pkTitle').textContent=title.replace('在這句唱完後加和弦','這句唱完後加和弦');$('pkDiaLbl').textContent=`${KEYS[s.key]} 調常用`;
   $('pkDia').innerHTML=Object.keys(DIA).map(d=>{const n=chordName(s.key,+d,DIA[d]);return `<button class="chip" data-pick="${n}">${n} <small>${ROMAN[d]}</small></button>`}).join('');
   const r=recent();$('pkRecLbl').hidden=!r.length;$('pkRecent').innerHTML=r.map(n=>`<button class="chip" data-pick="${esc(n)}">${esc(n)}</button>`).join('');
   const dia=new Set(Object.keys(DIA).map(d=>mod(s.key+ +d)));
@@ -831,7 +832,7 @@ function fillPicker(title,existing,anchor){
 function openPicker(l,k,anchor){
   const line=cur().src.split('\n')[l],c=cellsOf(line)[k];if(!c)return;pk={l,k};
   $('pkLine').hidden=false;$('pkPaste').hidden=!lineClip;$('pkL').textContent='← 前一字';$('pkR').textContent='後一字 →';
-  const word=c.end?'行尾':`「${c.ch}」前面`;fillPicker(c.chord?`修改 ${c.chord.name}（${word}）`:`在${word}加和弦`,c.chord?.name,anchor);}
+  const word=c.end||c.tail?'這句唱完後':`「${c.ch}」前面`;fillPicker(c.chord?`修改 ${c.chord.name}（${word}）`:`在${word}加和弦`,c.chord?.name,anchor);}
 // 純和弦行（前奏、間奏…）：ci 是第幾個和弦，-1 代表加在最後；ins 代表在段落標題下新增一行
 function openChordPicker(o,anchor){pk=o;$('pkLine').hidden=true;$('pkL').textContent='← 往前';$('pkR').textContent='往後 →';
   const t=o.ins!=null?[]:chordTokens(cur().src.split('\n')[o.cl]),ex=o.ci>=0?t[o.ci]:null;
