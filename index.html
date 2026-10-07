@@ -51,7 +51,7 @@ select,input[type=text],input[type=number]{background:var(--panel);border:1px so
 .nav a[aria-current=page]{color:var(--fg);font-weight:700;background:var(--soft)}
 #q{flex:1;min-width:140px;max-width:320px;margin-left:auto;background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:7px 14px}
 .tb .sync{white-space:nowrap}
-@media (max-width:700px){.tb{gap:8px}.logo{font-size:17px}#q{order:5;max-width:none;flex-basis:100%;margin-left:0}.tb .sync{font-size:0}.tb .sync::before{margin:0}.nav a{padding:6px 8px}}
+@media (max-width:700px){.tb{gap:8px}.logo{font-size:17px}#q{order:5;max-width:none;flex-basis:100%;margin-left:0}.tb .sync{font-size:0}.tb .sync::before{margin:0}.nav a{padding:6px 8px}.me b{max-width:4.5em}}
 .crumb{color:var(--muted);text-decoration:none;font-size:13px;justify-self:start}
 .crumb:hover{color:var(--accent)}
 .listhead{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
@@ -427,6 +427,14 @@ button,.btn,.tc,.song{-webkit-tap-highlight-color:transparent;touch-action:manip
 #filtBar:empty{display:none}
 .trow b .art{font-weight:400;font-size:13px;color:var(--muted);margin-left:6px}
 #rankTabs button[aria-pressed=true]{background:var(--soft);color:var(--accent);font-weight:700}
+.me{display:flex;align-items:center;gap:8px;border:0;background:transparent;padding:6px 8px;border-radius:999px}
+.me:hover{background:var(--soft)}
+.me b{font-size:13px;font-weight:600;max-width:8em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.me b:empty::before{content:"設定名字";color:var(--accent);font-weight:500}
+.by{color:var(--muted)}
+.bkrow{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 10px;border-radius:8px;background:var(--panel);border:1px solid var(--line);font-size:14px}
+.bkrow input[type=text]{min-width:0;padding:5px 8px}
+.bkrow .small{white-space:nowrap}
 .toast{position:fixed;z-index:40;left:50%;bottom:calc(84px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:9px 14px;border-radius:8px;font-size:13px;max-width:calc(100vw - 32px)}
 @media (prefers-reduced-motion:no-preference){.song,button{transition:background .12s,border-color .12s}}
 </style>
@@ -437,7 +445,7 @@ button,.btn,.tc,.song{-webkit-tap-highlight-color:transparent;touch-action:manip
   <nav class="nav" aria-label="主選單"><a href="#/" data-nav="home">首頁</a><a href="#/songs" data-nav="songs">歌曲</a><a href="#/sets" data-nav="sets">歌單</a></nav>
   <input type="search" id="q" placeholder="搜尋歌名" aria-label="搜尋歌名" autocomplete="off">
   <button class="primary" id="newBtn">＋ 新歌</button>
-  <span class="sync" id="sync" title="連線狀態">連線中…</span>
+  <button class="me" id="meBtn" title="更改名字"><span class="sync" id="sync">連線中…</span><b id="meName"></b></button>
 </div></header>
 <div class="app">
   <main>
@@ -673,9 +681,29 @@ button,.btn,.tc,.song{-webkit-tap-highlight-color:transparent;touch-action:manip
     <div class="pkhead"><b id="ndH" style="font-size:18px">新增歌曲</b><button type="button" class="ghost" id="ndX" aria-label="關閉">✕</button></div>
     <div class="row"><label class="field"><span class="lbl">歌名</span><input type="text" id="ndTitle" placeholder="例如：遠方的路口" required></label><label class="field"><span class="lbl">作者（選填）</span><input type="text" id="ndArtist" placeholder="詞曲作者或原唱"></label></div>
     <label class="field"><span class="lbl">歌詞（一行一句，可以留空之後再貼）</span><textarea id="ndLyrics" placeholder="[Intro]&#10;&#10;[Verse 1]&#10;第一句歌詞&#10;第二句歌詞&#10;&#10;[Chorus]&#10;…"></textarea></label>
+    <button type="button" class="ghost" id="ndBulk" style="justify-self:start;padding-left:0">很多首要一次加？用批次匯入 →</button>
     <label class="field"><span class="lbl">Demo 錄音（選填）：有的話會自動抓調性、BPM 並配好和弦</span><input type="file" id="ndDemo" accept="audio/*"></label>
     <div class="row" style="justify-content:flex-end"><button type="button" class="ghost" id="ndCancel">取消</button><button class="primary" type="submit" id="ndOk">建立</button></div>
   </form>
+</div>
+<div class="dlg" id="nameDlg" hidden role="dialog" aria-modal="true" aria-labelledby="nmH">
+  <form class="dlgbox" id="nameForm" style="max-width:420px">
+    <b id="nmH" style="font-size:18px">你是誰？</b>
+    <div class="hint">輸入團員看得懂的名字。之後誰改了哪首歌都會記下來。存在這台裝置上，下次不用再輸入。</div>
+    <input type="text" id="nmIn" maxlength="20" placeholder="例如：Jacky、貝斯阿明" required autocomplete="nickname">
+    <div class="row" style="justify-content:flex-end"><button type="button" class="ghost" id="nmCancel">稍後再說</button><button class="primary" type="submit">好</button></div>
+  </form>
+</div>
+<div class="dlg" id="bulkDlg" hidden role="dialog" aria-modal="true" aria-labelledby="bkH">
+  <div class="dlgbox" style="width:min(720px,100%)">
+    <div class="pkhead"><b id="bkH" style="font-size:18px">批次匯入歌曲</b><button type="button" class="ghost" id="bkX" aria-label="關閉">✕</button></div>
+    <div class="hint">一次匯入很多首。可以<b>選多個檔案</b>（.txt、ChordPro .cho／.chordpro，一個檔案一首，檔名當歌名），或在下面<b>貼上整批文字</b>，每首用 <code># 歌名</code> 開頭。和弦在上歌詞在下、<code>[C]歌詞</code>、ChordPro 都看得懂。</div>
+    <label class="btn" for="bkFiles" style="justify-self:start">選擇檔案（可多選）</label><input type="file" id="bkFiles" multiple accept=".txt,.cho,.crd,.chopro,.chordpro,.pro,.md,text/plain" hidden>
+    <textarea id="bkText" style="min-height:180px;font-family:var(--mono);font-size:13px" placeholder="# 第一首歌名&#10;Key: G&#10;Verse&#10;G        D&#10;第一句歌詞&#10;&#10;# 第二首歌名&#10;[C]歌詞[G]歌詞"></textarea>
+    <div class="row"><button id="bkParse">預覽</button><span class="small" id="bkMsg"></span></div>
+    <div class="hist" id="bkList"></div>
+    <div class="row" style="justify-content:flex-end"><button class="ghost" id="bkCancel">取消</button><button class="primary" id="bkGo" disabled>匯入</button></div>
+  </div>
 </div>
 <div class="wiz" id="wiz" hidden>
   <div class="wtop"><div style="display:grid;min-width:0"><b>自動配和弦</b><span class="small" id="wizInfo"></span></div><button id="wizX">關閉</button></div>
@@ -794,7 +822,7 @@ function textOut(s,shift,capo){
 const ago=t=>{const d=(Date.now()-t)/1000;return d<60?'剛剛':d<3600?Math.floor(d/60)+' 分鐘前':d<86400?Math.floor(d/3600)+' 小時前':d<86400*30?Math.floor(d/86400)+' 天前':new Date(t).toLocaleDateString('zh-TW');};
 const chordPreview=s=>{const c=[];(s.src||'').replace(/\[([^\]]+)\]/g,(m,x)=>{if(CHORD_ONLY.test(x.trim())&&c[c.length-1]!==x)c.push(x);return m;});return c.slice(0,8).join(' ');};
 function songCard(s){const pv=chordPreview(s);return `<a class="scard" href="#/song/${s.id}"><b>${esc(s.title||'未命名')}</b>
-  <span class="meta"><span class="k">${KEYS[s.key]}</span>${s.bpm?`<span>♩ ${s.bpm}</span>`:''}${s.audio_url?'<span class="badge">Demo</span>':''}<span>${ago(s.updatedAt)}</span></span>
+  <span class="meta"><span class="k">${KEYS[s.key]}</span>${s.bpm?`<span>♩ ${s.bpm}</span>`:''}${s.audio_url?'<span class="badge">Demo</span>':''}<span>${s.updatedBy?esc(s.updatedBy)+'・':''}${ago(s.updatedAt)}</span></span>
   <span class="prev">${pv?esc(pv):'<span class="small">還沒有和弦</span>'}</span></a>`;}
 function setCard(x){const n=x.items.filter(it=>song(it.song)).length;return `<a class="scard" href="#/set/${x.id}"><b>${esc(x.name||'未命名歌單')}</b>
   <span class="meta"><span>${n} 首</span></span><span class="small" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${x.items.map(it=>song(it.song)?.title).filter(Boolean).slice(0,4).map(esc).join('・')||'還沒有歌'}</span></a>`;}
@@ -824,13 +852,13 @@ function renderSongs(){
   renderFilters();
   const q=$('q').value.trim().toLowerCase();
   $('trashBtn').textContent=showTrash?'回到歌曲':'最近刪除';$('listTitle').textContent=showTrash?'最近刪除':q?`搜尋「${$('q').value.trim()}」`:'所有歌曲';
-  if(showTrash){$('list').innerHTML=trash.length?trash.map(t=>`<div class="delrow" style="padding:12px 16px"><span>${esc(t.title||'未命名')}<br><span class="small">${new Date(t.created_at).toLocaleString('zh-TW')} 刪除</span></span><button data-restore="${t.id}">還原</button></div>`).join(''):'<div class="empty">沒有最近刪除的歌。</div>';return;}
+  if(showTrash){$('list').innerHTML=trash.length?trash.map(t=>`<div class="delrow" style="padding:12px 16px"><span>${esc(t.title||'未命名')}<br><span class="small">${new Date(t.created_at).toLocaleString('zh-TW')} 刪除${t.edited_by?`・最後由 ${esc(t.edited_by)} 編輯`:''}</span></span><button data-restore="${t.id}">還原</button></div>`).join(''):'<div class="empty">沒有最近刪除的歌。</div>';return;}
   const sort=$('sortSel').value;
   const items=songs.filter(x=>(!q||(x.title+' '+(x.artist||'')).toLowerCase().includes(q))&&(filt.key<0||x.key===filt.key)&&(!filt.status||(filt.status==='wip'?!hasChords(x):filt.status==='done'?hasChords(x):!!x.audio_url))).sort((a,b)=>sort==='name'?a.title.localeCompare(b.title,'zh-Hant'):sort==='key'?a.key-b.key:b.updatedAt-a.updatedAt);
   $('setStrip').innerHTML=setlists.length&&!q?`<span class="lbl">歌單</span>`+setlists.slice(0,6).map(x=>`<a class="schip" href="#/set/${x.id}">${esc(x.name||'未命名歌單')} <span class="small">${x.items.length}</span></a>`).join('')+'<a class="schip ghost" href="#/sets">全部 →</a>':'';
   if(!songs.length){$('list').innerHTML=`<div class="guide" style="padding:22px"><b>寫第一首歌</b><ol><li>按右上「＋ 新歌」，貼上歌詞。</li><li>上傳 Demo，自動抓調性、BPM 和和弦。</li><li>點譜上的字修正和弦，團員打開同一個網址就看得到。</li></ol></div>`;return;}
   $('list').innerHTML=items.length?`<div class="trow th"><span>歌名</span><span>原調</span><span>BPM</span><span class="hide-sm">Demo</span><span class="hide-sm">更新</span></div>`+items.map(x=>{const p=prefs[x.id],pv=chordPreview(x);
-    return `<a class="trow" href="#/song/${x.id}"><span class="tt"><b>${esc(x.title||'未命名')}${x.artist?` <span class="art">${esc(x.artist)}</span>`:''}</b><span class="prev">${pv?esc(pv):'還沒有和弦'}</span></span><span class="k">${KEYS[x.key]}${p&&p.shift?`<span class="small"> →${nn(x.key+p.shift,FLAT_KEYS.has(mod(x.key+p.shift)))}</span>`:''}</span><span class="m">${x.bpm||'—'}</span><span class="hide-sm">${x.audio_url?'<span class="badge">Demo</span>':''}</span><span class="m hide-sm">${ago(x.updatedAt)}</span></a>`}).join('')
+    return `<a class="trow" href="#/song/${x.id}"><span class="tt"><b>${esc(x.title||'未命名')}${x.artist?` <span class="art">${esc(x.artist)}</span>`:''}</b><span class="prev">${pv?esc(pv):'還沒有和弦'}</span></span><span class="k">${KEYS[x.key]}${p&&p.shift?`<span class="small"> →${nn(x.key+p.shift,FLAT_KEYS.has(mod(x.key+p.shift)))}</span>`:''}</span><span class="m">${x.bpm||'—'}</span><span class="hide-sm">${x.audio_url?'<span class="badge">Demo</span>':''}</span><span class="m hide-sm">${ago(x.updatedAt)}${x.updatedBy?`<br>${esc(x.updatedBy)}`:''}</span></a>`}).join('')
     :`<div class="empty">${songs.length?'找不到這首歌':'還沒有歌。按右上「＋ 新歌」寫第一首。'}</div>`;}
 // 封面：用歌名算出固定的配色
 function hashStr(t){let h=0;for(const c of t||'')h=(h*31+c.codePointAt(0))>>>0;return h;}
@@ -876,6 +904,13 @@ function renderSets(){$('setList').innerHTML=setlists.length?setlists.map(setCar
 function renderList(){
   document.querySelectorAll('.nav [data-nav]').forEach(a=>{const on=a.dataset.nav===view||(a.dataset.nav==='songs'&&view==='song')||(a.dataset.nav==='sets'&&view==='set');on?a.setAttribute('aria-current','page'):a.removeAttribute('aria-current');});
   if(view==='home')renderHome();else if(view==='songs')renderSongs();else if(view==='sets')renderSets();}
+// ---- 使用者名稱（自己輸入，存在這台裝置） ----
+let me=lsGet('cb_name','')||'';
+function showMe(){$('meName').textContent=me;}
+function askName(){$('nmIn').value=me;$('nameDlg').hidden=false;setTimeout(()=>$('nmIn').focus(),30);}
+$('meBtn').onclick=askName;$('nmCancel').onclick=()=>$('nameDlg').hidden=true;
+$('nameForm').onsubmit=e=>{e.preventDefault();const v=$('nmIn').value.trim().slice(0,20);if(!v)return;me=v;lsSet('cb_name',me);showMe();$('nameDlg').hidden=true;toast(`嗨 ${me}，之後的修改都會記在你名下`);};
+showMe();if(!me)setTimeout(askName,600);
 // ---- 網址路由：#/、#/songs、#/sets、#/song/id、#/set/id ----
 const viewedNow=new Set();
 function noteView(id){lsSet('cb_seen',[id,...lsGet('cb_seen',[]).filter(x=>x!==id)].slice(0,20));
@@ -903,7 +938,7 @@ function render(){
   const p=prefOf(s.id),pk=mod(s.key+p.shift),fk=mod(pk-p.capo);
   $('h').textContent=s.title||'未命名';
   const u=/^https?:\/\//.test(s.url||'')?s.url:'';
-  $('headmeta').innerHTML=[s.artist?`<span>${esc(s.artist)}</span>`:'',s.bpm?`<span>♩ = <b>${s.bpm}</b></span>`:'',u?`<a class="srclink" href="${esc(u)}" target="_blank" rel="noopener">開啟原始連結 ↗</a>`:''].join('');
+  $('headmeta').innerHTML=[`<span class="by">${s.updatedBy?esc(s.updatedBy)+' 更新・':''}${ago(s.updatedAt)}</span>`,s.artist?`<span>${esc(s.artist)}</span>`:'',s.bpm?`<span>♩ = <b>${s.bpm}</b></span>`:'',u?`<a class="srclink" href="${esc(u)}" target="_blank" rel="noopener">開啟原始連結 ↗</a>`:''].join('');
   if(s.audio_url){if($('player').dataset.src!==s.audio_url){$('player').src=s.audio_url;$('player').dataset.src=s.audio_url;}$('player').hidden=false;}else{$('player').hidden=true;}
   $('memoShow').hidden=!s.memo;$('memoShow').innerHTML=s.memo?`<span class="lbl">給團員</span>${esc(s.memo)}`:'';
   $('origShow').textContent=KEYS[s.key];
@@ -1181,22 +1216,22 @@ function savePrefs(){lsSet('cb_prefs',prefs);}
 let tmr=null;const pending=new Set(lsGet('cb_pending',[]));
 function cacheAll(){lsSet('cb_cache',{songs,setlists,at:Date.now()});}
 function saveSong(patch){
-  const s=cur();if(!s)return;Object.assign(s,patch,{updatedAt:Date.now()});
+  const s=cur();if(!s)return;Object.assign(s,patch,{updatedAt:Date.now(),updatedBy:me});
   $('saved').textContent='儲存中…';cacheAll();
   clearTimeout(tmr);tmr=setTimeout(async()=>{
     if(!online){pending.add(s.id);lsSet('cb_pending',[...pending]);tmr=null;$('saved').textContent='離線中，連線後會自動存到雲端';return;}
-    const {error}=await sb.from('songs').update({title:s.title,artist:s.artist||'',key:s.key,src:s.src,url:s.url||'',memo:s.memo||'',bpm:s.bpm||0,audio_url:s.audio_url||'',updated_at:new Date(s.updatedAt).toISOString()}).eq('id',s.id);
+    const {error}=await sb.from('songs').update({updated_by:me,title:s.title,artist:s.artist||'',key:s.key,src:s.src,url:s.url||'',memo:s.memo||'',bpm:s.bpm||0,audio_url:s.audio_url||'',updated_at:new Date(s.updatedAt).toISOString()}).eq('id',s.id);
     tmr=null;$('saved').textContent=error?'沒有存成功：'+error.message:'已同步給團員';
   },700);}
 async function createSong(data){
-  const id=crypto.randomUUID();songs.unshift({id,artist:'',url:'',memo:'',bpm:0,audio_url:'',...data,updatedAt:Date.now()});curId=id;showTrash=false;nav('#/song/'+id);
-  const {error}=await sb.from('songs').insert({id,...data});if(error)toast('沒有新增成功：'+error.message);}
+  const id=crypto.randomUUID();songs.unshift({id,artist:'',url:'',memo:'',bpm:0,audio_url:'',createdBy:me,updatedBy:me,...data,updatedAt:Date.now()});curId=id;showTrash=false;nav('#/song/'+id);
+  const {error}=await sb.from('songs').insert({id,...data,created_by:me,updated_by:me});if(error)toast('沒有新增成功：'+error.message);}
 let setTmr=null;
 function saveSet(){const x=set();if(!x)return;cacheAll();clearTimeout(setTmr);setTmr=setTimeout(async()=>{
-  const {error}=await sb.from('setlists').update({name:x.name,items:x.items,updated_at:new Date().toISOString()}).eq('id',x.id);setTmr=null;if(error)toast('歌單沒有存成功：'+error.message);},500);}
+  const {error}=await sb.from('setlists').update({updated_by:me,name:x.name,items:x.items,updated_at:new Date().toISOString()}).eq('id',x.id);setTmr=null;if(error)toast('歌單沒有存成功：'+error.message);},500);}
 async function createSet(name,items=[]){
   const id=crypto.randomUUID();setlists.unshift({id,name,items});curSet=id;nav('#/set/'+id);
-  const {error}=await sb.from('setlists').insert({id,name,items});if(error)toast('沒有新增成功：'+error.message);return id;}
+  const {error}=await sb.from('setlists').insert({id,name,items,updated_by:me});if(error)toast('沒有新增成功：'+error.message);return id;}
 
 // ---- 事件：歌曲 ----
 $('origKey').innerHTML=KEYS.map((k,i)=>`<option value="${i}">原調 ${k}</option>`).join('');
@@ -1227,6 +1262,7 @@ $('newForm').onsubmit=async e=>{e.preventDefault();
   $('ndOk').disabled=false;};
 const TAB_TITLES={chords:'自動配和弦・貼上譜・和弦小幫手',text:'歌詞與和弦文字',info:'歌曲資訊',demo:'Demo 錄音',hist:'版本紀錄'};
 function openEditor(on,tabName){
+  if(on&&!me){askName();toast('先告訴大家你是誰，再開始編輯');return;}
   editing=on;sel=null;$('keybar').hidden=on;$('palette').hidden=true;$('viewActs').hidden=on;$('editActs').hidden=!on;$('songView').classList.toggle('is-editing',on);closePicker();
   if(!on)closeDrawer();else if(tabName)openDrawer(tabName);else if(!cur()?.src.split('\n').some(l=>isLyricLine(l)))openDrawer('text');
   renderSheet();}
@@ -1449,6 +1485,53 @@ $('wizApply').onclick=()=>{W.auto=false;const patch={src:W.src,key:W.an.key.majo
 $('wizGo').onclick=()=>{const u=cur()?.audio_url;if(!u){toast('這首還沒有 Demo，請先上傳，或用別的錄音檔');return;}
   wizStart(async()=>{const r=await fetch(u);if(!r.ok)throw 0;return r.arrayBuffer();},u);};
 
+// ---- 批次匯入 ----
+// ChordPro → 這裡的格式
+function fromChordPro(t){const meta={};const out=[];
+  t.split('\n').forEach(l=>{const d=l.match(/^\s*\{\s*([\w_]+)\s*(?::\s*(.*?))?\s*\}\s*$/);
+    if(!d){out.push(l);return;}const k=d[1].toLowerCase(),v=(d[2]||'').trim();
+    if(k==='title'||k==='t')meta.title=v;else if(k==='artist'||k==='subtitle'||k==='st')meta.artist=meta.artist||v;else if(k==='key')meta.key=v;else if(k==='tempo')meta.bpm=parseInt(v)||0;
+    else if(/^(soc|start_of_chorus)$/.test(k))out.push(v||'Chorus');else if(/^(sov|start_of_verse)$/.test(k))out.push(v||'Verse');else if(/^(sob|start_of_bridge)$/.test(k))out.push(v||'Bridge');
+    else if(/^(c|comment|ci|comment_italic)$/.test(k))out.push(SEC_WORDS.test(v)?v:'> '+v);});
+  return {src:out.join('\n'),...meta};}
+// 從和弦猜調性：哪個大調涵蓋最多和弦
+function guessKey(src){const ch=[];src.replace(/\[([^\]]+)\]/g,(m,x)=>{x.trim().split(/\s+/).forEach(c=>{const mm=c.match(CH);if(mm&&IDX[mm[1]]!==undefined)ch.push({r:IDX[mm[1]],q:quality(mm[2])});});return m;});
+  if(!ch.length)return 0;let best=0,bs=-1;for(let k=0;k<12;k++){let sc=0;ch.forEach(c=>{const d=mod(c.r-k);if(DIA[d]===c.q||(c.q==='any'&&DIA[d]))sc++;if(d===0&&c.q==='maj')sc+=.3;});if(sc>bs){bs=sc;best=k;}}
+  return KEYS.findIndex(k=>IDX[k]===best);}
+function parseOne(title,text){
+  text=text.replace(/\r/g,'').replace(/\t/g,'    ');let meta={};
+  if(/^\s*\{\s*(t|title|soc|start_of_chorus|c|comment)\s*[:}]/m.test(text)){const r=fromChordPro(text);meta=r;text=r.src;}
+  let src,key=null;
+  const bracket=(text.match(/\[[^\]]+\]/g)||[]).filter(x=>isBarTok(x.slice(1,-1))).length;
+  if(bracket>=2){src=text.trim();const km=src.match(/^\s*(?:原調|key|調)\s*[:：=]?\s*([A-G](?:#|b)?)m?\s*$/im);if(km){key=km[1];src=src.replace(km[0],'').trim();}}
+  else{const r=convertSheet(text);src=r.src;key=r.key;}
+  if(meta.key)key=meta.key.replace(/m$/,'');
+  const k=key&&IDX[key]!==undefined?KEYS.findIndex(x=>IDX[x]===IDX[key]):guessKey(src);
+  return {title:(meta.title||title||'未命名').trim(),artist:meta.artist||'',bpm:meta.bpm||0,key:k<0?0:k,src};}
+function splitPaste(text){const out=[];let cur=null;
+  text.replace(/\r/g,'').split('\n').forEach(l=>{const h=l.match(/^\s*#{1,3}\s+(.+?)\s*$/);if(h){cur={title:h[1],lines:[]};out.push(cur);}else{if(!cur){cur={title:'',lines:[]};out.push(cur);}cur.lines.push(l);}});
+  return out.filter(x=>x.lines.join('').trim()||x.title).map(x=>{if(!x.title){const i=x.lines.findIndex(l=>l.trim());x.title=x.lines[i]?.trim().slice(0,30)||'未命名';x.lines.splice(i,1);}return parseOne(x.title,x.lines.join('\n'));});}
+let bulk=[];
+function openBulk(){$('newDlg').hidden=true;$('bulkDlg').hidden=false;bulk=[];$('bkList').innerHTML='';$('bkMsg').textContent='';$('bkGo').disabled=true;}
+function drawBulk(){const dup=new Set(songs.map(x=>x.title.trim()));
+  $('bkList').innerHTML=bulk.map((b,i)=>`<label class="bkrow"><input type="checkbox" data-bi="${i}" ${b.on?'checked':''}><input type="text" data-bt="${i}" value="${esc(b.title)}" aria-label="歌名"><span class="small">${KEYS[b.key]} 調・${b.src.split('\n').filter(l=>l.trim()).length} 行${(b.src.match(/\[[^\]]+\]/g)||[]).length?'':'・沒有和弦'}${dup.has(b.title.trim())?'・<b style="color:var(--warn)">已有同名</b>':''}</span></label>`).join('');
+  const n=bulk.filter(b=>b.on).length;$('bkGo').disabled=!n;$('bkGo').textContent=n?`匯入 ${n} 首`:'匯入';}
+$('ndBulk').onclick=openBulk;
+$('bkX').onclick=$('bkCancel').onclick=()=>$('bulkDlg').hidden=true;
+$('bkFiles').onchange=async e=>{const fs=[...e.target.files];e.target.value='';
+  const got=await Promise.all(fs.map(async f=>parseOne(f.name.replace(/\.[^.]+$/,''),await f.text())));
+  const dup=new Set(songs.map(x=>x.title.trim()));bulk.push(...got.map(b=>({...b,on:!dup.has(b.title.trim())})));$('bkMsg').textContent=`讀到 ${got.length} 個檔案`;drawBulk();};
+$('bkParse').onclick=()=>{const t=$('bkText').value;if(!t.trim()){$('bkMsg').textContent='先貼上文字或選檔案';return;}
+  const got=splitPaste(t),dup=new Set(songs.map(x=>x.title.trim()));bulk.push(...got.map(b=>({...b,on:!dup.has(b.title.trim())})));$('bkText').value='';$('bkMsg').textContent=`分出 ${got.length} 首`;drawBulk();};
+$('bkList').addEventListener('input',e=>{const c=e.target.dataset;if(c.bi!=null)bulk[+c.bi].on=e.target.checked;if(c.bt!=null)bulk[+c.bt].title=e.target.value;drawBulk();});
+$('bkGo').onclick=async()=>{
+  if(!me){askName();return;}const pick=bulk.filter(b=>b.on);if(!pick.length)return;$('bkGo').disabled=true;$('bkMsg').textContent='匯入中…';
+  const rows=pick.map(b=>({id:crypto.randomUUID(),title:b.title.trim()||'未命名',artist:b.artist,key:b.key,bpm:b.bpm,src:b.src,created_by:me,updated_by:me}));
+  const {error}=await sb.from('songs').insert(rows);
+  if(error){$('bkMsg').textContent='匯入失敗：'+error.message;$('bkGo').disabled=false;return;}
+  rows.forEach(r=>songs.unshift(fromRow({...r,updated_at:new Date().toISOString()})));cacheAll();
+  $('bulkDlg').hidden=true;toast(`已匯入 ${rows.length} 首`);nav('#/songs');};
+
 // ---- 版本紀錄 / 最近刪除 ----
 let versions=[];
 async function loadHist(){
@@ -1457,7 +1540,7 @@ async function loadHist(){
   const {data,error}=await sb.from('song_versions').select('*').eq('song_id',curId).order('created_at',{ascending:false}).limit(40);
   if(error){$('histList').innerHTML=`<div class="small">讀不到版本紀錄：${esc(error.message)}</div>`;return;}
   versions=data;
-  $('histList').innerHTML=data.length?data.map(v=>`<div class="hrow"><span>${new Date(v.created_at).toLocaleString('zh-TW')}　<span class="small">${esc(v.title)}・${(v.src||'').split('\n').length} 行</span></span><button data-vprev="${v.id}">看內容</button><button data-vback="${v.id}">還原</button></div>`).join('')
+  $('histList').innerHTML=data.length?data.map(v=>`<div class="hrow"><span>${new Date(v.created_at).toLocaleString('zh-TW')}　<span class="small">${v.edited_by?esc(v.edited_by)+' 寫的版本':''}${v.replaced_by?`（${esc(v.replaced_by)} 修改前）`:''}・${(v.src||'').split('\n').length} 行</span></span><button data-vprev="${v.id}">看內容</button><button data-vback="${v.id}">還原</button></div>`).join('')
     :'<div class="small">還沒有舊版本。這首歌之後被修改時，修改前的內容會自動存在這裡。</div>';};
 $('histList').onclick=e=>{
   const p=e.target.closest('[data-vprev]'),b=e.target.closest('[data-vback]');
@@ -1611,8 +1694,8 @@ document.addEventListener('keydown',e=>{if($('stage').hidden)return;
 
 // ---- 連線與同步（含離線） ----
 const CFG=window.CHORDBOOK_CONFIG||{};
-function fromRow(r){return {id:r.id,title:r.title||'',artist:r.artist||'',key:+r.key||0,src:r.src||'',url:r.url||'',memo:r.memo||'',bpm:+r.bpm||0,audio_url:r.audio_url||'',updatedAt:Date.parse(r.updated_at)||0};}
-function setFromRow(r){return {id:r.id,name:r.name||'',items:Array.isArray(r.items)?r.items:[],updatedAt:Date.parse(r.updated_at)||0};}
+function fromRow(r){return {id:r.id,createdBy:r.created_by||'',updatedBy:r.updated_by||'',title:r.title||'',artist:r.artist||'',key:+r.key||0,src:r.src||'',url:r.url||'',memo:r.memo||'',bpm:+r.bpm||0,audio_url:r.audio_url||'',updatedAt:Date.parse(r.updated_at)||0};}
+function setFromRow(r){return {id:r.id,updatedBy:r.updated_by||'',name:r.name||'',items:Array.isArray(r.items)?r.items:[],updatedAt:Date.parse(r.updated_at)||0};}
 function status(t,cls){$('sync').textContent=t;$('sync').className='sync '+(cls||'');}
 async function loadAll(){
   const [a,b]=await Promise.all([
@@ -1635,7 +1718,7 @@ function subscribe(){
   }).subscribe();}
 async function flushPending(){
   for(const id of [...pending]){const s=song(id);if(!s){pending.delete(id);continue;}
-    const {error}=await sb.from('songs').update({title:s.title,artist:s.artist||'',key:s.key,src:s.src,url:s.url||'',memo:s.memo||'',bpm:s.bpm||0,audio_url:s.audio_url||'',updated_at:new Date(s.updatedAt).toISOString()}).eq('id',id);
+    const {error}=await sb.from('songs').update({updated_by:me,title:s.title,artist:s.artist||'',key:s.key,src:s.src,url:s.url||'',memo:s.memo||'',bpm:s.bpm||0,audio_url:s.audio_url||'',updated_at:new Date(s.updatedAt).toISOString()}).eq('id',id);
     if(!error)pending.delete(id);}
   lsSet('cb_pending',[...pending]);}
 async function connect(){
