@@ -203,5 +203,37 @@
     return out;
   }
 
-  window.ChordDetect = { analyze, group, keyFromChords, smooth };
+  // 邊播邊抓：分析使用者分享的分頁聲音（不錄、不存，只留 12 音級能量）
+  function live(stream) {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const srcNode = ctx.createMediaStreamSource(stream), an = ctx.createAnalyser();
+    an.fftSize = 8192; an.smoothingTimeConstant = 0; srcNode.connect(an);
+    const sr = ctx.sampleRate, nb = an.frequencyBinCount, pc = new Int8Array(nb).fill(-1), bass = new Uint8Array(nb);
+    for (let k = 1; k < nb; k++) { const f = k * sr / an.fftSize; if (f >= 50 && f <= 2000) pc[k] = ((Math.round(12 * Math.log2(f / 440)) + 9) % 12 + 12) % 12; if (f >= 50 && f <= 250) bass[k] = 1; }
+    const fd = new Float32Array(nb), td = new Float32Array(an.fftSize), C = [], B = [], E = [];
+    const frameSec = 0.1, t0 = performance.now();
+    const tick = setInterval(() => {
+      an.getFloatFrequencyData(fd); an.getFloatTimeDomainData(td);
+      const c = new Float32Array(12), b = new Float32Array(12); let e = 0;
+      for (let i = 0; i < td.length; i++) e += td[i] * td[i];
+      for (let k = 1; k < nb; k++) { if (pc[k] < 0) continue; const m = Math.sqrt(Math.pow(10, fd[k] / 20)); c[pc[k]] += m; if (bass[k]) b[pc[k]] += m; }
+      C.push(c); B.push(b); E.push(Math.sqrt(e / td.length));
+    }, frameSec * 1000);
+    return {
+      t0, ctx, level: () => E.length ? E[E.length - 1] : 0, seconds: () => E.length * frameSec,
+      stop() {
+        clearInterval(tick); stream.getTracks().forEach(t => t.stop()); ctx.close?.();
+        const frames = E.length, Cf = new Float32Array(frames * 12), Bf = new Float32Array(frames * 12), Ef = Float32Array.from(E);
+        C.forEach((c, f) => Cf.set(c, f * 12)); B.forEach((b, f) => Bf.set(b, f * 12));
+        const an2 = { C: Cf, B: Bf, E: Ef, frames, frameSec, duration: frames * frameSec };
+        const total = new Array(12).fill(0); for (let f = 0; f < frames; f++) for (let i = 0; i < 12; i++) total[i] += Cf[f * 12 + i] * Ef[f];
+        an2.key = detectKey(total);
+        const maxE = Ef.reduce((m, x) => Math.max(m, x), 0); let first = 0; while (first < frames && Ef[first] < maxE * 0.12) first++;
+        an2.firstSound = first * frameSec; an2.bpm = 0;
+        return an2;
+      }
+    };
+  }
+
+  window.ChordDetect = { analyze, group, keyFromChords, smooth, live };
 })();

@@ -538,6 +538,7 @@ button,.btn,.tc,.song{-webkit-tap-highlight-color:transparent;touch-action:manip
             <div class="hint">分析錄音，自動把和弦配到歌詞上，先給你預覽再決定要不要套用。上傳 Demo 時也會自動執行。</div>
             <div class="row">
               <button class="primary" id="wizGo">▶ 用這首的 Demo 配和弦</button>
+              <button id="liveGo">◉ 邊播邊抓（Suno 等網頁播放）</button>
               <label class="btn" for="detFile">用別的錄音檔</label><input type="file" id="detFile" accept="audio/*" hidden>
             </div>
             <span class="small" id="detMsg"></span>
@@ -722,7 +723,7 @@ button,.btn,.tc,.song{-webkit-tap-highlight-color:transparent;touch-action:manip
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="config.js"></script>
-<script src="detect.js?v=15"></script>
+<script src="detect.js?v=36"></script>
 <script>
 const SH=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 const FL=['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
@@ -1390,8 +1391,43 @@ function stripDetectBlock(lines){const out=[];let skip=false;
 // ---- 自動配和弦精靈 ----
 const W={an:null,url:null,lines:[],rows:[],taps:[],ptr:0,src:null,audio:new Audio()};
 function wizOpen(){$('wiz').hidden=false;document.body.style.overflow='hidden';}
-function wizClose(){W.audio.pause();$('wiz').hidden=true;document.body.style.overflow='';}
+function wizClose(){W.audio.pause();if(W.live&&W.cap){clearInterval(W.liveTimer);W.cap.stop();W.cap=null;W.live=false;}$('wiz').hidden=true;document.body.style.overflow='';}
 $('wizX').onclick=wizClose;
+const wizNow=()=>W.live?(performance.now()-W.cap.t0)/1000:W.audio.currentTime;
+// ---- 邊播邊抓：使用者分享播放中的分頁聲音 ----
+async function wizLive(){
+  const s=cur();if(!s)return;
+  if(!s.src.split('\n').some(isLyricLine)){toast('這首還沒有歌詞，先貼上歌詞');return;}
+  if(!navigator.mediaDevices?.getDisplayMedia){toast('這個瀏覽器不支援分享分頁聲音，請用電腦版 Chrome');return;}
+  let stream;
+  try{stream=await navigator.mediaDevices.getDisplayMedia({video:true,audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false},preferCurrentTab:false,selfBrowserSurface:'exclude',systemAudio:'include'});}
+  catch(e){toast('沒有分享，已取消');return;}
+  if(!stream.getAudioTracks().length){stream.getTracks().forEach(t=>t.stop());toast('沒有聲音：分享時請選 Suno 分頁，並勾選「分享分頁音訊」');return;}
+  stream.getVideoTracks().forEach(t=>t.stop());
+  W.live=true;W.liveOn=false;W.cap=ChordDetect.live(stream);
+  const lines=stripDetectBlock(s.src.split('\n'));W.lines=lines;
+  W.rows=lines.map((l,i)=>({i,sec:secMatch(l)?secHead(secMatch(l)[1]).name:null,lyric:isLyricLine(l)?l.replace(/\[[^\]]*\]/g,'').trim():null})).filter(r=>r.sec||r.lyric);
+  W.bpm=s.bpm||0;W.an=null;wizOpen();
+  W.taps=W.rows.map(()=>null);W.ptr=W.rows.findIndex(r=>r.lyric);
+  $('wizBarTap').hidden=false;$('wizBarDone').hidden=true;$('wizInfo').textContent=s.title+'・邊播邊抓';
+  $('wizTap').innerHTML='這句開始了<small>或按空白鍵</small>';$('wizRestart').textContent='結束（歌播完了）';
+  wizRenderTap();
+  $('wizBody').insertAdjacentHTML('afterbegin','<div class="hint" id="liveHint" style="margin-bottom:12px">到 Suno 分頁按播放。聽到聲音後這裡會開始計時；每句開始唱的時候按下面的按鈕（或空白鍵）。歌播完按「結束」。</div>');
+  // 等第一個聲音出現才開始計時
+  W.liveTimer=setInterval(()=>{const lv=W.cap.level();
+    if(!W.liveOn&&lv>0.01){W.liveOn=true;W.liveStart=performance.now();$('liveHint')&&($('liveHint').textContent='正在聽…每句開始唱就按一下。歌播完按「結束」。');}
+    if(W.liveOn)$('wizInfo').textContent=`${s.title}・邊播邊抓・${fmt((performance.now()-W.liveStart)/1000)}`;},200);
+  stream.getAudioTracks()[0].onended=()=>W.live&&wizLiveEnd();}
+function wizLiveEnd(){
+  if(!W.live||!W.cap)return;clearInterval(W.liveTimer);
+  const an=W.cap.stop();W.cap=null;W.live=false;$('wizRestart').textContent='重來';
+  if(an.frames<50){toast('聽到的聲音太短，沒辦法分析');wizClose();return;}
+  // 從開始計時那刻起算
+  W.an=an;if(!W.bpm)W.bpm=90;
+  const k=ChordDetect.keyFromChords(ChordDetect.group(an,{segSec:240/W.bpm,offset:an.firstSound,keyMajor:an.key.major}));if(k)an.key=k;
+  if(!W.taps.some(t=>typeof t==='number'))wizAutoTaps();
+  wizFinish();}
+$('liveGo').onclick=()=>{if(!me){askName();return;}wizLive();};
 async function wizStart(getBuf,url){
   wizOpen();$('wizBarTap').hidden=true;$('wizBarDone').hidden=true;$('wizInfo').textContent=cur().title;
   $('wizBody').innerHTML='<div class="wprog"><b id="wpT">準備錄音…</b><div class="meter"><i id="wpM"></i></div><span class="small">4 分鐘的歌大約要 5–15 秒</span></div>';
@@ -1414,12 +1450,13 @@ function wizRenderTap(){
   document.querySelector('.wl.cur')?.scrollIntoView({block:'center',behavior:'smooth'});}
 function wizNext(){do W.ptr++;while(W.ptr<W.rows.length&&!W.rows[W.ptr].lyric);if(W.ptr>=W.rows.length)wizFinish();else wizRenderTap();}
 $('wizTap').onclick=()=>{
-  if(W.audio.paused&&W.taps.every(t=>t==null)){W.audio.play().catch(()=>{});$('wizTap').innerHTML='這句開始了<small>或按空白鍵</small>';return;}
-  W.taps[W.ptr]=Math.max(0,W.audio.currentTime-0.15);wizNext();};
+  if(W.live){if(!W.liveOn){toast('先在 Suno 分頁按播放，聽到聲音後才開始計時');return;}}
+  else if(W.audio.paused&&W.taps.every(t=>t==null)){W.audio.play().catch(()=>{});$('wizTap').innerHTML='這句開始了<small>或按空白鍵</small>';return;}
+  W.taps[W.ptr]=Math.max(0,wizNow()-0.15);wizNext();};
 $('wizSkip').onclick=()=>{W.taps[W.ptr]='skip';wizNext();};
 $('wizUndo').onclick=()=>{let j=W.ptr-1;while(j>=0&&!W.rows[j].lyric)j--;if(j<0)return;W.taps[j]=null;W.ptr=j;
   const prev=W.taps.slice(0,j).filter(t=>typeof t==='number').pop();W.audio.currentTime=Math.max(0,(prev??0)-1);wizRenderTap();};
-$('wizRestart').onclick=()=>{W.audio.pause();wizTapStart();};
+$('wizRestart').onclick=()=>{if(W.live){wizLiveEnd();return;}W.audio.pause();wizTapStart();};
 $('wizRetap').onclick=()=>{W.audio.pause();W.auto=false;wizTapStart();};
 W.audio.onended=()=>{if(!$('wizBarTap').hidden&&W.taps.some(t=>typeof t==='number'))wizFinish();};
 document.addEventListener('keydown',e=>{if($('wiz').hidden||$('wizBarTap').hidden)return;
@@ -1480,7 +1517,7 @@ function wizFinish(){
     <div class="card"><div class="sheet">${sheetHTML(tmp,0,0,false)}</div></div></div>`;
   $('wizBody').scrollTop=0;}
 $('wizLevel').onclick=e=>{const b=e.target.closest('[data-lv]');if(!b)return;W.level=b.dataset.lv;lsSet('cb_level',W.level);wizFinish();};
-$('wizApply').onclick=()=>{W.auto=false;const patch={src:W.src,key:W.an.key.major,bpm:W.bpm};
+$('wizApply').onclick=()=>{W.auto=false;if(!W.audio.src)W.audio.removeAttribute('src');const patch={src:W.src,key:W.an.key.major,bpm:W.bpm};
   saveSong(patch);$('src').value=W.src;wizClose();render();openEditor(true);closeDrawer();toast('已配好和弦。點譜上任何和弦就能修改');};
 $('wizGo').onclick=()=>{const u=cur()?.audio_url;if(!u){toast('這首還沒有 Demo，請先上傳，或用別的錄音檔');return;}
   wizStart(async()=>{const r=await fetch(u);if(!r.ok)throw 0;return r.arrayBuffer();},u);};
