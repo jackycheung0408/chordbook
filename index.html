@@ -294,8 +294,10 @@ pre.preview{margin:0;max-height:240px;overflow:auto;font-family:var(--mono);font
 .barsep{color:var(--muted);opacity:.5;font-family:var(--mono);padding:0 2px}
 .rep.big{font-size:13px;padding:2px 10px;color:var(--chord);margin-left:6px}
 .barline{display:flex;flex-wrap:wrap;align-items:baseline;margin:0 0 8px;line-height:1.5}
-.bar1{font-family:var(--mono);font-weight:700;color:var(--chord);font-size:calc(var(--lyr) * .85);min-width:3.2em;padding-right:.7ch}
-.bar1+.bar1::before,.barrep::before{content:"|";color:var(--muted);opacity:.45;font-weight:400;margin-right:1.2ch}
+.bar1{font-family:var(--mono);font-weight:700;color:var(--chord);font-size:calc(var(--lyr) * .85);min-width:2.6em}
+.bsep{color:var(--muted);opacity:.45;font-family:var(--mono);font-size:calc(var(--lyr) * .85);padding:0 1.1ch}
+.barrep::before{content:"|";color:var(--muted);opacity:.45;font-weight:400;margin-right:1.1ch}
+.barrep{margin-left:1.1ch}
 .bc.out{text-decoration:underline dotted;text-underline-offset:4px}
 .bar1 .bc+.bc{margin-left:.6ch}
 .barline.again{opacity:.72}
@@ -769,9 +771,9 @@ function sheetHTML(s,shift,capo,mark){
     if(r.sec) return `<div class="sec">${esc(r.sec)}${r.ref?' <span class="rep">再一次</span>':''}${r.rep>1?` <span class="rep">×${r.rep}</span>`:''}</div>`;
     if(r.note!==undefined) return `<div><span class="note">${esc(r.note)}</span></div>`;
     if(r.gap) return '<div class="ln gap"></div>';
-    if(r.bars) return `<div class="barline${r.again?' again':''}">`+r.bars.map(b=>`<span class="bar1">`+b.trim().split(/\s+/).map(c=>{const out=mark&&!inKey(c,s.key);return `<span class="bc${out?' out':''}">${esc(xpose(c,sh,fk,s.key))}</span>`;}).join(' ')+'</span>').join('')+`${r.rep>1?`<span class="barrep">×${r.rep}</span>`:''}</div>`;
+    if(r.bars) return `<div class="barline${r.again?' again':''}">`+r.bars.map((b,bi)=>(bi?'<span class="bsep">|</span>':'')+`<span class="bar1">`+b.trim().split(/\s+/).map(c=>{const out=mark&&!inKey(c,s.key);return `<span class="bc${out?' out':''}">${esc(xpose(c,sh,fk,s.key))}</span>`;}).join(' ')+'</span>').join('')+`${r.rep>1?`<span class="barrep">×${r.rep}</span>`:''}</div>`;
     const noc=!r.segs.some(g=>g.c);
-    return `<div class="ln${r.only?' only':''}${r.again?' again':''}${noc?' noc':''}">`+r.segs.map(g=>{
+    return `<div class="ln${r.only?' only':''}${r.again?' again':''}${noc?' noc':''}">`+r.segs.map((g,gi)=>{if(gi===0&&g.c&&g.l===' ')g={...g,l:''};
       const out=mark&&g.c&&!inKey(g.c,s.key);
       return `<span class="sg"><span class="c${out?' out':''}"${out?' title="調外和弦"':''}>${esc(g.c?xpose(g.c,sh,fk,s.key):'')}</span><span class="l">${esc(g.l)||' '}</span></span>`;}).join('')+'</div>';
   }).join('');}
