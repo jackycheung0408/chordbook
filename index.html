@@ -296,7 +296,8 @@ pre.preview{margin:0;max-height:240px;overflow:auto;font-family:var(--mono);font
 .barline{display:flex;flex-wrap:wrap;align-items:baseline;margin:0 0 8px;line-height:1.5}
 .bar1{font-family:var(--mono);font-weight:700;color:var(--chord);font-size:calc(var(--lyr) * .85);min-width:3.2em;padding-right:.7ch}
 .bar1+.bar1::before,.barrep::before{content:"|";color:var(--muted);opacity:.45;font-weight:400;margin-right:1.2ch}
-.bar1.out{text-decoration:underline dotted;text-underline-offset:4px}
+.bc.out{text-decoration:underline dotted;text-underline-offset:4px}
+.bar1 .bc+.bc{margin-left:.6ch}
 .barline.again{opacity:.72}
 .barrep{font-family:var(--mono);font-size:calc(var(--lyr) * .7);color:var(--muted);font-weight:700}
 .stage .bar1{color:var(--stage-chord)}
@@ -732,7 +733,8 @@ function inKey(ch,tonic){const m=ch.match(CH);if(!m||IDX[m[1]]===undefined)retur
 const CHORD_ONLY=/^[A-G](?:#|b)?(?:maj|min|m|M|dim|aug|sus|add|°|ø|\+|-)?[0-9]*(?:(?:b|#|add|sus|maj|no)?[0-9]+)*(?:\/[A-G](?:#|b)?)?$|^N\.?C\.?$/;
 // 沒有括號的段落名稱也算：Verse 1、verse2、Chorus x2、(Bridge)、副歌：、主歌二、A段…
 const SEC_WORDS=/^\s*[\(（【\[<]?\s*((?:intro|verse|pre-?chorus|chorus|post-?chorus|bridge|interlude|instrumental|outro|solo|hook|refrain|ending|break|前奏|主歌|副歌|導歌|預副歌|橋段|間奏|尾奏|結尾|獨奏|[A-D]段)\s*[\dA-Za-z一二三四五]?\s*(?:[x×]\s*\d+)?)\s*[\)）】\]>]?\s*[:：]?\s*$/i;
-function secMatch(l){const m=l.match(/^\s*\{(.+)\}\s*$/);if(m)return m;const b=l.match(/^\s*\[([^\]]+)\]\s*$/);if(b)return CHORD_ONLY.test(b[1].trim())?null:b;
+const isBarTok=t=>t.trim().split(/\s+/).every(x=>CHORD_ONLY.test(x));
+function secMatch(l){const m=l.match(/^\s*\{(.+)\}\s*$/);if(m)return m;const b=l.match(/^\s*\[([^\]]+)\]\s*$/);if(b)return isBarTok(b[1])?null:b;
   const w=l.match(SEC_WORDS);return w&&!CHORD_ONLY.test(w[1].trim())?w:null;}
 function secHead(t){t=t.trim();const ref=/^[@=]/.test(t);if(ref)t=t.slice(1).trim();
   const r=t.match(/\s*[x×]\s*(\d+)\s*$/i);return {name:r?t.slice(0,r.index).trim():t,rep:r?+r[1]:0,ref};}
@@ -767,7 +769,7 @@ function sheetHTML(s,shift,capo,mark){
     if(r.sec) return `<div class="sec">${esc(r.sec)}${r.ref?' <span class="rep">再一次</span>':''}${r.rep>1?` <span class="rep">×${r.rep}</span>`:''}</div>`;
     if(r.note!==undefined) return `<div><span class="note">${esc(r.note)}</span></div>`;
     if(r.gap) return '<div class="ln gap"></div>';
-    if(r.bars) return `<div class="barline${r.again?' again':''}">`+r.bars.map(c=>{const out=mark&&!inKey(c,s.key);return `<span class="bar1${out?' out':''}">${esc(xpose(c,sh,fk,s.key))}</span>`;}).join('')+`${r.rep>1?`<span class="barrep">×${r.rep}</span>`:''}</div>`;
+    if(r.bars) return `<div class="barline${r.again?' again':''}">`+r.bars.map(b=>`<span class="bar1">`+b.trim().split(/\s+/).map(c=>{const out=mark&&!inKey(c,s.key);return `<span class="bc${out?' out':''}">${esc(xpose(c,sh,fk,s.key))}</span>`;}).join(' ')+'</span>').join('')+`${r.rep>1?`<span class="barrep">×${r.rep}</span>`:''}</div>`;
     const noc=!r.segs.some(g=>g.c);
     return `<div class="ln${r.only?' only':''}${r.again?' again':''}${noc?' noc':''}">`+r.segs.map(g=>{
       const out=mark&&g.c&&!inKey(g.c,s.key);
@@ -781,7 +783,7 @@ function textOut(s,shift,capo){
     if(r.sec){out.push('','['+r.sec+(r.ref?' 再一次':'')+(r.rep>1?' x'+r.rep:'')+']');return;}
     if(r.note!==undefined){out.push('※ '+r.note);return;}
     if(r.gap){out.push('');return;}
-    if(r.bars){out.push('| '+r.bars.map(c=>xpose(c,sh,fk,s.key)).join(' | ')+' |'+(r.rep>1?' x'+r.rep:''));return;}
+    if(r.bars){out.push('| '+r.bars.map(b=>b.trim().split(/\s+/).map(c=>xpose(c,sh,fk,s.key)).join(' ')).join(' | ')+' |'+(r.rep>1?' x'+r.rep:''));return;}
     let a='',b='';r.segs.forEach(g=>{const c=g.c?xpose(g.c,sh,fk,s.key):'';const n=Math.max(w(g.l),c.length+1);a+=c.padEnd(n);b+=g.l+' '.repeat(n-w(g.l));});
     out.push(a.trimEnd());if(!r.only)out.push(b.trimEnd());});
   return out.join('\n').replace(/\n{3,}/g,'\n\n');}
@@ -989,7 +991,7 @@ function applyChord(name){
   name=(name||'').trim().replace(/[\[\]]/g,'').replace(/♯/g,'#').replace(/♭/g,'b');if(!name||!pk)return;
   if(pk.ins!=null||pk.cl!=null){const lines=cur().src.split('\n');
     if(pk.ins!=null)lines.splice(pk.ins+1,0,'['+name+']');
-    else{const t=chordTokens(lines[pk.cl]);if(pk.ci<0)t.push(name);else t[pk.ci]=name;lines[pk.cl]=chordLine(t,lineRep(lines[pk.cl]));}
+    else{const t=chordTokens(lines[pk.cl]);if(pk.ci<0)t.push(name);else if(pk.inbar)t[pk.ci]=t[pk.ci].trim()+' '+name;else t[pk.ci]=name;lines[pk.cl]=chordLine(t,lineRep(lines[pk.cl]));}
     const o=pk;pushRecent(name);closePicker();commitLines(lines);
     const cl=o.ins!=null?o.ins+1:o.cl;
     // 純和弦行一路往後加：自動在「＋」再開一次
@@ -1077,7 +1079,7 @@ function openPopup(o,el){
   fillPicker(info.chord?`${info.where}：${info.chord}`:`${info.where}`,info.chord,el);
   const li=lineOfSel(),si=li!=null?sectionOf(li):-1,isLyric=o.l!=null&&!o.start,isCl=o.cl!=null;
   const r=isCl?lineRep(cur().src.split('\n')[o.cl]):0,b=(act,t,cls)=>`<button data-act="${act}"${cls?` class="${cls}"`:''}>${t}</button>`;
-  $('pkLine').innerHTML=(isCl?b('rep',r>1?`重複 ×${r}`:'設定重複')+b('dupline','複製這行到下面'):'')+
+  $('pkLine').innerHTML=(isCl&&o.ci>=0&&info.chord?b('inbar','同一小節再加一個','primary'):'')+(isCl?b('rep',r>1?`重複 ×${r}`:'設定重複')+b('dupline','複製這行到下面'):'')+
     (isLyric?b('copyline','複製這行和弦')+(lineClip?b('pasteline','貼上到這行'):''):'')+
     (si>=0?b('copysec','複製這段和弦')+(secClip?b('pastesec','貼上到這段'):''):'');
   $('pkLine').hidden=!$('pkLine').innerHTML;$('pkEdit').hidden=!info.chord;
@@ -1116,6 +1118,7 @@ function palAct(a){if(!a||!sel)return;
   else if(a==='pastesec'){const k={...sel};pasteSection(sectionOf(lineOfSel()));select(k,true);}
   else if(a==='rep'){const lines=cur().src.split('\n'),r=lineRep(lines[sel.cl]),nr=r<2?2:r>=4?0:r+1;lines[sel.cl]=chordLine(chordTokens(lines[sel.cl]),nr);const k={...sel};commitLines(lines);select(k,true);toast(nr?`這行重複 ${nr} 次`:'取消重複');}
   else if(a==='dupline'){const lines=cur().src.split('\n');lines.splice(sel.cl+1,0,lines[sel.cl]);const k={cl:sel.cl+1,ci:0};commitLines(lines);select(k);toast('已複製一行，改幾個不一樣的和弦就好');}
+  else if(a==='inbar'){const t=chordTokens(cur().src.split('\n')[sel.cl])[sel.ci];pk={...sel,inbar:true};fillPicker(`${t} 之後（同一小節）`,'',selEl(sel));$('pkLine').hidden=true;$('pkEdit').hidden=true;}
   else if(a==='clear')select(null);}
 // 有選字時直接打字母、方向鍵、刪除
 document.addEventListener('keydown',e=>{if(!editing||!sel||e.metaKey||e.ctrlKey||e.altKey)return;const t=e.target;if(t.closest?.('input,textarea,select,#pk,#editor'))return;
