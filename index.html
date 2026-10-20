@@ -997,9 +997,11 @@ function renderSongs(){
 // 封面：用歌名算出固定的配色
 function hashStr(t){let h=0;for(const c of t||'')h=(h*31+c.codePointAt(0))>>>0;return h;}
 // 封面圖：Suno 的歌用 Suno 封面；別的歌手的歌用專輯封面（Apple iTunes 搜尋），找不到就用配色
-const OWN_ARTISTS=new Set(['','subarunism']);let artCache=lsGet('cb_art2',{});const artPending=new Set();
+const OWN_ARTISTS=new Set(['','subarunism']);
+// 自創曲沒有封面時，用 subarunism 的 StreetVoice 大頭照
+const OWN_PIC='https://akstatic.streetvoice.com/profile_images/su/ba/subarunism/920a6fe8b8db11e3bee522000a8495a2.jpg?x-oss-process=image/resize,m_fill,h_600,w_600,limit_0/interlace,1/quality,q_95/format,jpg';let artCache=lsGet('cb_art2',{});const artPending=new Set();
 function artKey(x){return x.title+'|'+x.artist;}
-function artOf(x){if(x.sunoId)return `https://cdn2.suno.ai/image_${x.sunoId}.jpeg`;if(OWN_ARTISTS.has((x.artist||'').trim()))return '';
+function artOf(x){if(x.sunoId)return `https://cdn2.suno.ai/image_${x.sunoId}.jpeg`;if(OWN_ARTISTS.has((x.artist||'').trim()))return OWN_PIC;
   const k=artKey(x),v=artCache[k];if(v&&typeof v==='object')return v.u;if(!artPending.has(k)){artPending.add(k);fetchArt(x,k);}return '';}
 async function fetchArt(x,k){try{const r=await fetch(`https://itunes.apple.com/search?entity=song&limit=25&country=tw&term=${encodeURIComponent(x.title+' '+x.artist)}`);
   // 挑「歌手、歌名都對」的那首，優先原專輯，避開精選、Live、合輯
@@ -1015,7 +1017,7 @@ function artistOf(x){const a=(x.artist||'').trim();return OWN_ARTISTS.has(a)?'�
 function albumOf(x){if(x.sunoId||OWN_ARTISTS.has((x.artist||'').trim()))return '自創曲';artOf(x);const v=artCache[artKey(x)];return (v&&typeof v==='object'&&v.al)||`${artistOf(x)}・其他`;}
 function cover(x,big){const title=typeof x==='string'?x:x.title,h=hashStr(title),a=h%360,b=(a+40+(h>>8)%60)%360,ch=[...(title||'♪').replace(/[《》「」\s]/g,'')][0]||'♪';
   const u=typeof x==='string'?'':artOf(x);
-  return `<span class="cover${big?' big':''}" style="--c1:hsl(${a} 45% 34%);--c2:hsl(${b} 55% 22%)"${typeof x==='string'?'':` data-artk="${esc(artKey(x))}"`}><span>${esc(ch)}</span>${u?`<img src="${u}" alt="" loading="lazy" onerror="this.remove()">`:''}</span>`;}
+  return `<span class="cover${big?' big':''}" style="--c1:hsl(${a} 45% 34%);--c2:hsl(${b} 55% 22%)"${typeof x==='string'?'':` data-artk="${esc(artKey(x))}"`}><span>${esc(ch)}</span>${u?`<img src="${u}" alt="" loading="lazy" onerror="if(this.src!==OWN_PIC)this.src=OWN_PIC;else this.remove()">`:''}</span>`;}
 function homeCard(x,rank){return `<a class="hcard" href="#/song/${x.id}">${cover(x)}${rank?`<span class="rank">${rank}</span>`:''}${hasChords(x)?'':'<span class="nochord pin">還沒有和弦</span>'}
   <b>${esc(x.title||'未命名')}</b><span class="sub">${esc(x.artist||'自創曲')}</span><span class="meta"><span class="k">${KEYS[x.key]}</span>${x.bpm?`<span>♩${x.bpm}</span>`:''}${x.audio_url?'<span class="badge">Demo</span>':''}</span></a>`;}
 let rankDays=7,rankCache={};
