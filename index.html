@@ -829,6 +829,15 @@ body.secmoving #sheet [data-row]:hover{box-shadow:inset 0 3px 0 var(--accent)}
     <div class="row" style="justify-content:flex-end"><button class="ghost" id="bkCancel">取消</button><button class="primary" id="bkGo" disabled>匯入</button></div>
   </div>
 </div>
+<div class="dlg" id="lyrDlg" hidden role="dialog" aria-modal="true" aria-labelledby="lyH">
+  <div class="dlgbox" style="width:min(640px,100%)">
+    <div class="pkhead"><b id="lyH" style="font-size:18px">貼歌詞，自動對和弦</b><button type="button" class="ghost" id="lyX" aria-label="關閉">✕</button></div>
+    <div class="hint">從 KKBOX、Spotify 或任何地方複製整首歌詞貼進來，一行一句。<b>段落之間空一行</b>會對得更準。系統會把已經扒好的和弦依小節放到歌詞上，之後可以點和弦修正。</div>
+    <textarea id="lyIn" style="min-height:260px" placeholder="第一句歌詞&#10;第二句歌詞&#10;&#10;副歌第一句…"></textarea>
+    <div class="row"><label class="small">前奏約 <input type="number" id="lyIntro" value="4" min="0" max="32" style="width:4em"> 小節</label><label class="small">每句約 <select id="lyPer"><option value="0">自動</option><option value="1">1 小節</option><option value="2">2 小節</option><option value="4">4 小節</option></select></label></div>
+    <div class="row" style="justify-content:flex-end"><button class="ghost" id="lyCancel">取消</button><button class="primary" id="lyGo">對上和弦</button></div>
+  </div>
+</div>
 <div class="dlg" id="autoDlg" hidden role="dialog" aria-modal="true" aria-labelledby="auH">
   <div class="dlgbox" style="width:min(760px,100%)">
     <div class="pkhead"><b id="auH" style="font-size:18px">整批自動配和弦</b><button type="button" class="ghost" id="auX" aria-label="關閉">✕</button></div>
@@ -1216,7 +1225,8 @@ function renderSheet(){const s=cur();if(!s)return;queueMicrotask(()=>{if(editing
     <ol><li><b>貼上歌詞</b>：下方「歌詞」，一行一句。</li><li><b>上傳 Demo</b>：下方「Demo」，會自動抓調性、BPM，把和弦配到歌詞上。</li><li><b>點字修正</b>：點譜上任何一個字就能加或改和弦。</li></ol>
     <button class="primary" id="guideText">開始貼歌詞</button></div>`;$('guideText').onclick=()=>openDrawer('text');return;}
   if(isEditing()){$('sheetHint').textContent=`點字加和弦・按住和弦可以拖到別的字・原調 ${KEYS[s.key]}`;$('sheet').innerHTML=(looseChordLines(s.src)>=2?`<div class="fixbar"><span>這首的和弦是寫在歌詞<b>上一行</b>的文字，還沒放到字上。</span><button class="primary" onclick="fixLooseSheet()">一鍵把和弦放到歌詞上</button></div>`:'')+tapHTML(s);}
-  else{const p=prefOf(s.id);$('sheetHint').textContent='';$('sheet').innerHTML=hasLyrics||s.src.trim()?sheetHTML(s,p.shift,p.capo,true):`<div class="empty">這首還沒有歌詞和和弦。<button class="primary" onclick="openEditor(true)">✎ 開始編輯</button></div>`;}}
+  else{const p=prefOf(s.id);$('sheetHint').textContent='';const ab=autoBars(s.src);
+    $('sheet').innerHTML=(ab&&!hasLyrics?`<div class="fixbar"><span>這首只有自動扒的和弦，還沒有歌詞。</span><button class="primary" onclick="openLyr()">貼歌詞，自動對和弦</button></div>`:'')+(hasLyrics||s.src.trim()?sheetHTML(s,p.shift,p.capo,true):`<div class="empty">這首還沒有歌詞和和弦。<button class="primary" onclick="openEditor(true)">✎ 開始編輯</button></div>`);}}
 // 段落標籤：點「＋ 標段落」或段落名稱，選一個就好
 const SEC_PRESETS=['Intro','Verse','Pre-Chorus','Chorus','Interlude','Bridge','Solo','Outro'];
 function nextSecName(base,lines,skip){if(/^(Chorus|Intro|Outro|Pre-Chorus)$/.test(base))return base;
@@ -1853,6 +1863,41 @@ $('wizApply').onclick=()=>{W.auto=false;if(!W.audio.src)W.audio.removeAttribute(
 $('wizGo').onclick=()=>{const u=cur()?.audio_url;if(!u){toast('這首還沒有 Demo，請先上傳，或用別的錄音檔');return;}
   wizStart(async()=>{const r=await fetch(u);if(!r.ok)throw 0;return r.arrayBuffer();},u);};
 
+// ---- 貼歌詞自動對和弦：把 {Auto Chords} 的小節依字數比例分配到每一句 ----
+function autoBars(src){const L=src.split('\n'),i=L.findIndex(l=>/^\s*\{Auto Chords\}\s*$/i.test(l));if(i<0)return null;
+  const bars=[];for(let j=i+1;j<L.length;j++){const l=L[j];if(secMatch(l)&&!/^\s*\[/.test(l))break;if(l.trim()&&isLyricLine(l))break;
+    (l.match(/\[([^\]]+)\]/g)||[]).forEach(t=>bars.push(t.slice(1,-1).trim()));}
+  return bars.length?{bars,from:i}:null;}
+function openLyr(){$('lyIn').value='';$('lyrDlg').hidden=false;setTimeout(()=>$('lyIn').focus(),30);}
+$('lyX').onclick=$('lyCancel').onclick=()=>$('lyrDlg').hidden=true;
+function alignLyrics(bars,text,intro,per){
+  // N.C. 用前一個和弦補上，頭尾的 N.C. 去掉
+  let b=bars.slice();while(b.length&&/^N\.?C/i.test(b[0]))b.shift();while(b.length&&/^N\.?C/i.test(b[b.length-1]))b.pop();
+  b=b.map((x,i,a)=>/^N\.?C/i.test(x)?(a.slice(0,i).reverse().find(y=>!/^N\.?C/i.test(y))||x):x);
+  const L=text.replace(/\r/g,'').split('\n').map(l=>l.replace(/\[[^\]]*\]/g,'').trimEnd());
+  const lines=[];let gap=0;L.forEach(l=>{if(!l.trim()){gap=1;return;}if(secMatch(l)){lines.push({sec:l.trim()});gap=0;return;}lines.push({t:l.trim(),gap});gap=0;});
+  const ly=lines.filter(x=>x.t);if(!ly.length||!b.length)return null;
+  // 每句佔幾小節：指定就照用，不然依字數比例分配；換段落多留 2 小節間奏
+  const usable=Math.max(ly.length,b.length-intro-2);
+  const w=ly.map(x=>Math.max(4,[...x.t].length));const gaps=ly.filter(x=>x.gap).length*2;
+  const unit=per||Math.max(1,(usable-gaps)/w.reduce((a,x)=>a+x,0));
+  let pos=intro;const out=[];if(intro>0)out.push('{Intro}',b.slice(0,intro).map(x=>'['+x+']').join(' '),'');
+  let wi=0;for(const x of lines){
+    if(x.sec){out.push(x.sec.replace(/^\s*\[(.+)\]\s*$/,'{$1}'));continue;}
+    if(x.gap){const g=b.slice(Math.round(pos),Math.round(pos+2));pos+=2;out.push('');if(g.length)out.push(g.map(c=>'['+c+']').join(' '));}
+    const len=per?per:w[wi]*unit;wi++;const a=Math.round(pos),e=Math.max(a+1,Math.round(pos+len));pos+=len;
+    const seg=b.slice(a,e),ch=[...x.t];
+    if(!seg.length){out.push(x.t);continue;}
+    // 和弦平均放在句子裡（同和弦連續只放一次）
+    const marks={};let last=null;seg.forEach((c,k)=>{if(c===last)return;last=c;const at=Math.min(ch.length-1,Math.floor(k/seg.length*ch.length));if(marks[at])marks[at]+=' '+c;else marks[at]=c;});
+    out.push(ch.map((c,k)=>(marks[k]?'['+marks[k]+']':'')+c).join(''));}
+  const rest=b.slice(Math.round(pos));if(rest.length)out.push('','{Outro}',rest.map(x=>'['+x+']').join(' '));
+  return out.join('\n').replace(/\n{3,}/g,'\n\n').trim();}
+$('lyGo').onclick=()=>{const s=cur(),ab=autoBars(s.src);if(!ab){toast('這首沒有自動和弦');return;}
+  const t=$('lyIn').value;if(!t.trim()){toast('先貼上歌詞');return;}
+  const r=alignLyrics(ab.bars,t,Math.max(0,+$('lyIntro').value||0),+$('lyPer').value||0);if(!r){toast('對不上，請確認歌詞有內容');return;}
+  saveSong({src:r,status:'draft'});$('src').value=r;$('lyrDlg').hidden=true;render();toast('已把和弦對到歌詞上。對歪的地方點和弦修改，或用「以前的版本」還原');};
+
 // ---- 整批自動配和弦：在本頁嵌入 YouTube，分享本分頁聲音，逐首扒和弦存成待確認小節譜 ----
 const AU={q:[],run:false,player:null,stream:null};
 const ytIdOf=u=>(u||'').match(/(?:v=|youtu\.be\/|shorts\/|embed\/)([\w-]{11})/)?.[1]||'';
@@ -1923,14 +1968,17 @@ function auPlayFile(url,x){return new Promise(res=>{const a=AU.audio||(AU.audio=
   a.onplaying=()=>{if(!AU.cap)AU.cap=ChordDetect.live(AU.stream);};a.onended=()=>fin(true);a.onerror=()=>fin(false);
   a.src=url;a.playbackRate=AU.rate;a.play().catch(()=>fin(false));
   const iv=setInterval(()=>{if(!AU.run)return fin(false);if(AU.cap){const k=Math.round(AU.cap.seconds());x.st=`▶ 播放中 ${Math.floor(k/60)}:${String(k%60).padStart(2,'0')}`;drawAuto();}},1000);});}
-function auKey(an){if(an.bpm&&AU.rate!==1&&!an._r){an._r=1;an.realBpm=Math.round(an.bpm/AU.rate);}const bpm=an.bpm||90,seg=240/bpm,off=(an.phase||an.firstSound)%seg;
+function auKey(an){if(an.bpm&&!an._h){an._h=1;if(an.bpm/(AU.rate||1)>135)an.bpm/=2;} // 速度常被抓成兩倍
+  if(an.bpm&&AU.rate!==1&&!an._r){an._r=1;an.realBpm=Math.round(an.bpm/AU.rate);}
+  if(an.bpm&&AU.rate===1)an.bpm=Math.round(an.bpm);const bpm=an.bpm||90,seg=240/bpm,off=(an.phase||an.firstSound)%seg;
   const k=ChordDetect.keyFromChords(ChordDetect.group(an,{segSec:seg,offset:off,keyMajor:an.key.major}));if(k)an.key=k;
   return {key:KEYS.findIndex(x=>IDX[x]===an.key.major)};}
 // 一小節一格，每行 4 小節，每 16 小節空一行
 function auChart(an){const bpm=an.bpm||90,seg=240/bpm,off=(an.phase||an.firstSound)%seg,fl=FLAT_KEYS.has(an.key.major);
   const raw=ChordDetect.group(an,{segSec:seg,offset:off,keyMajor:an.key.major});
-  const sm=ChordDetect.smooth?ChordDetect.smooth(raw,{penalty:0.15,outPen:0.06,keyMajor:an.key.major}):raw;
-  const bars=sm.map(r=>r.root===undefined?null:(fl?FL:SH)[r.root]+r.q);if(bars.filter(Boolean).length<4)return '';
+  const sm=ChordDetect.smooth?ChordDetect.smooth(raw,{penalty:0.3,outPen:0.12,keyMajor:an.key.major}):raw;
+  let bars=sm.map(r=>r.root===undefined?null:(fl?FL:SH)[r.root]+r.q);
+  while(bars.length&&!bars[0])bars.shift();while(bars.length&&!bars[bars.length-1])bars.pop();bars=bars.map((x,i,a)=>x||a.slice(0,i).reverse().find(Boolean)||null);if(bars.filter(Boolean).length<4)return '';
   const cf=raw.filter(r=>r.conf!=null&&r.root!==undefined);an.confPct=Math.round(100*Math.min(1,cf.reduce((a,r)=>a+r.conf,0)/Math.max(1,cf.length)/0.15));
   const lines=[];for(let i=0;i<bars.length;i+=4){lines.push(bars.slice(i,i+4).map(b=>'['+(b||'N.C.')+']').join(' '));if(i%16===12)lines.push('');}
   return lines.join('\n').trim();}
