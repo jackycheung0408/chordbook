@@ -605,11 +605,11 @@ body.secmoving #sheet [data-row]:hover{box-shadow:inset 0 3px 0 var(--accent)}
           <button class="primary" id="editDone">完成編輯</button>
         </div>
         <div class="acts" id="viewActs">
-          <button id="editBtn">✎ 編輯</button>
-          <button class="primary" id="stageBtn">▶ 舞台模式</button>
+          <button class="primary" id="editBtn">✎ 編輯</button>
           <div class="menuwrap">
             <button id="moreBtn" aria-haspopup="true" aria-expanded="false" aria-label="更多">⋯</button>
             <div class="menu" id="moreMenu" hidden role="menu">
+              <button role="menuitem" id="stageBtn">▶ 舞台模式（上台看譜）</button>
               <button role="menuitem" id="copyBtn">複製文字譜（貼到 LINE）</button>
               <div class="menusub"><span class="lbl">加入歌單</span><div id="addToSetList"></div></div>
               <button role="menuitem" id="menuHist">版本紀錄</button>
@@ -2191,7 +2191,7 @@ $('setDel').onclick=async()=>{if(!setArmed){setArmed=true;$('setDel').textConten
   setArmed=false;$('setDel').textContent='刪除歌單';const id=curSet;setlists=setlists.filter(x=>x.id!==id);curSet=null;nav('#/sets');cacheAll();
   const {error}=await sb.from('setlists').delete().eq('id',id);if(error)toast('沒有刪除成功');};
 $('setPlay').onclick=()=>{const x=set();openStage(x.items.filter(it=>song(it.song)).map(it=>({...it})),0,x.id);};
-$('stageBtn').onclick=()=>{const s=cur();if(s)openStage([{song:s.id,shift:prefOf(s.id).shift}],0,null);};
+$('stageBtn').onclick=()=>{closeMenu();const s=cur();if(s)openStage([{song:s.id,shift:prefOf(s.id).shift}],0,null);};
 
 // ---- 舞台模式 ----
 let queue=[],qi=0,qSet=null,playing=false,raf=0,lastT=0,acc=0,wake=null,font=lsGet('cb_font',26);
