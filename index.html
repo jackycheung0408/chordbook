@@ -1034,8 +1034,8 @@ function renderSheet(){const s=cur();if(!s)return;queueMicrotask(()=>{if(editing
   if(isEditing()){$('sheetHint').textContent=`點字加和弦・按住和弦可以拖到別的字・原調 ${KEYS[s.key]}`;$('sheet').innerHTML=tapHTML(s);}
   else{const p=prefOf(s.id);$('sheetHint').textContent='';$('sheet').innerHTML=sheetHTML(s,p.shift,p.capo,true);}}
 // 段落標籤：點「＋ 標段落」或段落名稱，選一個就好
-const SEC_PRESETS=['前奏','主歌','導歌','副歌','間奏','橋段','尾奏'];
-function nextSecName(base,lines,skip){if(base==='副歌'||base==='前奏'||base==='尾奏')return base;
+const SEC_PRESETS=['Intro','Verse','Pre-Chorus','Chorus','Interlude','Bridge','Solo','Outro'];
+function nextSecName(base,lines,skip){if(/^(Chorus|Intro|Outro|Pre-Chorus)$/.test(base))return base;
   const used=lines.map((l,i)=>i===skip?null:secMatch(l)).filter(Boolean).map(m=>secHead(m[1]).name).filter(n=>n.replace(/\s*\d+$/,'')===base);
   return used.length?`${base} ${used.length+1}`:base;}
 function openSecMenu(btn,at){const m=$('secMenu'),ed=btn.dataset.secedit!=null;m.dataset.i=at!=null?at:ed?btn.dataset.secedit:btn.dataset.sectag;m.dataset.ed=ed?'1':'';
@@ -1044,7 +1044,7 @@ function openSecMenu(btn,at){const m=$('secMenu'),ed=btn.dataset.secedit!=null;m
 $('secMenu').onclick=e=>{const b=e.target.closest('[data-sn]');if(!b)return;const m=$('secMenu'),i=+m.dataset.i,ed=!!m.dataset.ed,lines=cur().src.split('\n');m.hidden=true;
   let n=b.dataset.sn;if(n==='mv'){secMove=i;document.body.classList.add('secmoving');toast('點要從哪一句開始這個段落');return;}
   if(n==='-'){lines.splice(i,1);commitLines(lines);return;}
-  if(n==='?'){n=prompt('段落名稱（例如 Rap、副歌 2）','');if(!n||!n.trim())return;n=n.trim();}else n=nextSecName(n,lines,ed?i:-1);
+  if(n==='?'){n=prompt('段落名稱（例如 Rap、Chorus 2）','');if(!n||!n.trim())return;n=n.trim();}else n=nextSecName(n,lines,ed?i:-1);
   if(ed)lines[i]=`[${n}]`;else lines.splice(i,0,`[${n}]`);commitLines(lines);toast(`已標成「${n}」`);};
 let secMove=null,secDrag=null;
 function moveSec(from,to){const lines=cur().src.split('\n');if(to===from||to===from+1)return;const h=lines.splice(from,1)[0];
