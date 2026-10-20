@@ -966,12 +966,16 @@ function renderSongs(){
 // 封面：用歌名算出固定的配色
 function hashStr(t){let h=0;for(const c of t||'')h=(h*31+c.codePointAt(0))>>>0;return h;}
 // 封面圖：Suno 的歌用 Suno 封面；別的歌手的歌用專輯封面（Apple iTunes 搜尋），找不到就用配色
-const OWN_ARTISTS=new Set(['','subarunism']);let artCache=lsGet('cb_art',{});const artPending=new Set();
+const OWN_ARTISTS=new Set(['','subarunism']);let artCache=lsGet('cb_art2',{});const artPending=new Set();
 function artKey(x){return x.title+'|'+x.artist;}
 function artOf(x){if(x.sunoId)return `https://cdn2.suno.ai/image_${x.sunoId}.jpeg`;if(OWN_ARTISTS.has((x.artist||'').trim()))return '';
   const k=artKey(x),v=artCache[k];if(v&&typeof v==='object')return v.u;if(!artPending.has(k)){artPending.add(k);fetchArt(x,k);}return '';}
-async function fetchArt(x,k){try{const r=await fetch(`https://itunes.apple.com/search?entity=song&limit=1&country=tw&term=${encodeURIComponent(x.title+' '+x.artist)}`);
-  const j=await r.json(),t=j.results?.[0]||{},u=(t.artworkUrl100||'').replace('100x100bb','400x400bb');artCache[k]={u,al:t.collectionName||''};lsSet('cb_art',artCache);
+async function fetchArt(x,k){try{const r=await fetch(`https://itunes.apple.com/search?entity=song&limit=25&country=tw&term=${encodeURIComponent(x.title+' '+x.artist)}`);
+  // 挑「歌手、歌名都對」的那首，優先原專輯，避開精選、Live、合輯
+  const norm=v=>(v||'').toLowerCase().replace(/[\s'’"「」《》()（）\-–.,!?！？]/g,''),A=norm(x.artist),T=norm(x.title);
+  const score=t=>(norm(t.artistName).includes(A)||A.includes(norm(t.artistName))?4:0)+(norm(t.trackName)===T?4:norm(t.trackName).includes(T)?2:0)
+    -(/精選|best|greatest|hits|live|演唱會|合輯|collection|remaster|karaoke|伴奏/i.test(t.collectionName||'')?3:0)-(/single|ep$/i.test(t.collectionName||'')?1:0)-(t.collectionArtistName&&/various|群星/i.test(t.collectionArtistName)?3:0);
+  const j=await r.json(),best=(j.results||[]).map(t=>({t,s:score(t)})).sort((a,b)=>b.s-a.s||(a.t.releaseDate||'').localeCompare(b.t.releaseDate||''))[0],t=best&&best.s>=6?best.t:{},u=(t.artworkUrl100||'').replace('100x100bb','400x400bb');artCache[k]={u,al:t.collectionName||''};lsSet('cb_art2',artCache);
   if(view==='songs'&&grp){clearTimeout(fetchArt.t);fetchArt.t=setTimeout(renderSongs,300);}
   if(u)document.querySelectorAll(`[data-artk="${CSS.escape(k)}"]`).forEach(el=>{el.insertAdjacentHTML('beforeend',`<img src="${u}" alt="" loading="lazy">`);});}catch{}}
 // 自動歸類：歌手、專輯
