@@ -817,7 +817,11 @@ body.secmoving #sheet [data-row]:hover{box-shadow:inset 0 3px 0 var(--accent)}
 <div class="dlg" id="bulkDlg" hidden role="dialog" aria-modal="true" aria-labelledby="bkH">
   <div class="dlgbox" style="width:min(720px,100%)">
     <div class="pkhead"><b id="bkH" style="font-size:18px">批次匯入歌曲</b><button type="button" class="ghost" id="bkX" aria-label="關閉">✕</button></div>
-    <div class="hint">一次匯入很多首。可以<b>選多個檔案</b>（.txt、ChordPro .cho／.chordpro，一個檔案一首，檔名當歌名），或在下面<b>貼上整批文字</b>，每首用 <code># 歌名</code> 開頭。和弦在上歌詞在下、<code>[C]歌詞</code>、ChordPro 都看得懂。</div>
+    <div class="card" style="padding:12px 14px;display:grid;gap:8px"><b>依歌手整批建歌</b>
+      <span class="small">輸入歌手名字（逗號或換行分隔），從 iTunes 公開資料抓歌名，整批建好空白歌曲，之後再自動配和弦。不含歌詞。</span>
+      <textarea id="arIn" style="min-height:60px" placeholder="五月天, 周杰倫, 告五人"></textarea>
+      <div class="row"><label class="small">每位最多 <input type="number" id="arN" value="30" min="1" max="200" style="width:5em"> 首</label><button class="primary" id="arGo">找歌</button><span class="small" id="arMsg"></span></div></div>
+    <div class="hint">或者匯入現成的譜：可以<b>選多個檔案</b>（.txt、ChordPro .cho／.chordpro，一個檔案一首，檔名當歌名），或在下面<b>貼上整批文字</b>，每首用 <code># 歌名</code> 開頭。和弦在上歌詞在下、<code>[C]歌詞</code>、ChordPro 都看得懂。</div>
     <label class="btn" for="bkFiles" style="justify-self:start">選擇檔案（可多選）</label><input type="file" id="bkFiles" multiple accept=".txt,.cho,.crd,.chopro,.chordpro,.pro,.md,text/plain" hidden>
     <textarea id="bkText" style="min-height:180px;font-family:var(--mono);font-size:13px" placeholder="# 第一首歌名&#10;Key: G&#10;Verse&#10;G        D&#10;第一句歌詞&#10;&#10;# 第二首歌名&#10;[C]歌詞[G]歌詞"></textarea>
     <div class="row"><button id="bkParse">預覽</button><span class="small" id="bkMsg"></span></div>
@@ -1863,9 +1867,28 @@ function splitPaste(text){const out=[];let cur=null;
 let bulk=[];
 function openBulk(){$('newDlg').hidden=true;$('bulkDlg').hidden=false;bulk=[];$('bkList').innerHTML='';$('bkMsg').textContent='';$('bkGo').disabled=true;}
 function drawBulk(){const dup=new Set(songs.map(x=>x.title.trim()));
-  $('bkList').innerHTML=bulk.map((b,i)=>`<label class="bkrow"><input type="checkbox" data-bi="${i}" ${b.on?'checked':''}><input type="text" data-bt="${i}" value="${esc(b.title)}" aria-label="歌名"><span class="small">${KEYS[b.key]} 調・${b.src.split('\n').filter(l=>l.trim()).length} 行${(b.src.match(/\[[^\]]+\]/g)||[]).length?'':'・沒有和弦'}${dup.has(b.title.trim())?'・<b style="color:var(--warn)">已有同名</b>':''}</span></label>`).join('');
+  $('bkList').innerHTML=bulk.map((b,i)=>`<label class="bkrow"><input type="checkbox" data-bi="${i}" ${b.on?'checked':''}><input type="text" data-bt="${i}" value="${esc(b.title)}" aria-label="歌名"><span class="small">${b.artist?esc(b.artist)+'・':''}${b.src?`${KEYS[b.key]} 調・${b.src.split('\n').filter(l=>l.trim()).length} 行${(b.src.match(/\[[^\]]+\]/g)||[]).length?'':'・沒有和弦'}`:'空白，待配和弦'}${dup.has(b.title.trim())?'・<b style="color:var(--warn)">已有同名</b>':''}</span></label>`).join('');
   const n=bulk.filter(b=>b.on).length;$('bkGo').disabled=!n;$('bkGo').textContent=n?`匯入 ${n} 首`:'匯入';}
 $('ndBulk').onclick=openBulk;
+// 依歌手整批建歌：iTunes 公開目錄，只取歌名／歌手，排除 Live、伴奏、Remix 等重複版本
+const nzT=v=>(v||'').toLowerCase().replace(/\s*[\(（\[【].*?[\)）\]】]\s*/g,'').replace(/\s*-\s*(live|remix|inst.*|karaoke|伴奏|demo).*$/i,'').replace(/[\s'’"「」《》.,!?！？]/g,'');
+async function artistSongs(name,max){const out=[],seen=new Set();
+  for(const c of ['tw','us']){if(out.length)break;
+    const r=await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(name)}&entity=song&attribute=artistTerm&limit=200&country=${c}`).then(r=>r.json()).catch(()=>({}));
+    const want=name.toLowerCase().replace(/\s/g,'');
+    for(const t of r.results||[]){const an=(t.artistName||'').toLowerCase().replace(/\s/g,'');
+      if(!an.includes(want)&&!want.includes(an))continue;
+      if(/live|現場|演唱會|伴奏|instrumental|karaoke|remix|demo|acoustic ver|伴唱/i.test(t.trackName+' '+(t.collectionName||'')))continue;
+      const k=nzT(t.trackName);if(!k||seen.has(k))continue;seen.add(k);
+      out.push({title:t.trackName.replace(/\s*[\(（][^)）]*[\)）]\s*$/,'').trim()||t.trackName,artist:t.artistName,album:t.collectionName||''});if(out.length>=max)break;}}
+  return out;}
+$('arGo').onclick=async()=>{const names=$('arIn').value.split(/[,，、\n]/).map(x=>x.trim()).filter(Boolean);if(!names.length){$('arMsg').textContent='先輸入歌手';return;}
+  const max=Math.min(200,Math.max(1,+$('arN').value||30));$('arGo').disabled=true;
+  const have=new Set(songs.map(x=>nzT(x.title)+'|'+(x.artist||'').trim().toLowerCase()));let add=0,miss=[];
+  for(const n of names){$('arMsg').textContent=`查 ${n}…`;const got=await artistSongs(n,max);if(!got.length)miss.push(n);
+    got.forEach(g=>{const k=nzT(g.title)+'|'+g.artist.toLowerCase();if(bulk.some(b=>nzT(b.title)+'|'+b.artist.toLowerCase()===k))return;
+      bulk.push({title:g.title,artist:g.artist,key:0,bpm:0,src:'',on:!have.has(k)});add++;});}
+  $('arGo').disabled=false;$('arMsg').textContent=`找到 ${add} 首`+(miss.length?`；找不到：${miss.join('、')}`:'');drawBulk();};
 $('bkX').onclick=$('bkCancel').onclick=()=>$('bulkDlg').hidden=true;
 $('bkFiles').onchange=async e=>{const fs=[...e.target.files];e.target.value='';
   const got=await Promise.all(fs.map(async f=>parseOne(f.name.replace(/\.[^.]+$/,''),await f.text())));
@@ -1876,7 +1899,7 @@ $('bkList').addEventListener('input',e=>{const c=e.target.dataset;if(c.bi!=null)
 $('bkGo').onclick=async()=>{
   if(!me){askName();return;}const pick=bulk.filter(b=>b.on);if(!pick.length)return;$('bkGo').disabled=true;$('bkMsg').textContent='匯入中…';
   const batch='bulk-'+Date.now().toString(36);
-  const rows=pick.map(b=>({id:crypto.randomUUID(),title:b.title.trim()||'未命名',artist:b.artist,key:b.key,bpm:b.bpm,src:b.src,created_by:me,updated_by:me,import_batch:batch}));
+  const rows=pick.map(b=>({id:crypto.randomUUID(),title:b.title.trim()||'未命名',artist:b.artist||'',key:b.key,bpm:b.bpm,src:b.src,created_by:me,updated_by:me,import_batch:batch}));
   await sb.from('import_batches').insert({id:batch,label:`批次匯入 ${rows.length} 首`,source:'bulk',created_by:me,n:rows.length});
   const {error}=await sb.from('songs').insert(rows);
   if(error){$('bkMsg').textContent='匯入失敗：'+error.message;$('bkGo').disabled=false;return;}
