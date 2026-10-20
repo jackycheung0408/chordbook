@@ -586,8 +586,8 @@ body.secmoving #sheet [data-row]:hover{box-shadow:inset 0 3px 0 var(--accent)}
           <div class="menuwrap">
             <button id="editMoreBtn" class="ibtn" aria-haspopup="true" aria-label="更多"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg></button>
             <div class="menu" id="editMenu" hidden role="menu">
-              <button role="menuitem" data-open="chords">貼上外部譜・常用進行</button>
-              <button role="menuitem" data-open="hist">版本紀錄・還原</button>
+              <button role="menuitem" data-open="chords">貼上別處的和弦譜</button><button role="menuitem" data-open="helper">常用和弦與進行</button>
+              <button role="menuitem" data-open="hist">以前的版本（可還原）</button>
             </div>
           </div>
           <button class="primary" id="editDone">完成編輯</button>
@@ -640,8 +640,7 @@ body.secmoving #sheet [data-row]:hover{box-shadow:inset 0 3px 0 var(--accent)}
           </div>
 
           <div class="epane" data-pane="chords">
-            <div class="hint">手動加和弦：關掉這裡，直接點譜上的字。每行左邊的「複製／貼上」可以把同樣的和弦套到下一段。</div>
-          <div class="box feature" id="det">
+            <div class="box feature" id="det" hidden>
             <b>用錄音自動配和弦</b>
             <div class="hint">分析錄音，自動把和弦配到歌詞上，先給你預覽再決定要不要套用。上傳 Demo 時也會自動執行。</div>
             <div class="row">
@@ -664,16 +663,16 @@ body.secmoving #sheet [data-row]:hover{box-shadow:inset 0 3px 0 var(--accent)}
             </details>
           </div>
 
-            <details class="more"><summary>貼上外部的譜（和弦在上、歌詞在下）</summary>
+            <details class="more" id="pasteSec" open><summary><b>貼上別處的和弦譜</b></summary>
               <button id="impBtn" hidden></button>
           <div id="imp" style="display:grid;gap:8px">
-            <div class="hint">把「和弦在上、歌詞在下」的譜整段貼進來，會自動轉成這裡的格式。請只用在自己團練。</div>
+            <div class="hint">從 91譜、Ultimate Guitar、LINE 等地方複製一整段「和弦在上一行、歌詞在下一行」的譜貼進來，會自動把每個和弦放到對應的字上。只用在自己團練。</div>
             <textarea id="impSrc" spellcheck="false" aria-label="貼上的譜" placeholder="C        G&#10;第一句歌詞在這裡&#10;Am       F&#10;第二句歌詞"></textarea>
             <div class="row"><button class="primary" id="impGo">轉換並取代</button><button id="impAdd">轉換並加在最後</button><button class="ghost" id="impX">清空</button><span class="small" id="impMsg"></span></div>
           </div>
             </details>
-            <details class="more"><summary>和弦小幫手：調內和弦、借用和弦、常用進行</summary>
-              <div class="hint">先在「文字」分頁點好游標位置，再點這裡插入。</div>
+            <details class="more" id="helperSec"><summary><b>常用和弦與進行</b></summary>
+              <div class="hint">列出這首歌的調裡最常用的和弦，以及常見的和弦進行（例如 C–G–Am–F）。先到「歌詞」裡把游標放在要插入的位置，再點這裡的和弦。</div>
             <span class="lbl" id="harmLbl">這個調的和弦　點一下插入</span>
             <div class="chips" id="chipsIn"></div>
             <span class="lbl">常用借用和弦</span>
@@ -1492,13 +1491,14 @@ $('newForm').onsubmit=async e=>{e.preventDefault();
   await createSong({title,artist:$('ndArtist').value.trim(),key:0,src});
   if(f){openEditor(true);await uploadDemo(f);}else openEditor(true,src?undefined:'text');
   $('ndOk').disabled=false;};
-const TAB_TITLES={chords:'自動配和弦・貼上譜・和弦小幫手',text:'歌詞與和弦文字',info:'歌曲資訊',demo:'Demo 錄音',hist:'版本紀錄'};
+const TAB_TITLES={chords:'貼上和弦譜・常用和弦',helper:'貼上和弦譜・常用和弦',text:'歌詞與和弦文字',info:'歌曲資訊',demo:'Demo 錄音',hist:'版本紀錄'};
 function openEditor(on,tabName){
   if(on&&!me){askName();toast('先告訴大家你是誰，再開始編輯');return;}
   editing=on;sel=null;$('keybar').hidden=on;$('palette').hidden=true;$('viewActs').hidden=on;$('editActs').hidden=!on;$('songView').classList.toggle('is-editing',on);closePicker();
   if(!on)closeDrawer();else if(tabName)openDrawer(tabName);else if(!cur()?.src.split('\n').some(l=>isLyricLine(l)))openDrawer('text');
   render();}
-function openDrawer(t){$('editor').hidden=false;showTab(t);$('drawerTitle').textContent=TAB_TITLES[t]||'';
+function openDrawer(t){if(t==='helper'){t='chords';setTimeout(()=>{$('helperSec').open=true;$('pasteSec').open=false;},0);}else if(t==='chords'){setTimeout(()=>{$('pasteSec').open=true;},0);}
+  $('editor').hidden=false;showTab(t);$('drawerTitle').textContent=TAB_TITLES[t]||'';
   $('editMenu').hidden=true;if(t==='text')setTimeout(()=>$('src').focus(),50);}
 function closeDrawer(){$('editor').hidden=true;}
 $('editMoreBtn').onclick=e=>{e.stopPropagation();$('editMenu').hidden=!$('editMenu').hidden;};
