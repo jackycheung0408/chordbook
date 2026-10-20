@@ -57,7 +57,7 @@ select,input[type=text],input[type=number]{background:var(--panel);border:1px so
 .listhead{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .listhead h2{margin:0;font-size:24px}
 .table{padding:0}
-.trow{display:grid;grid-template-columns:minmax(0,1fr) 64px 64px 72px 96px;gap:12px;align-items:center;padding:14px 20px;border-bottom:1px solid var(--line);color:var(--fg);text-decoration:none}
+.trow{display:grid;grid-template-columns:minmax(0,1fr) 64px 64px 96px;gap:12px;align-items:center;padding:14px 20px;border-bottom:1px solid var(--line);color:var(--fg);text-decoration:none}
 .trow:last-child{border-bottom:0}
 a.trow:hover{background:var(--soft)}
 .trow.th{font-size:11px;color:var(--muted);letter-spacing:.1em;padding-block:9px}
@@ -973,8 +973,9 @@ function renderHome(){
 let filt={status:'',key:-1};
 function renderFilters(){const keys=[...new Set(songs.map(x=>x.key))].sort((a,b)=>a-b);
   const chip=(lbl,on,attr)=>`<button class="fchip${on?' on':''}" ${attr}>${lbl}</button>`;
-  $('filtBar').innerHTML=chip('全部',!filt.status&&filt.key<0,'data-f="all"')+chip(`還沒有和弦 ${songs.filter(x=>!hasChords(x)).length}`,filt.status==='wip','data-f="wip"')+chip('已有和弦',filt.status==='done','data-f="done"')+chip('有 Demo',filt.status==='demo','data-f="demo"')+
+  $('filtBar').innerHTML=chip('全部',!filt.status&&filt.key<0,'data-f="all"')+chip(`還沒有和弦 ${songs.filter(x=>!hasChords(x)).length}`,filt.status==='wip','data-f="wip"')+chip('已有和弦',filt.status==='done','data-f="done"')+
     '<span class="lbl" style="margin-left:6px">調</span>'+keys.map(k=>chip(KEYS[k],filt.key===k,`data-k="${k}"`)).join('');}
+const keyLbl=x=>!x.key&&!hasChords(x)?'—':KEYS[x.key];
 const hasChords=x=>looseChordLines(x.src||'')>=2||/\[[^\]]+\]/.test((x.src||'').split('\n').filter(l=>!secMatch(l)).join(''));
 function renderSongs(){
   renderFilters();
@@ -987,8 +988,8 @@ function renderSongs(){
   if(!songs.length){$('list').innerHTML=`<div class="guide" style="padding:22px"><b>寫第一首歌</b><ol><li>按右上「＋ 新歌」，貼上歌詞。</li><li>上傳 Demo，自動抓調性、BPM 和和弦。</li><li>點譜上的字修正和弦，團員打開同一個網址就看得到。</li></ol></div>`;return;}
   document.querySelectorAll('#grpSeg [data-g]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.g===grp));
   const rowOf=x=>{const p=prefs[x.id],pv=chordPreview(x);
-    return `<a class="trow" href="#/song/${x.id}"><span class="tt"><b>${esc(x.title||'未命名')}${x.artist?` <span class="art">${esc(x.artist)}</span>`:''}</b><span class="prev">${pv?esc(pv):'<span class="nochord">還沒有和弦</span>'}</span></span><span class="k">${KEYS[x.key]}${p&&p.shift?`<span class="small"> →${nn(x.key+p.shift,FLAT_KEYS.has(mod(x.key+p.shift)))}</span>`:''}</span><span class="m">${x.bpm||'—'}</span><span class="hide-sm">${x.audio_url?'<span class="badge">Demo</span>':''}</span><span class="m hide-sm">${ago(x.updatedAt)}${x.updatedBy?`<br>${esc(x.updatedBy)}`:''}</span></a>`};
-  const th=`<div class="trow th"><span>歌名</span><span>原調</span><span>BPM</span><span class="hide-sm">Demo</span><span class="hide-sm">更新</span></div>`;
+    return `<a class="trow" href="#/song/${x.id}"><span class="tt"><b>${esc(x.title||'未命名')}${x.artist?` <span class="art">${esc(x.artist)}</span>`:''}</b><span class="prev">${pv?esc(pv):'<span class="nochord">還沒有和弦</span>'}</span></span><span class="k">${keyLbl(x)}${p&&p.shift?`<span class="small"> →${nn(x.key+p.shift,FLAT_KEYS.has(mod(x.key+p.shift)))}</span>`:''}</span><span class="m">${x.bpm||'—'}</span><span class="m hide-sm">${ago(x.updatedAt)}${x.updatedBy?`<br>${esc(x.updatedBy)}`:''}</span></a>`};
+  const th=`<div class="trow th"><span>歌名</span><span>原調</span><span>BPM</span><span class="hide-sm">更新</span></div>`;
   let body;if(grp){const G=new Map();items.forEach(x=>{const k=grp==='artist'?artistOf(x):albumOf(x);if(!G.has(k))G.set(k,[]);G.get(k).push(x);});
     const keys=[...G.keys()].sort((a,b)=>(a==='自創曲')-(b==='自創曲')||G.get(b).length-G.get(a).length||a.localeCompare(b,'zh-Hant'));
     body=keys.map(k=>{const xs=G.get(k),sub=grp==='album'&&k!=='自創曲'?artistOf(xs[0]):'';return `<div class="ghead">${cover(xs.find(artOf)||xs[0])}<span><b>${esc(k)}</b>${sub?`<span class="small">${esc(sub)}</span>`:''}</span><span class="small">${xs.length} 首</span></div>`+xs.map(rowOf).join('');}).join('');}
@@ -1026,7 +1027,7 @@ function cover(x,big){const title=typeof x==='string'?x:x.title,h=hashStr(title)
   const u=typeof x==='string'?'':artOf(x);
   return `<span class="cover${big?' big':''}" style="--c1:hsl(${a} 45% 34%);--c2:hsl(${b} 55% 22%)"${typeof x==='string'?'':` data-artk="${esc(artKey(x))}"`}><span>${esc(ch)}</span>${u?`<img src="${u}" alt="" loading="lazy" onerror="if(this.src!==OWN_PIC)this.src=OWN_PIC;else this.remove()">`:''}</span>`;}
 function homeCard(x,rank){return `<a class="hcard" href="#/song/${x.id}">${cover(x)}${rank?`<span class="rank">${rank}</span>`:''}${hasChords(x)?'':'<span class="nochord pin">還沒有和弦</span>'}
-  <b>${esc(x.title||'未命名')}</b><span class="sub">${esc(x.artist||'自創曲')}</span><span class="meta"><span class="k">${KEYS[x.key]}</span>${x.bpm?`<span>♩${x.bpm}</span>`:''}${x.audio_url?'<span class="badge">Demo</span>':''}</span></a>`;}
+  <b>${esc(x.title||'未命名')}</b><span class="sub">${esc(x.artist||'自創曲')}</span><span class="meta"><span class="k">${keyLbl(x)}</span>${x.bpm?`<span>♩${x.bpm}</span>`:''}</span></a>`;}
 let rankDays=7,rankCache={};
 async function loadRank(days){const c=rankCache[days];if(c&&Date.now()-c.at<60000)return c.rows;
   if(!sb||!online)return [];const {data}=await sb.rpc('song_view_counts',{days});rankCache[days]={at:Date.now(),rows:data||[]};return data||[];}
