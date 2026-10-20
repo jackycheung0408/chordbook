@@ -976,7 +976,7 @@ function renderSongs(){
   if(showTrash){$('list').innerHTML=trash.length?trash.map(t=>`<div class="delrow" style="padding:12px 16px"><span>${esc(t.title||'未命名')}<br><span class="small">${new Date(t.created_at).toLocaleString('zh-TW')} 刪除${t.edited_by?`・最後由 ${esc(t.edited_by)} 編輯`:''}</span></span><button data-restore="${t.id}">還原</button></div>`).join(''):'<div class="empty">沒有最近刪除的歌。</div>';return;}
   const sort=$('sortSel').value;
   const items=songs.filter(x=>(!q||(x.title+' '+(x.artist||'')).toLowerCase().includes(q))&&(filt.key<0||x.key===filt.key)&&(!filt.status||(filt.status==='wip'?!hasChords(x):filt.status==='done'?hasChords(x):!!x.audio_url))).sort((a,b)=>sort==='name'?a.title.localeCompare(b.title,'zh-Hant'):sort==='key'?a.key-b.key:b.updatedAt-a.updatedAt);
-  $('setStrip').innerHTML=setlists.length&&!q?`<span class="lbl">歌單</span>`+setlists.slice(0,6).map(x=>`<a class="schip" href="#/set/${x.id}">${esc(x.name||'未命名歌單')} <span class="small">${x.items.length}</span></a>`).join('')+'<a class="schip ghost" href="#/sets">全部 →</a>':'';
+  $('setStrip').innerHTML='';
   if(!songs.length){$('list').innerHTML=`<div class="guide" style="padding:22px"><b>寫第一首歌</b><ol><li>按右上「＋ 新歌」，貼上歌詞。</li><li>上傳 Demo，自動抓調性、BPM 和和弦。</li><li>點譜上的字修正和弦，團員打開同一個網址就看得到。</li></ol></div>`;return;}
   document.querySelectorAll('#grpSeg [data-g]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.g===grp));
   const rowOf=x=>{const p=prefs[x.id],pv=chordPreview(x);
@@ -1024,9 +1024,9 @@ function renderHome(){
   <section class="hhero">
     <div class="hwall" aria-hidden="true">${songs.filter(x=>artOf(x)).slice(0,14).map(x=>`<img src="${artOf(x)}" alt="" loading="lazy" onerror="this.remove()">`).join('')}</div>
     <div class="hin">
-      <div class="htitle"><span class="eyebrow">和弦室 · ChordRoom</span><h1>今天練哪一首？</h1><p>${songs.length} 首歌・${setlists.length} 個歌單${wip?`・<a href="#/songs" id="wipLink">${wip} 首還沒有和弦</a>`:''}</p></div>
+      <div class="htitle"><span class="eyebrow">和弦室 · ChordRoom</span><h1>今天練哪一首？</h1><p>${songs.length} 首歌${wip?`・<a href="#/songs" id="wipLink">${wip} 首還沒有和弦</a>`:''}</p></div>
       <form class="hsearch" id="hsearch"><input type="search" id="hq" placeholder="搜尋歌名或歌手" aria-label="搜尋歌名或歌手"><button class="primary">搜尋</button></form>
-      <div class="hacts">${next?`<a class="nextset" href="#/set/${next.id}"><span class="lbl">下一場練團</span><b>${esc(next.name||'未命名歌單')}</b><span class="small">${next.items.length} 首</span></a><button class="primary" id="heroPlay">▶ 開始演出</button>`:''}<button ${next?'class="quiet"':'class="primary"'} id="heroNew">＋ 新增歌曲</button></div>
+      <div class="hacts"><button class="primary" id="heroNew">＋ 新增歌曲</button></div>
     </div>
   </section>
   ${seen.length?`<div class="sechead"><h3>最近看過</h3></div><div class="hscroll">${seen.map(x=>homeCard(x)).join('')}</div>`:''}
@@ -1034,11 +1034,8 @@ function renderHome(){
   <div class="hscroll" id="rankRow"><div class="empty">讀取中…</div></div>
   <div class="sechead"><h3>最新更新</h3><a href="#/songs">全部歌曲 →</a></div>
   ${latest.length?`<div class="hscroll">${latest.map(x=>homeCard(x)).join('')}</div>`:'<div class="empty card">還沒有歌。按「新增歌曲」開始。</div>'}
-  <div class="sechead"><h3>歌單</h3><a href="#/sets">全部歌單 →</a></div>
-  ${setlists.length?`<div class="cards">${setlists.slice(0,6).map(setCard).join('')}</div>`:'<div class="empty card">還沒有歌單。排練或演出前，把要唱的歌排成歌單，舞台模式會依序播放。</div>'}
 `;
   $('heroNew').onclick=openNew;
-  $('heroPlay')&&($('heroPlay').onclick=()=>{nav('#/set/'+next.id);setTimeout(()=>$('setPlay').click(),50);});
   $('hsearch').onsubmit=e=>{e.preventDefault();$('q').value=$('hq').value;filt={status:'',key:-1};nav('#/songs');};
   $('wipLink')&&($('wipLink').onclick=e=>{e.preventDefault();filt={status:'wip',key:-1};$('q').value='';nav('#/songs');});
   $('rankTabs').onclick=e=>{const b=e.target.closest('[data-d]');if(b){rankDays=+b.dataset.d;drawRank();}};
