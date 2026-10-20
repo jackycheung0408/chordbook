@@ -186,7 +186,7 @@ pre.preview{margin:0;max-height:240px;overflow:auto;font-family:var(--mono);font
 .ln.again{opacity:.72}
 .sg{display:inline-flex;flex-direction:column;white-space:pre}
 .sg .c{font-family:var(--mono);font-weight:700;color:var(--chord);font-size:calc(var(--lyr) * .85);min-height:1.3em;padding-right:.7ch}
-.sg .c.out{text-decoration:underline dotted;text-underline-offset:4px}
+.sg .c.out::after,.bc.out::after{content:'';display:inline-block;width:4px;height:4px;border-radius:50%;background:currentColor;opacity:.55;margin-left:3px;vertical-align:super}
 .sg .l{font-size:var(--lyr);line-height:1.5}
 .ln.only .sg .l{display:none}
 .ln.only .sg .c{padding-right:2ch}
@@ -298,7 +298,7 @@ pre.preview{margin:0;max-height:240px;overflow:auto;font-family:var(--mono);font
 .bsep{color:var(--muted);opacity:.45;font-family:var(--mono);font-size:calc(var(--lyr) * .85);padding:0 1.1ch}
 .barrep::before{content:"|";color:var(--muted);opacity:.45;font-weight:400;margin-right:1.1ch}
 .barrep{margin-left:1.1ch}
-.bc.out{text-decoration:underline dotted;text-underline-offset:4px}
+
 .bar1 .bc+.bc{margin-left:.6ch}
 .barline.again{opacity:.72}
 .barrep{font-family:var(--mono);font-size:calc(var(--lyr) * .7);color:var(--muted);font-weight:700}
@@ -459,6 +459,23 @@ button,.btn,.tc,.song{-webkit-tap-highlight-color:transparent;touch-action:manip
 .sbhint{font-size:12px;color:var(--muted);margin-left:auto}
 .secghost{position:fixed;z-index:80;pointer-events:none;padding:4px 12px;border-radius:999px;background:var(--accent);color:var(--bg,#111);font-size:13px;font-weight:600;box-shadow:0 6px 18px #0007}
 @media(max-width:640px){.sbhint{display:none}}
+.cbar{display:flex;gap:2px;border-radius:12px;min-width:64px}
+.cbar.multi{min-width:150px;padding:2px;border:1px dashed var(--line)}
+.cbar .cchip{text-align:center;min-width:0;touch-action:none}
+.cchip.u1,.bc.u1{text-decoration:underline;text-underline-offset:5px;text-decoration-thickness:2px}
+.cchip.u2,.bc.u2{text-decoration:underline double;text-underline-offset:5px;text-decoration-thickness:2px}
+.cchip.dragging{opacity:.35}
+.droptgt{outline:2px solid var(--accent);outline-offset:2px}
+.barsep.droptgt{color:var(--accent);opacity:1;outline:0;transform:scaleY(1.6)}
+.barsep[data-gap]{padding:0 6px}
+.bar1{display:inline-flex;gap:10px}.bar1:has(.bc+.bc){min-width:8em}
+.beatseg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.beatseg button{border:0;border-radius:0}.beatseg button.on{background:var(--accent);color:var(--bg,#111)}
+u.dbl{text-decoration-style:double}
+.headmeta .fact{font-family:var(--mono);color:var(--muted)}.headmeta .fact b{color:var(--chord);font-size:1.1em}
+.songfoot{display:flex;flex-wrap:wrap;gap:6px 8px;margin:28px 0 8px;font-size:12px;color:var(--muted);opacity:.8}
+.songfoot .dot{opacity:.5}
+.empty .primary{margin-left:10px}
 .ltag{margin-left:auto;align-self:center;padding:2px 8px;font-size:11px;border:1px dashed var(--line,#444);background:none;color:var(--muted,#888);border-radius:999px;opacity:0;transition:opacity .15s}
 .tl:hover .ltag,.ltag:focus{opacity:1}
 @media(hover:none){.ltag{display:none}}
@@ -542,7 +559,7 @@ body.secmoving #sheet [data-row]:hover{box-shadow:inset 0 3px 0 var(--accent)}
       <div class="memo" id="memoShow" hidden></div>
 
       <section class="keybar" id="keybar" aria-label="移調">
-        <div class="ctl"><span class="lbl">原調</span><span class="keybig" style="font-size:16px;color:var(--fg)" id="origShow">C</span></div>
+        <span id="origShow" hidden></span>
         <div class="ctl"><span class="lbl">我的調</span>
           <button class="step" id="down" aria-label="降半音">−</button>
           <span class="keybig" id="playKey">C</span>
@@ -550,7 +567,7 @@ body.secmoving #sheet [data-row]:hover{box-shadow:inset 0 3px 0 var(--accent)}
           <span class="small" id="semis">±0</span></div>
         <div class="ctl"><span class="lbl">CAPO</span><select id="capo" aria-label="移調夾"></select><span class="small" id="capoHint"></span></div>
         <div class="ctl"><span class="seg"><button id="mSharp">♯</button><button id="mFlat">♭</button><button id="mNash">級數</button></span></div>
-        <span class="mine">移調與 Capo 只存給你自己</span>
+        
       </section>
 
       <div class="body" id="bodyEl">
@@ -559,6 +576,7 @@ body.secmoving #sheet [data-row]:hover{box-shadow:inset 0 3px 0 var(--accent)}
           <div class="secbar" id="secBar" hidden><span class="sblbl">段落</span><span id="secChips"></span><span class="sbhint" id="secHint">拖到歌詞上，或點一下再點那一句</span></div>
 <div class="sheet" id="sheet"></div>
         </article>
+        <footer class="songfoot" id="songFoot"></footer>
         <section class="card editor" id="editor" hidden>
           <div class="etop"><b id="drawerTitle" style="font-size:17px"></b><button class="ghost" id="doneBtn" aria-label="關閉">✕ 關閉</button></div>
           <span class="small" id="saved">修改會自動存檔並同步給團員</span>
@@ -810,7 +828,12 @@ function inKey(ch,tonic){const m=ch.match(CH);if(!m||IDX[m[1]]===undefined)retur
 const CHORD_ONLY=/^[A-G](?:#|b)?(?:maj|min|m|M|dim|aug|sus|add|°|ø|\+|-)?[0-9]*(?:(?:b|#|add|sus|maj|no)?[0-9]+)*(?:\/[A-G](?:#|b)?)?$|^N\.?C\.?$/;
 // 沒有括號的段落名稱也算：Verse 1、verse2、Chorus x2、(Bridge)、副歌：、主歌二、A段…
 const SEC_WORDS=/^\s*[\(（【\[<]?\s*((?:intro|verse|pre-?chorus|chorus|post-?chorus|bridge|interlude|instrumental|outro|solo|hook|refrain|ending|break|前奏|主歌|副歌|導歌|預副歌|橋段|間奏|尾奏|結尾|獨奏|[A-D]段)\s*[\dA-Za-z一二三四五]?\s*(?:[x×]\s*\d+)?)\s*[\)）】\]>]?\s*[:：]?\s*$/i;
-const isBarTok=t=>t.trim().split(/\s+/).every(x=>CHORD_ONLY.test(x));
+const stripB=c=>c.replace(/[_=]$/,''),beatSuf=c=>(c.match(/[_=]$/)||[''])[0];
+const isBarTok=t=>t.trim().split(/\s+/).every(x=>CHORD_ONLY.test(stripB(x)));
+// 同一小節的拍數：_ 一拍、= 半拍，沒標的平分剩下的（4/4）
+function barBeats(chs){const f=chs.map(c=>c.endsWith('_')?1:c.endsWith('=')?.5:0),fixed=f.reduce((a,b)=>a+b,0),free=f.filter(x=>!x).length;
+  const sh=free?Math.max(.5,(4-fixed)/free):0;return f.map(x=>x||sh);}
+const ulCls=c=>c.endsWith('_')?' u1':c.endsWith('=')?' u2':'';
 function secMatch(l){const m=l.match(/^\s*\{(.+)\}\s*$/);if(m)return m;const b=l.match(/^\s*\[([^\]]+)\]\s*$/);if(b)return isBarTok(b[1])?null:b;
   const w=l.match(SEC_WORDS);return w&&!CHORD_ONLY.test(w[1].trim())?w:null;}
 function secHead(t){t=t.trim();const ref=/^[@=]/.test(t);if(ref)t=t.slice(1).trim();
@@ -846,7 +869,7 @@ function sheetHTML(s,shift,capo,mark){
     if(r.sec) return `<div class="sec">${esc(r.sec)}${r.ref?' <span class="rep">再一次</span>':''}${r.rep>1?` <span class="rep">×${r.rep}</span>`:''}</div>`;
     if(r.note!==undefined) return `<div><span class="note">${esc(r.note)}</span></div>`;
     if(r.gap) return '<div class="ln gap"></div>';
-    if(r.bars) return `<div class="barline${r.again?' again':''}">`+r.bars.map((b,bi)=>(bi?'<span class="bsep">|</span>':'')+`<span class="bar1">`+b.trim().split(/\s+/).map(c=>{const out=mark&&!inKey(c,s.key);return `<span class="bc${out?' out':''}">${esc(xpose(c,sh,fk,s.key))}</span>`;}).join(' ')+'</span>').join('')+`${r.rep>1?`<span class="barrep">×${r.rep}</span>`:''}</div>`;
+    if(r.bars) return `<div class="barline${r.again?' again':''}">`+r.bars.map((b,bi)=>(bi?'<span class="bsep">|</span>':'')+`<span class="bar1">`+(cs=>{const bt=barBeats(cs);return cs.map((c,j)=>{const out=mark&&!inKey(stripB(c),s.key);return `<span class="bc${out?' out':''}${ulCls(c)}" style="flex:${bt[j]} 1 0">${esc(xpose(stripB(c),sh,fk,s.key))}</span>`;}).join('');})(b.trim().split(/\s+/))+'</span>').join('')+`${r.rep>1?`<span class="barrep">×${r.rep}</span>`:''}</div>`;
     const noc=!r.segs.some(g=>g.c);
     return `<div class="ln${r.only?' only':''}${r.again?' again':''}${noc?' noc':''}">`+r.segs.map((g,gi)=>{if(gi===0&&g.c&&g.l===' ')g={...g,l:''};
       const out=mark&&g.c&&!inKey(g.c,s.key);
@@ -860,7 +883,7 @@ function textOut(s,shift,capo){
     if(r.sec){out.push('','['+r.sec+(r.ref?' 再一次':'')+(r.rep>1?' x'+r.rep:'')+']');return;}
     if(r.note!==undefined){out.push('※ '+r.note);return;}
     if(r.gap){out.push('');return;}
-    if(r.bars){out.push('| '+r.bars.map(b=>b.trim().split(/\s+/).map(c=>xpose(c,sh,fk,s.key)).join(' ')).join(' | ')+' |'+(r.rep>1?' x'+r.rep:''));return;}
+    if(r.bars){out.push('| '+r.bars.map(b=>b.trim().split(/\s+/).map(c=>xpose(stripB(c),sh,fk,s.key)+beatSuf(c)).join(' ')).join(' | ')+' |'+(r.rep>1?' x'+r.rep:''));return;}
     let a='',b='';r.segs.forEach(g=>{const c=g.c?xpose(g.c,sh,fk,s.key):'';const n=Math.max(w(g.l),c.length+1);a+=c.padEnd(n);b+=g.l+' '.repeat(n-w(g.l));});
     out.push(a.trimEnd());if(!r.only)out.push(b.trimEnd());});
   return out.join('\n').replace(/\n{3,}/g,'\n\n');}
@@ -985,7 +1008,8 @@ function render(){
   const p=prefOf(s.id),pk=mod(s.key+p.shift),fk=mod(pk-p.capo);
   $('h').textContent=s.title||'未命名';
   const u=/^https?:\/\//.test(s.url||'')?s.url:'';
-  $('headmeta').innerHTML=[`<span class="by">${s.updatedBy?esc(s.updatedBy)+' 更新・':''}${ago(s.updatedAt)}</span>`,s.artist?`<span>${esc(s.artist)}</span>`:'',s.bpm?`<span>♩ = <b>${s.bpm}</b></span>`:'',u?`<a class="srclink" href="${esc(u)}" target="_blank" rel="noopener">開啟原始連結 ↗</a>`:''].join('');
+  $('headmeta').innerHTML=[s.artist?`<span>${esc(s.artist)}</span>`:'',`<span class="fact">Key <b>${KEYS[s.key]}</b></span>`,s.bpm?`<span class="fact">♩ <b>${s.bpm}</b></span>`:''].join('');
+  $('songFoot').innerHTML=[`<span>${s.updatedBy?esc(s.updatedBy)+' 更新・':''}${ago(s.updatedAt)}</span>`,'<span>移調與 Capo 只存給你自己</span>',u?`<a class="srclink" href="${esc(u)}" target="_blank" rel="noopener">原始連結 ↗</a>`:''].filter(Boolean).join('<span class="dot">·</span>');
   if(s.audio_url){if($('player').dataset.src!==s.audio_url){$('player').src=s.audio_url;$('player').dataset.src=s.audio_url;}$('player').hidden=false;}else{$('player').hidden=true;}
   $('memoShow').hidden=!s.memo;$('memoShow').innerHTML=s.memo?`<span class="lbl">給團員</span>${esc(s.memo)}`:'';
   $('origShow').textContent=KEYS[s.key];
@@ -1027,7 +1051,8 @@ function tapHTML(s){
   return all.map((l,i)=>{
     const m=secMatch(l);
     if(m){const h=secHead(m[1]);return `<div class="sec" data-row="${i}"><button class="secname" data-secedit="${i}" aria-label="段落：點一下改名或移動，按住拖到別句"><span class="grip">⠿</span>${esc(h.name)}</button>${h.ref?' <span class="rep">再一次・內容跟前面一樣</span>':''}${h.rep>1?` <span class="rep">×${h.rep}</span>`:''}<span class="secacts">${h.ref||sectionHasLyrics(all,i)?'':`<button class="addch" data-addafter="${i}">＋ 加和弦</button>`}</span></div>`;}
-    if(isChordOnly(l)){const t=chordTokens(l),rp=lineRep(l);return `<div class="cline" data-row="${i}"><span class="barsep">|</span>`+t.map((n,ci)=>`<button class="cchip" data-cl="${i}" data-ci="${ci}">${esc(n)}</button><span class="barsep">|</span>`).join('')+(rp>1?`<span class="rep big">×${rp}</span>`:'')+`<button class="cchip add" data-cl="${i}" data-ci="-1" aria-label="加一個和弦">＋</button></div>`;}
+    if(isChordOnly(l)){const t=chordTokens(l),rp=lineRep(l);return `<div class="cline" data-row="${i}"><span class="barsep" data-gl="${i}" data-gap="0">|</span>`+t.map((n,ci)=>{const cs=n.trim().split(/\s+/),bt=barBeats(cs);
+  return `<span class="cbar${cs.length>1?' multi':''}" data-cl="${i}" data-ci="${ci}">`+cs.map((c,si)=>`<button class="cchip${ulCls(c)}" data-cl="${i}" data-ci="${ci}" data-si="${si}" style="flex:${bt[si]} 1 0">${esc(stripB(c))}</button>`).join('')+`</span><span class="barsep" data-gl="${i}" data-gap="${ci+1}">|</span>`;}).join('')+(rp>1?`<span class="rep big">×${rp}</span>`:'')+`<button class="cchip add" data-cl="${i}" data-ci="-1" aria-label="加一個和弦">＋</button></div>`;}
     if(/^\s*>/.test(l))return `<div><span class="note">${esc(l.replace(/^\s*>\s?/,''))}</span></div>`;
     if(!l.trim())return '<div class="ln gap"></div>';
     const cells=cellsOf(l);let pre='';
@@ -1042,7 +1067,7 @@ function renderSheet(){const s=cur();if(!s)return;queueMicrotask(()=>{if(editing
     <ol><li><b>貼上歌詞</b>：下方「歌詞」，一行一句。</li><li><b>上傳 Demo</b>：下方「Demo」，會自動抓調性、BPM，把和弦配到歌詞上。</li><li><b>點字修正</b>：點譜上任何一個字就能加或改和弦。</li></ol>
     <button class="primary" id="guideText">開始貼歌詞</button></div>`;$('guideText').onclick=()=>openDrawer('text');return;}
   if(isEditing()){$('sheetHint').textContent=`點字加和弦・按住和弦可以拖到別的字・原調 ${KEYS[s.key]}`;$('sheet').innerHTML=tapHTML(s);}
-  else{const p=prefOf(s.id);$('sheetHint').textContent='';$('sheet').innerHTML=sheetHTML(s,p.shift,p.capo,true);}}
+  else{const p=prefOf(s.id);$('sheetHint').textContent='';$('sheet').innerHTML=hasLyrics||s.src.trim()?sheetHTML(s,p.shift,p.capo,true):`<div class="empty">這首還沒有歌詞和和弦。<button class="primary" onclick="openEditor(true)">✎ 開始編輯</button></div>`;}}
 // 段落標籤：點「＋ 標段落」或段落名稱，選一個就好
 const SEC_PRESETS=['Intro','Verse','Pre-Chorus','Chorus','Interlude','Bridge','Solo','Outro'];
 function nextSecName(base,lines,skip){if(/^(Chorus|Intro|Outro|Pre-Chorus)$/.test(base))return base;
@@ -1120,20 +1145,23 @@ function applyChord(name){
   name=(name||'').trim().replace(/[\[\]]/g,'').replace(/♯/g,'#').replace(/♭/g,'b');if(!name||!pk)return;
   if(pk.ins!=null||pk.cl!=null){const lines=cur().src.split('\n');
     if(pk.ins!=null)lines.splice(pk.ins+1,0,'['+name+']');
-    else{const t=chordTokens(lines[pk.cl]);if(pk.ci<0)t.push(name);else if(pk.inbar)t[pk.ci]=t[pk.ci].trim()+' '+name;else t[pk.ci]=name;lines[pk.cl]=chordLine(t,lineRep(lines[pk.cl]));}
+    else{const t=chordTokens(lines[pk.cl]);if(pk.si!=null&&!pk.inbar&&pk.ci>=0){const cs=t[pk.ci].trim().split(/\s+/);cs[pk.si]=name+beatSuf(cs[pk.si]||'');t[pk.ci]=cs.join(' ');}else if(pk.ci<0)t.push(name);else if(pk.inbar)t[pk.ci]=t[pk.ci].trim()+' '+name;else t[pk.ci]=name;lines[pk.cl]=chordLine(t,lineRep(lines[pk.cl]));}
     const o=pk;pushRecent(name);closePicker();commitLines(lines);
     const cl=o.ins!=null?o.ins+1:o.cl;
     // 純和弦行一路往後加：自動在「＋」再開一次
-    if(o.ci<0||o.ins!=null)setTimeout(()=>select({cl,ci:-1}),0);else{sel={cl,ci:o.ci};markSel();}return;}
+    if(o.ci<0||o.ins!=null)setTimeout(()=>select({cl,ci:-1}),0);else{sel={cl,ci:o.ci,si:o.si??0};markSel();}return;}
   if(pk.start){const lines=cur().src.split('\n');lines[pk.l]='['+name+'] '+lines[pk.l];const l=pk.l;pushRecent(name);closePicker();commitLines(lines);sel={l,k:0};markSel();return;}
   const lines=cur().src.split('\n'),line=lines[pk.l],c=cellsOf(line)[pk.k];
   lines[pk.l]=c.chord?line.slice(0,c.chord.s)+'['+name+']'+line.slice(c.chord.e):line.slice(0,c.off)+'['+name+']'+line.slice(c.off);
   pushRecent(name);const {l,k}=pk,wasEnd=c.end;closePicker();commitLines(lines);sel={l,k:wasEnd?k+1:k};markSel();}
 function removeChord(){
-  if(pk.cl!=null){const lines=cur().src.split('\n'),t=chordTokens(lines[pk.cl]);t.splice(pk.ci,1);if(t.length)lines[pk.cl]=chordLine(t,lineRep(lines[pk.cl]));else lines.splice(pk.cl,1);closePicker();commitLines(lines);return;}
+  if(pk.cl!=null){const lines=cur().src.split('\n'),t=chordTokens(lines[pk.cl]);if(pk.si!=null){const cs=t[pk.ci].trim().split(/\s+/);cs.splice(pk.si,1);if(cs.length)t[pk.ci]=cs.join(' ');else t.splice(pk.ci,1);}else t.splice(pk.ci,1);if(t.length)lines[pk.cl]=chordLine(t,lineRep(lines[pk.cl]));else lines.splice(pk.cl,1);closePicker();commitLines(lines);return;}
   const lines=cur().src.split('\n'),c=cellsOf(lines[pk.l])[pk.k];if(!c.chord)return;
   lines[pk.l]=lines[pk.l].slice(0,c.chord.s)+lines[pk.l].slice(c.chord.e);closePicker();commitLines(lines);}
 function moveChord(d){
+  if(pk.cl!=null&&pk.si!=null){const lines=cur().src.split('\n'),t=chordTokens(lines[pk.cl]),cs=t[pk.ci].trim().split(/\s+/),j=pk.si+d;
+    if(cs.length>1&&j>=0&&j<cs.length){[cs[pk.si],cs[j]]=[cs[j],cs[pk.si]];t[pk.ci]=cs.join(' ');lines[pk.cl]=chordLine(t,lineRep(lines[pk.cl]));const o={cl:pk.cl,ci:pk.ci,si:j};commitLines(lines);select(o);return;}
+    pk={cl:pk.cl,ci:pk.ci};}
   if(pk.cl!=null){const lines=cur().src.split('\n'),t=chordTokens(lines[pk.cl]),j=pk.ci+d;if(pk.ci<0||j<0||j>=t.length)return;[t[pk.ci],t[j]]=[t[j],t[pk.ci]];lines[pk.cl]=chordLine(t,lineRep(lines[pk.cl]));
     const cl=pk.cl;commitLines(lines);select({cl,ci:j});return;}
   const lines=cur().src.split('\n'),c=cellsOf(lines[pk.l])[pk.k];if(!c.chord)return;
@@ -1191,15 +1219,38 @@ function endDrag(e,cancel){if(!drag)return;clearTimeout(drag.timer);const d=drag
 document.addEventListener('pointerup',e=>endDrag(e,false));
 document.addEventListener('pointercancel',e=>endDrag(e,true));
 document.addEventListener('contextmenu',e=>{if(drag)e.preventDefault();});
+// 純和弦行：拖一個和弦到別的小節（合併成同一小節），或拖到 | 變成新的一小節
+let cdrag=null;
+function moveSub(from,to){const lines=cur().src.split('\n'),A={};
+  for(const l of [from.cl,to.cl])A[l]=A[l]||chordTokens(lines[l]).map(x=>x.trim().split(/\s+/));
+  if(from.cl===to.cl&&to.mode==='into'&&to.ci===from.ci)return;
+  const c=A[from.cl][from.ci].splice(from.si,1)[0];
+  if(to.mode==='into')A[to.cl][to.ci].push(stripB(c));else A[to.cl].splice(to.gap,0,[stripB(c)]);
+  const drop=[];for(const l in A){const arr=A[l].filter(b=>b.length);if(arr.length)lines[l]=chordLine(arr.map(b=>b.join(' ')),lineRep(lines[l]));else drop.push(+l);}
+  drop.sort((a,b)=>b-a).forEach(l=>lines.splice(l,1));commitLines(lines);toast(to.mode==='into'?'已放進同一小節，點和弦可以設定拍數':'已分成新的一小節');}
+function cdTarget(x,y){const el=document.elementFromPoint(x,y);if(!el)return null;
+  const g=el.closest('#sheet .barsep[data-gap]');if(g)return {el:g,cl:+g.dataset.gl,gap:+g.dataset.gap,mode:'gap'};
+  const b=el.closest('#sheet .cbar');if(b)return {el:b,cl:+b.dataset.cl,ci:+b.dataset.ci,mode:'into'};return null;}
+$('sheet').addEventListener('pointerdown',e=>{const c=e.target.closest('.cchip[data-si]');if(!c||!isEditing())return;
+  cdrag={from:{cl:+c.dataset.cl,ci:+c.dataset.ci,si:+c.dataset.si},x:e.clientX,y:e.clientY,on:false,el:c,touch:e.pointerType!=='mouse'};
+  if(cdrag.touch)cdrag.timer=setTimeout(()=>{if(cdrag){cdrag.on=true;c.classList.add('dragging');closePicker();navigator.vibrate?.(10);}},350);});
+addEventListener('pointermove',e=>{const d=cdrag;if(!d)return;const dist=Math.hypot(e.clientX-d.x,e.clientY-d.y);
+  if(!d.on){if(d.touch){if(dist>8){clearTimeout(d.timer);cdrag=null;}return;}if(dist<6)return;d.on=true;d.el.classList.add('dragging');closePicker();}
+  e.preventDefault();if(!d.ghost){d.ghost=Object.assign(document.createElement('div'),{className:'secghost',textContent:d.el.textContent});document.body.append(d.ghost);}
+  d.ghost.style.left=e.clientX+12+'px';d.ghost.style.top=e.clientY-14+'px';
+  document.querySelectorAll('.droptgt').forEach(x=>x.classList.remove('droptgt'));cdTarget(e.clientX,e.clientY)?.el.classList.add('droptgt');},{passive:false});
+addEventListener('pointerup',e=>{const d=cdrag;cdrag=null;if(!d)return;clearTimeout(d.timer);if(!d.on)return;d.ghost?.remove();d.el.classList.remove('dragging');
+  document.querySelectorAll('.droptgt').forEach(x=>x.classList.remove('droptgt'));justDragged=true;setTimeout(()=>justDragged=false,50);
+  const t=cdTarget(e.clientX,e.clientY);if(t)moveSub(d.from,t);});
 // ---- 和弦鍵盤：① 點一個字 ② 點和弦 ----
 let sel=null;
 function selEl(o){if(!o)return null;if(o.start)return document.querySelector(`#sheet .tc.start[data-l="${o.l}"]`);if(o.l!=null)return document.querySelector(`#sheet .tc[data-l="${o.l}"][data-k="${o.k}"]`);
-  if(o.ins!=null)return document.querySelector(`#sheet [data-addafter="${o.ins}"]`);return document.querySelector(`#sheet .cchip[data-cl="${o.cl}"][data-ci="${o.ci}"]`);}
+  if(o.ins!=null)return document.querySelector(`#sheet [data-addafter="${o.ins}"]`);return document.querySelector(`#sheet .cchip[data-cl="${o.cl}"][data-ci="${o.ci}"]`+(o.si!=null?`[data-si="${o.si}"]`:''));}
 function selInfo(){if(!sel)return null;const lines=cur().src.split('\n');
   if(sel.start)return {chord:null,where:'開始唱之前'};
   if(sel.l!=null){const c=cellsOf(lines[sel.l]||'')[sel.k];if(!c)return null;return {chord:c.chord?.name,where:c.end||c.tail?'這句唱完後':`「${c.ch}」前面`};}
   if(sel.ins!=null)return {chord:null,where:'這段加一個和弦'};
-  const t=chordTokens(lines[sel.cl]||'');return {chord:sel.ci>=0?t[sel.ci]:null,where:sel.ci>=0?`第 ${sel.ci+1} 個和弦`:'這行最後加一個和弦'};}
+  const t=chordTokens(lines[sel.cl]||'');if(sel.si!=null&&sel.ci>=0){const cs=(t[sel.ci]||'').trim().split(/\s+/);return {chord:stripB(cs[sel.si]||''),where:`第 ${sel.ci+1} 小節`,cs};}return {chord:sel.ci>=0?t[sel.ci]:null,where:sel.ci>=0?`第 ${sel.ci+1} 個和弦`:'這行最後加一個和弦'};}
 function markSel(){document.querySelectorAll('#sheet .sel').forEach(x=>x.classList.remove('sel'));const el=selEl(sel);el?.classList.add('sel');return el;}
 function select(o,noScroll){sel=o;closePicker();const el=markSel();if(o&&el)openPopup(o,el);}
 // 旁邊跳出的和弦選擇器：依位置顯示可以做的事
@@ -1208,7 +1259,8 @@ function openPopup(o,el){
   fillPicker(info.chord?`${info.where}：${info.chord}`:`${info.where}`,info.chord,el);
   const li=lineOfSel(),si=li!=null?sectionOf(li):-1,isLyric=o.l!=null&&!o.start,isCl=o.cl!=null;
   const r=isCl?lineRep(cur().src.split('\n')[o.cl]):0,b=(act,t,cls)=>`<button data-act="${act}"${cls?` class="${cls}"`:''}>${t}</button>`;
-  $('pkLine').innerHTML=(isCl&&o.ci>=0&&info.chord?b('inbar','同一小節再加一個','primary'):'')+(isCl?b('rep',r>1?`重複 ×${r}`:'設定重複')+b('dupline','複製這行到下面'):'')+
+  const multi=isCl&&info.cs&&info.cs.length>1,cb=multi?info.cs[o.si]:'';
+  $('pkLine').innerHTML=(multi?`<span class="beatseg">${b('beat0','平分',cb.match(/[_=]$/)?'':'on')}${b('beat1','<u>1 拍</u>',cb.endsWith('_')?'on':'')}${b('beat2','<u class="dbl">半拍</u>',cb.endsWith('=')?'on':'')}</span>`:'')+(isCl&&o.ci>=0&&info.chord?b('inbar','同一小節再加一個',multi?'':'primary'):'')+(isCl?b('rep',r>1?`重複 ×${r}`:'設定重複')+b('dupline','複製這行到下面'):'')+
     (isLyric?b('secstart','從這句開始新段落')+b('copyline','複製這行和弦')+(lineClip?b('pasteline','貼上到這行'):''):'')+
     (si>=0?b('copysec','複製這段和弦')+(secClip?b('pastesec','貼上到這段'):''):'');
   $('pkLine').hidden=!$('pkLine').innerHTML;$('pkEdit').hidden=!info.chord;
@@ -1248,6 +1300,8 @@ function palAct(a){if(!a||!sel)return;
   else if(a==='pastesec'){const k={...sel};pasteSection(sectionOf(lineOfSel()));select(k,true);}
   else if(a==='rep'){const lines=cur().src.split('\n'),r=lineRep(lines[sel.cl]),nr=r<2?2:r>=4?0:r+1;lines[sel.cl]=chordLine(chordTokens(lines[sel.cl]),nr);const k={...sel};commitLines(lines);select(k,true);toast(nr?`這行重複 ${nr} 次`:'取消重複');}
   else if(a==='dupline'){const lines=cur().src.split('\n');lines.splice(sel.cl+1,0,lines[sel.cl]);const k={cl:sel.cl+1,ci:0};commitLines(lines);select(k);toast('已複製一行，改幾個不一樣的和弦就好');}
+  else if(/^beat[012]$/.test(a)&&sel.si!=null){const lines=cur().src.split('\n'),t=chordTokens(lines[sel.cl]),cs=t[sel.ci].trim().split(/\s+/);
+    cs[sel.si]=stripB(cs[sel.si])+['','_','='][+a[4]];t[sel.ci]=cs.join(' ');lines[sel.cl]=chordLine(t,lineRep(lines[sel.cl]));const k={...sel};commitLines(lines);select(k,true);}
   else if(a==='inbar'){const t=chordTokens(cur().src.split('\n')[sel.cl])[sel.ci];pk={...sel,inbar:true};fillPicker(`${t} 之後（同一小節）`,'',selEl(sel));$('pkLine').hidden=true;$('pkEdit').hidden=true;}
   else if(a==='clear')select(null);}
 // 有選字時直接打字母、方向鍵、刪除
@@ -1268,7 +1322,7 @@ $('sheet').addEventListener('click',e=>{
   const aa=e.target.closest('[data-addafter]'),cc=e.target.closest('.cchip');
   const stg=e.target.closest('[data-sectag],[data-secedit]');if(stg){openSecMenu(stg);return;}
   if(aa){const i=+aa.dataset.addafter,nx=cur().src.split('\n')[i+1];select(nx!=null&&isChordOnly(nx)?{cl:i+1,ci:-1}:{ins:i,ci:-1});return;}
-  if(cc){select({cl:+cc.dataset.cl,ci:+cc.dataset.ci});return;}
+  if(cc){select(cc.dataset.si!=null?{cl:+cc.dataset.cl,ci:+cc.dataset.ci,si:+cc.dataset.si}:{cl:+cc.dataset.cl,ci:+cc.dataset.ci});return;}
   const sc=e.target.closest('[data-seccopy]'),sp=e.target.closest('[data-secpaste]');
   if(sc){copySection(+sc.dataset.seccopy);return;}
   if(sp){pasteSection(+sp.dataset.secpaste);return;}
@@ -1850,7 +1904,7 @@ document.addEventListener('keydown',e=>{if($('stage').hidden)return;
 const CFG=window.CHORDBOOK_CONFIG||{};
 function fromRow(r){return {id:r.id,importBatch:r.import_batch||'',createdBy:r.created_by||'',updatedBy:r.updated_by||'',title:r.title||'',artist:r.artist||'',key:+r.key||0,src:r.src||'',url:r.url||'',memo:r.memo||'',bpm:+r.bpm||0,audio_url:r.audio_url||'',updatedAt:Date.parse(r.updated_at)||0};}
 function setFromRow(r){return {id:r.id,updatedBy:r.updated_by||'',name:r.name||'',items:Array.isArray(r.items)?r.items:[],updatedAt:Date.parse(r.updated_at)||0};}
-function status(t,cls){$('sync').textContent=t;$('sync').className='sync '+(cls||'');}
+function status(t,cls){$('sync').textContent=cls==='on'?'':t;$('sync').title=t;$('sync').className='sync '+(cls||'');}
 async function loadAll(){
   const [a,b]=await Promise.all([
     sb.from('songs').select('*').order('updated_at',{ascending:false}),
