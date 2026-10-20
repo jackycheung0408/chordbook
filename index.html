@@ -537,6 +537,10 @@ body.secmoving #sheet [data-row]:hover{box-shadow:inset 0 3px 0 var(--accent)}
 .secname{background:none;border:0;padding:0;font:inherit;color:inherit;letter-spacing:inherit;cursor:pointer}
 .secmenu{position:fixed;z-index:60;display:flex;flex-wrap:wrap;gap:6px;max-width:300px;padding:10px;background:var(--panel,#1a1d24);border:1px solid var(--line,#333);border-radius:12px;box-shadow:0 8px 24px #0006}
 .secmenu button{padding:6px 12px;border-radius:999px}
+.hcols{display:grid;grid-template-columns:1fr 1fr;gap:16px}@media(max-width:700px){.hcols{grid-template-columns:1fr}}
+.lb{padding:4px 14px}.lbrow{display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line,#8883)}.lbrow:last-child{border:0}
+.lbn{width:1.4em;opacity:.6}.lbw{flex:1;min-width:0}.vchip{font-size:13px;padding:1px 8px;border-radius:99px;background:#f59e0b22}.vchip.ok{background:#16a34a22}
+.linkbtn{background:none;border:0;padding:0;color:inherit;text-decoration:underline;cursor:pointer;font:inherit}
 </style>
 </head>
 <body>
@@ -1050,12 +1054,14 @@ function renderHome(){
   <div class="hscroll" id="rankRow"><div class="empty">讀取中…</div></div>
   <div class="sechead"><h3>最新更新</h3><a href="#/songs">全部歌曲 →</a></div>
   ${latest.length?`<div class="hscroll">${latest.map(x=>homeCard(x)).join('')}</div>`:'<div class="empty card">還沒有歌。按「新增歌曲」開始。</div>'}
+  <div class="hcols"><section><div class="sechead"><h3>貢獻榜</h3><span class="small">改和弦 +2・確認校對 +5</span></div><div id="lbBox" class="card lb"><div class="empty">讀取中…</div></div></section>
+  <section><div class="sechead"><h3>點歌佇列</h3><button id="reqBtn">花 10 分點歌</button></div><div id="reqBox" class="card lb"><div class="empty">讀取中…</div></div></section></div>
 `;
   $('heroNew').onclick=openNew;
   $('hsearch').onsubmit=e=>{e.preventDefault();$('q').value=$('hq').value;filt={status:'',key:-1};nav('#/songs');};
   $('wipLink')&&($('wipLink').onclick=e=>{e.preventDefault();filt={status:'wip',key:-1};$('q').value='';nav('#/songs');});
   $('rankTabs').onclick=e=>{const b=e.target.closest('[data-d]');if(b){rankDays=+b.dataset.d;drawRank();}};
-  drawRank();}
+  drawRank();drawCredits();$('reqBtn').onclick=askRequest;}
 async function drawRank(){document.querySelectorAll('#rankTabs [data-d]').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.d===rankDays));
   const rows=(await loadRank(rankDays)).map(r=>song(r.song_id)).filter(Boolean).slice(0,10);if(!$('rankRow'))return;
   $('rankRow').innerHTML=rows.length?rows.map((x,i)=>homeCard(x,i+1)).join(''):'<div class="empty">還沒有紀錄。打開歌曲看譜、練習，這裡就會排出最常練的歌。</div>';}
@@ -1063,9 +1069,31 @@ function renderSets(){$('setList').innerHTML=setlists.length?setlists.map(setCar
 function renderList(){
   document.querySelectorAll('.nav [data-nav]').forEach(a=>{const on=a.dataset.nav===view||(a.dataset.nav==='songs'&&view==='song')||(a.dataset.nav==='sets'&&view==='set');on?a.setAttribute('aria-current','page'):a.removeAttribute('aria-current');});
   if(view==='home')renderHome();else if(view==='songs')renderSongs();else if(view==='sets')renderSets();}
+// ---- 貢獻積分：署名、權限、點歌、徽章 ----
+let lb=[],lbOk=true;
+const CR_LV=[[200,'管理員'],[30,'校對員'],[0,'貢獻者']];
+const levelOf=p=>CR_LV.find(l=>p>=l[0])[1];
+const scoreOf=w=>lb.find(x=>x.who===w)?.pts||0;
+function badges(r){const b=[];if(r.verified>=100)b.push('🏅 百首校對者');else if(r.verified>=10)b.push('✅ 十首校對者');
+  if(r.edits>=50)b.push('✍️ 勤勞改譜');if(r.top_artist&&r.edits+r.verified>=5)b.push(`🎤 ${r.top_artist} 專家`);return b;}
+async function loadCredits(){if(!sb)return;const {data,error}=await sb.rpc('leaderboard');if(error){lbOk=false;return;}lb=data||[];showMe();}
+async function drawCredits(){await loadCredits();if(!$('lbBox')||!sb)return;
+  if(!lbOk){$('lbBox').innerHTML=$('reqBox').innerHTML='<div class="empty">積分功能還沒啟用（需要執行 migrations/005_credits.sql）</div>';return;}
+  $('lbBox').innerHTML=lb.length?lb.slice(0,10).map((r,i)=>`<div class="lbrow"><b class="lbn">${i+1}</b><span class="lbw">${esc(r.who)} <span class="small">${levelOf(r.pts)}</span><br><span class="small">${badges(r).map(esc).join('・')}</span></span><b>${r.pts}</b></div>`).join(''):'<div class="empty">還沒有人得分。修正一首歌的和弦就能上榜。</div>';
+  const {data}=await sb.from('song_requests').select('*').eq('done',false).order('votes',{ascending:false}).order('at').limit(15);
+  $('reqBox').innerHTML=(data||[]).length?data.map(r=>`<div class="lbrow"><span class="lbw">${esc(r.title)}${r.artist?` <span class="small">${esc(r.artist)}</span>`:''}</span><span class="small">${r.votes} 票</span></div>`).join(''):'<div class="empty">還沒有人點歌。點的歌會排進下一批自動配和弦。</div>';}
+async function askRequest(){if(!me){askName();return;}
+  if(scoreOf(me)<10){toast(`點歌要 10 分，你現在 ${scoreOf(me)} 分。修正和弦可以賺分`);return;}
+  const t=prompt('想點哪一首歌？（歌名）');if(!t?.trim())return;const a=prompt('歌手（可不填）')||'';
+  const {data,error}=await sb.rpc('request_song',{p_title:t,p_artist:a,p_who:me});
+  toast(error?'點歌失敗：'+error.message:data==='ok'?`已點「${t.trim()}」，扣 10 分`:data);drawCredits();}
+async function verifySong(){const s=cur();if(!me){askName();return;}
+  const {data,error}=await sb.rpc('verify_song',{p_song:s.id,p_who:me});
+  if(error||data!=='ok'){toast(error?error.message:data);return;}
+  s.status='verified';s.verifiedBy=me;cacheAll();render();toast('已確認校對，+5 分');loadCredits();}
 // ---- 使用者名稱（自己輸入，存在這台裝置） ----
 let me=lsGet('cb_name','')||'';
-function showMe(){$('meName').textContent=me;}
+function showMe(){$('meName').textContent=me+(me&&lbOk&&lb.length?`・${scoreOf(me)} 分`:'');}
 function askName(){$('nmIn').value=me;$('nameDlg').hidden=false;setTimeout(()=>$('nmIn').focus(),30);}
 $('meBtn').onclick=askName;$('nmCancel').onclick=()=>$('nameDlg').hidden=true;
 $('nameForm').onsubmit=e=>{e.preventDefault();const v=$('nmIn').value.trim().slice(0,20);if(!v)return;me=v;lsSet('cb_name',me);showMe();$('nameDlg').hidden=true;toast(`嗨 ${me}，之後的修改都會記在你名下`);};
@@ -1108,7 +1136,10 @@ function render(){
     if(!ih.contains(document.activeElement)){const v={title:s.title,artist:s.artist,origKey:s.key,bpm:s.bpm||''};ih.querySelectorAll('[data-f]').forEach(el=>el.value=v[el.dataset.f]??'');}
     ih.hidden=false;$('h').hidden=true;$('headmeta').hidden=true;}
   else{if(ih)ih.hidden=true;$('h').hidden=false;$('headmeta').hidden=false;}
-  $('songFoot').innerHTML=[`<span>${s.updatedBy?esc(s.updatedBy)+' 更新・':''}${ago(s.updatedAt)}</span>`,'<span>移調與 Capo 只存給你自己</span>',u?`<a class="srclink" href="${esc(u)}" target="_blank" rel="noopener">原始連結 ↗</a>`:''].filter(Boolean).join('<span class="dot">·</span>');
+  const ed=[...new Set([s.createdBy,s.updatedBy,s.verifiedBy].filter(Boolean))];
+  const st=s.status==='verified'?`<span class="vchip ok">✅ 已校對${s.verifiedBy?'（'+esc(s.verifiedBy)+'）':''}</span>`:hasChords(s)&&lbOk?`<span class="vchip">🟡 待確認</span> <button class="linkbtn" id="vfyBtn">確認和弦正確</button>`:'';
+  $('songFoot').innerHTML=[st,ed.length?`<span>校對：${ed.map(esc).join('、')}</span>`:'',`<span>${s.updatedBy?esc(s.updatedBy)+' 更新・':''}${ago(s.updatedAt)}</span>`,'<span>移調與 Capo 只存給你自己</span>',u?`<a class="srclink" href="${esc(u)}" target="_blank" rel="noopener">原始連結 ↗</a>`:''].filter(Boolean).join('<span class="dot">·</span>');
+  $('vfyBtn')&&($('vfyBtn').onclick=verifySong);
   if(s.audio_url){if($('player').dataset.src!==s.audio_url){$('player').src=s.audio_url;$('player').dataset.src=s.audio_url;}$('player').hidden=false;}else{$('player').hidden=true;}
   $('memoShow').hidden=!s.memo;$('memoShow').innerHTML=s.memo?`<span class="lbl">給團員</span>${esc(s.memo)}`:'';
   $('origShow').textContent=KEYS[s.key];
@@ -2050,10 +2081,10 @@ document.addEventListener('keydown',e=>{if($('stage').hidden)return;
 
 // ---- 連線與同步（含離線） ----
 const CFG=window.CHORDBOOK_CONFIG||{};
-function fromRow(r){return {id:r.id,importBatch:r.import_batch||'',sunoId:r.suno_id||'',createdBy:r.created_by||'',updatedBy:r.updated_by||'',title:r.title||'',artist:r.artist||'',key:+r.key||0,src:r.src||'',url:r.url||'',memo:r.memo||'',bpm:+r.bpm||0,audio_url:r.audio_url||'',updatedAt:Date.parse(r.updated_at)||0};}
+function fromRow(r){return {id:r.id,importBatch:r.import_batch||'',sunoId:r.suno_id||'',createdBy:r.created_by||'',updatedBy:r.updated_by||'',title:r.title||'',artist:r.artist||'',key:+r.key||0,src:r.src||'',url:r.url||'',memo:r.memo||'',bpm:+r.bpm||0,audio_url:r.audio_url||'',status:r.status||'',verifiedBy:r.verified_by||'',updatedAt:Date.parse(r.updated_at)||0};}
 function setFromRow(r){return {id:r.id,updatedBy:r.updated_by||'',name:r.name||'',items:Array.isArray(r.items)?r.items:[],updatedAt:Date.parse(r.updated_at)||0};}
 function status(t,cls){$('sync').textContent=cls==='on'?'':t;$('sync').title=t;$('sync').className='sync '+(cls||'');}
-async function loadAll(){
+async function loadAll(){loadCredits();
   const [a,b]=await Promise.all([
     sb.from('songs').select('*').order('updated_at',{ascending:false}),
     sb.from('setlists').select('*').order('updated_at',{ascending:false})]);
