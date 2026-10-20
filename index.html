@@ -1030,7 +1030,7 @@ function renderHome(){
   const wip=songs.filter(x=>!hasChords(x)).length;
   $('homeView').innerHTML=`
   <section class="hhero">
-    <div class="hwall" aria-hidden="true">${songs.filter(x=>artOf(x)).slice(0,14).map(x=>`<img src="${artOf(x)}" alt="" loading="lazy" onerror="this.remove()">`).join('')}</div>
+    <div class="hwall" aria-hidden="true">${songs.filter(x=>artOf(x)&&artOf(x)!==OWN_PIC).slice(0,14).map(x=>`<img src="${artOf(x)}" alt="" loading="lazy" onerror="this.remove()">`).join('')}</div>
     <div class="hin">
       <div class="htitle"><span class="eyebrow">和弦室 · ChordRoom</span><h1>今天練哪一首？</h1><p>${songs.length} 首歌${wip?`・<a href="#/songs" id="wipLink">${wip} 首還沒有和弦</a>`:''}</p></div>
       <form class="hsearch" id="hsearch"><input type="search" id="hq" placeholder="搜尋歌名或歌手" aria-label="搜尋歌名或歌手"><button class="primary">搜尋</button></form>
