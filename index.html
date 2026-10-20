@@ -439,7 +439,23 @@ button,.btn,.tc,.song{-webkit-tap-highlight-color:transparent;touch-action:manip
 .nochord.pin{position:absolute;top:8px;right:8px;z-index:1;background:rgba(0,0,0,.45);color:#fff;border-color:transparent}
 .toast{position:fixed;z-index:40;left:50%;bottom:calc(84px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:9px 14px;border-radius:8px;font-size:13px;max-width:calc(100vw - 32px)}
 @media (prefers-reduced-motion:no-preference){.song,button{transition:background .12s,border-color .12s}}
-#editActs{flex-wrap:wrap}@media(max-width:600px){#editActs .eq{padding-inline:10px}}
+#editActs{flex-wrap:wrap;align-items:center;gap:8px}
+#editActs>button,#editActs .ibtn,.tgroup>button{height:36px;font-size:14px;font-weight:500}
+.tgroup{display:flex;border:1px solid var(--line,#2a2f3a);border-radius:10px;overflow:hidden;background:var(--panel,#161a22)}
+.tgroup>button{display:inline-flex;align-items:center;gap:6px;padding:0 14px;border:0;border-radius:0;background:none;color:var(--muted,#aab)}
+.tgroup>button+button{border-left:1px solid var(--line,#2a2f3a)}
+.tgroup>button:hover{background:#ffffff0d;color:var(--text,#eee)}
+.tgroup>button.hl{color:var(--accent)}
+#editActs .ibtn{width:36px;padding:0;display:inline-grid;place-items:center}
+@media(max-width:640px){#editActs{width:100%}.tgroup{flex:1;overflow-x:auto}.tgroup>button{padding:0 10px;white-space:nowrap}}
+.sectag{display:block;margin:18px 0 6px;padding:3px 10px;font-size:12px;border:1px dashed var(--line,#444);background:none;color:var(--muted,#999);border-radius:999px}
+.sectag:hover{color:var(--accent);border-color:var(--accent)}
+.ltag{margin-left:auto;align-self:center;padding:2px 8px;font-size:11px;border:1px dashed var(--line,#444);background:none;color:var(--muted,#888);border-radius:999px;opacity:0;transition:opacity .15s}
+.tl:hover .ltag,.ltag:focus{opacity:1}
+@media(hover:none){.ltag{display:none}}
+.secname{background:none;border:0;padding:0;font:inherit;color:inherit;letter-spacing:inherit;cursor:pointer}
+.secmenu{position:fixed;z-index:60;display:flex;flex-wrap:wrap;gap:6px;max-width:300px;padding:10px;background:var(--panel,#1a1d24);border:1px solid var(--line,#333);border-radius:12px;box-shadow:0 8px 24px #0006}
+.secmenu button{padding:6px 12px;border-radius:999px}
 </style>
 </head>
 <body>
@@ -476,18 +492,20 @@ button,.btn,.tc,.song{-webkit-tap-highlight-color:transparent;touch-action:manip
           <div class="headmeta" id="headmeta"></div>
         </div>
         <div class="acts" id="editActs" hidden>
-          <button id="autoBtn">✦ 自動配和弦</button>
-          <button data-open="text" class="eq">✎ 歌詞</button>
-          <button data-open="info" class="eq">調・BPM</button>
-          <button data-open="demo" class="eq">♪ Demo</button>
+          <div class="tgroup" role="toolbar" aria-label="編輯工具">
+            <button id="autoBtn" class="hl"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/></svg>自動配和弦</button>
+            <button data-open="text"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h10M4 18h7"/></svg>歌詞</button>
+            <button data-open="info"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>調性 · BPM</button>
+            <button data-open="demo"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg>Demo</button>
+          </div>
           <div class="menuwrap">
-            <button id="editMoreBtn" aria-haspopup="true" aria-label="更多">⋯</button>
+            <button id="editMoreBtn" class="ibtn" aria-haspopup="true" aria-label="更多"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg></button>
             <div class="menu" id="editMenu" hidden role="menu">
               <button role="menuitem" data-open="chords">貼上外部譜・常用進行</button>
               <button role="menuitem" data-open="hist">版本紀錄・還原</button>
             </div>
           </div>
-          <button class="primary" id="editDone">✓ 完成</button>
+          <button class="primary" id="editDone">完成編輯</button>
         </div>
         <div class="acts" id="viewActs">
           <button id="editBtn">✎ 編輯</button>
@@ -717,7 +735,8 @@ button,.btn,.tc,.song{-webkit-tap-highlight-color:transparent;touch-action:manip
   </div>
 </div>
 <div class="wiz" id="wiz" hidden>
-  <div class="wtop"><div style="display:grid;min-width:0"><b>自動配和弦</b><span class="small" id="wizInfo"></span></div><button id="wizX">關閉</button></div>
+  <div id="secMenu" class="secmenu" hidden role="menu"></div>
+<div class="wtop"><div style="display:grid;min-width:0"><b>自動配和弦</b><span class="small" id="wizInfo"></span></div><button id="wizX">關閉</button></div>
   <div class="wbody" id="wizBody"></div>
   <div class="wbar" id="wizBarTap" hidden>
     <button id="wizRestart">重來</button><button id="wizUndo">↶ 上一句</button><button id="wizSkip">跳過這行</button>
@@ -990,13 +1009,15 @@ function tapHTML(s){
   const all=s.src.split('\n');
   return all.map((l,i)=>{
     const m=secMatch(l);
-    if(m){const h=secHead(m[1]);return `<div class="sec">${esc(h.name)}${h.ref?' <span class="rep">再一次・內容跟前面一樣</span>':''}${h.rep>1?` <span class="rep">×${h.rep}</span>`:''}<span class="secacts">${h.ref||sectionHasLyrics(all,i)?'':`<button class="addch" data-addafter="${i}">＋ 加和弦</button>`}</span></div>`;}
+    if(m){const h=secHead(m[1]);return `<div class="sec"><button class="secname" data-secedit="${i}" aria-label="改段落名稱">${esc(h.name)} ✎</button>${h.ref?' <span class="rep">再一次・內容跟前面一樣</span>':''}${h.rep>1?` <span class="rep">×${h.rep}</span>`:''}<span class="secacts">${h.ref||sectionHasLyrics(all,i)?'':`<button class="addch" data-addafter="${i}">＋ 加和弦</button>`}</span></div>`;}
     if(isChordOnly(l)){const t=chordTokens(l),rp=lineRep(l);return `<div class="cline"><span class="barsep">|</span>`+t.map((n,ci)=>`<button class="cchip" data-cl="${i}" data-ci="${ci}">${esc(n)}</button><span class="barsep">|</span>`).join('')+(rp>1?`<span class="rep big">×${rp}</span>`:'')+`<button class="cchip add" data-cl="${i}" data-ci="-1" aria-label="加一個和弦">＋</button></div>`;}
     if(/^\s*>/.test(l))return `<div><span class="note">${esc(l.replace(/^\s*>\s?/,''))}</span></div>`;
     if(!l.trim())return '<div class="ln gap"></div>';
-    const cells=cellsOf(l);
-    return `<div class="tl"><div class="tcells"><button class="tc start" data-l="${i}" data-start="1" aria-label="開始唱之前的和弦"><span class="tch"></span><span class="tly">＋</span></button>`+
-      cells.map((c,k)=>`<button class="tc${c.end?' end':''}${c.tail?' tail':''}" data-l="${i}" data-k="${k}" aria-label="${c.end?'行尾，唱完後的和弦':c.tail?'唱完後的和弦':esc(c.ch)}${c.chord?' 和弦 '+esc(c.chord.name):''}"><span class="tch">${c.chord?esc(c.chord.name):''}</span><span class="tly">${c.end?'＋':c.ch===' '?' ':esc(c.ch)}</span></button>`).join('')+'</div></div>';
+    const cells=cellsOf(l);let pre='';
+    {let j=i-1;while(j>=0&&!all[j].trim()&&j>=i-1)j--;const p=all[i-1];
+     if(i===0||!p.trim()){if(!(j>=0&&secMatch(all[j])))pre=`<button class="sectag" data-sectag="${i}">＋ 標段落</button>`;}}
+    return pre+`<div class="tl"><div class="tcells"><button class="tc start" data-l="${i}" data-start="1" aria-label="開始唱之前的和弦"><span class="tch"></span><span class="tly">＋</span></button>`+
+      cells.map((c,k)=>`<button class="tc${c.end?' end':''}${c.tail?' tail':''}" data-l="${i}" data-k="${k}" aria-label="${c.end?'行尾，唱完後的和弦':c.tail?'唱完後的和弦':esc(c.ch)}${c.chord?' 和弦 '+esc(c.chord.name):''}"><span class="tch">${c.chord?esc(c.chord.name):''}</span><span class="tly">${c.end?'＋':c.ch===' '?' ':esc(c.ch)}</span></button>`).join('')+`</div>${pre?'':`<button class="ltag" data-sectag="${i}" title="從這句開始新段落">＋ 段落</button>`}</div>`;
   }).join('');}
 function renderSheet(){const s=cur();if(!s)return;queueMicrotask(()=>{if(editing)markSel();});
   const hasLyrics=s.src.split('\n').some(l=>isLyricLine(l));
@@ -1005,6 +1026,19 @@ function renderSheet(){const s=cur();if(!s)return;queueMicrotask(()=>{if(editing
     <button class="primary" id="guideText">開始貼歌詞</button></div>`;$('guideText').onclick=()=>openDrawer('text');return;}
   if(isEditing()){$('sheetHint').textContent=`點字加和弦・按住和弦可以拖到別的字・原調 ${KEYS[s.key]}`;$('sheet').innerHTML=tapHTML(s);}
   else{const p=prefOf(s.id);$('sheetHint').textContent='';$('sheet').innerHTML=sheetHTML(s,p.shift,p.capo,true);}}
+// 段落標籤：點「＋ 標段落」或段落名稱，選一個就好
+const SEC_PRESETS=['前奏','主歌','導歌','副歌','間奏','橋段','尾奏'];
+function nextSecName(base,lines,skip){if(base==='副歌'||base==='前奏'||base==='尾奏')return base;
+  const used=lines.map((l,i)=>i===skip?null:secMatch(l)).filter(Boolean).map(m=>secHead(m[1]).name).filter(n=>n.replace(/\s*\d+$/,'')===base);
+  return used.length?`${base} ${used.length+1}`:base;}
+function openSecMenu(btn,at){const m=$('secMenu'),ed=btn.dataset.secedit!=null;m.dataset.i=at!=null?at:ed?btn.dataset.secedit:btn.dataset.sectag;m.dataset.ed=ed?'1':'';
+  m.innerHTML=SEC_PRESETS.map(n=>`<button data-sn="${n}">${n}</button>`).join('')+`<button data-sn="?">自訂…</button>`+(ed?`<button class="danger" data-sn="-">移除標籤</button>`:'');
+  m.hidden=false;const r=btn.getBoundingClientRect();m.style.top=(r.bottom+6)+'px';m.style.left=Math.max(8,Math.min(r.left,innerWidth-m.offsetWidth-8))+'px';}
+$('secMenu').onclick=e=>{const b=e.target.closest('[data-sn]');if(!b)return;const m=$('secMenu'),i=+m.dataset.i,ed=!!m.dataset.ed,lines=cur().src.split('\n');m.hidden=true;
+  let n=b.dataset.sn;if(n==='-'){lines.splice(i,1);commitLines(lines);return;}
+  if(n==='?'){n=prompt('段落名稱（例如 Rap、副歌 2）','');if(!n||!n.trim())return;n=n.trim();}else n=nextSecName(n,lines,ed?i:-1);
+  if(ed)lines[i]=`[${n}]`;else lines.splice(i,0,`[${n}]`);commitLines(lines);toast(`已標成「${n}」`);};
+document.addEventListener('click',e=>{if(!$('secMenu').hidden&&!e.target.closest('#secMenu,[data-sectag],[data-secedit]'))$('secMenu').hidden=true;});
 function commitLines(lines){const src=lines.join('\n');saveSong({src});$('src').value=src;renderSheet();}
 
 // 和弦選擇器
@@ -1128,7 +1162,7 @@ function openPopup(o,el){
   const li=lineOfSel(),si=li!=null?sectionOf(li):-1,isLyric=o.l!=null&&!o.start,isCl=o.cl!=null;
   const r=isCl?lineRep(cur().src.split('\n')[o.cl]):0,b=(act,t,cls)=>`<button data-act="${act}"${cls?` class="${cls}"`:''}>${t}</button>`;
   $('pkLine').innerHTML=(isCl&&o.ci>=0&&info.chord?b('inbar','同一小節再加一個','primary'):'')+(isCl?b('rep',r>1?`重複 ×${r}`:'設定重複')+b('dupline','複製這行到下面'):'')+
-    (isLyric?b('copyline','複製這行和弦')+(lineClip?b('pasteline','貼上到這行'):''):'')+
+    (isLyric?b('secstart','從這句開始新段落')+b('copyline','複製這行和弦')+(lineClip?b('pasteline','貼上到這行'):''):'')+
     (si>=0?b('copysec','複製這段和弦')+(secClip?b('pastesec','貼上到這段'):''):'');
   $('pkLine').hidden=!$('pkLine').innerHTML;$('pkEdit').hidden=!info.chord;
   $('pkL').textContent=isLyric?'← 前一字':'← 往前';$('pkR').textContent=isLyric?'後一字 →':'往後 →';
@@ -1160,6 +1194,7 @@ $('palette').addEventListener('click',e=>{const b=e.target.closest('button');if(
 function palAct(a){if(!a||!sel)return;
   if(a==='left'||a==='right'){pk={...sel};moveChord(a==='left'?-1:1);}
   else if(a==='del'){pk={...sel};const keep={...sel};removeChord();select(keep.l!=null?keep:null);}
+  else if(a==='secstart'){const l=sel.l;closePicker();openSecMenu(document.querySelector(`.tc[data-l="${l}"]`)||$('sheet'),l);}
   else if(a==='copyline'){copyLine(sel.l);closePicker();}
   else if(a==='pasteline'){const k={...sel};pasteLine(sel.l);select(k,true);}
   else if(a==='copysec'){copySection(sectionOf(lineOfSel()));closePicker();}
@@ -1184,6 +1219,7 @@ $('sheet').addEventListener('click',e=>{
   if(justDragged){justDragged=false;return;}
   const cp=e.target.closest('[data-copy]'),ps=e.target.closest('[data-paste]'),tc=e.target.closest('.tc');
   const aa=e.target.closest('[data-addafter]'),cc=e.target.closest('.cchip');
+  const stg=e.target.closest('[data-sectag],[data-secedit]');if(stg){openSecMenu(stg);return;}
   if(aa){const i=+aa.dataset.addafter,nx=cur().src.split('\n')[i+1];select(nx!=null&&isChordOnly(nx)?{cl:i+1,ci:-1}:{ins:i,ci:-1});return;}
   if(cc){select({cl:+cc.dataset.cl,ci:+cc.dataset.ci});return;}
   const sc=e.target.closest('[data-seccopy]'),sp=e.target.closest('[data-secpaste]');
