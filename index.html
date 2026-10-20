@@ -450,6 +450,15 @@ button,.btn,.tc,.song{-webkit-tap-highlight-color:transparent;touch-action:manip
 @media(max-width:640px){#editActs{width:100%}.tgroup{flex:1;overflow-x:auto}.tgroup>button{padding:0 10px;white-space:nowrap}}
 .sectag{display:block;margin:18px 0 6px;padding:3px 10px;font-size:12px;border:1px dashed var(--line,#444);background:none;color:var(--muted,#999);border-radius:999px}
 .sectag:hover{color:var(--accent);border-color:var(--accent)}
+.secbar{position:sticky;top:calc(64px + env(safe-area-inset-top,0px));z-index:6;display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:0 0 12px;padding:8px 12px;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow)}
+.secbar .sblbl{font-size:12px;font-weight:700;color:var(--muted)}
+#secChips{display:flex;flex-wrap:wrap;gap:6px}
+.secchip{padding:4px 12px;font-size:13px;border-radius:999px;cursor:grab;touch-action:none;user-select:none}
+.secchip.on{background:var(--accent);color:var(--bg,#111);border-color:var(--accent)}
+.secchip.dragging{opacity:.4}
+.sbhint{font-size:12px;color:var(--muted);margin-left:auto}
+.secghost{position:fixed;z-index:80;pointer-events:none;padding:4px 12px;border-radius:999px;background:var(--accent);color:var(--bg,#111);font-size:13px;font-weight:600;box-shadow:0 6px 18px #0007}
+@media(max-width:640px){.sbhint{display:none}}
 .ltag{margin-left:auto;align-self:center;padding:2px 8px;font-size:11px;border:1px dashed var(--line,#444);background:none;color:var(--muted,#888);border-radius:999px;opacity:0;transition:opacity .15s}
 .tl:hover .ltag,.ltag:focus{opacity:1}
 @media(hover:none){.ltag{display:none}}
@@ -547,7 +556,8 @@ body.secmoving #sheet [data-row]:hover{box-shadow:inset 0 3px 0 var(--accent)}
       <div class="body" id="bodyEl">
         <article class="card">
           <div class="sheetbar"><span class="small" id="sheetHint"></span></div>
-          <div class="sheet" id="sheet"></div>
+          <div class="secbar" id="secBar" hidden><span class="sblbl">段落</span><span id="secChips"></span><span class="sbhint" id="secHint">拖到歌詞上，或點一下再點那一句</span></div>
+<div class="sheet" id="sheet"></div>
         </article>
         <section class="card editor" id="editor" hidden>
           <div class="etop"><b id="drawerTitle" style="font-size:17px"></b><button class="ghost" id="doneBtn" aria-label="關閉">✕ 關閉</button></div>
@@ -1022,12 +1032,12 @@ function tapHTML(s){
     if(!l.trim())return '<div class="ln gap"></div>';
     const cells=cellsOf(l);let pre='';
     {let j=i-1;while(j>=0&&!all[j].trim()&&j>=i-1)j--;const p=all[i-1];
-     if(i===0||!p.trim()){if(!(j>=0&&secMatch(all[j])))pre=`<button class="sectag" data-sectag="${i}">＋ 標段落</button>`;}}
+     }
     return pre+`<div class="tl" data-row="${i}"><div class="tcells"><button class="tc start" data-l="${i}" data-start="1" aria-label="開始唱之前的和弦"><span class="tch"></span><span class="tly">＋</span></button>`+
-      cells.map((c,k)=>`<button class="tc${c.end?' end':''}${c.tail?' tail':''}" data-l="${i}" data-k="${k}" aria-label="${c.end?'行尾，唱完後的和弦':c.tail?'唱完後的和弦':esc(c.ch)}${c.chord?' 和弦 '+esc(c.chord.name):''}"><span class="tch">${c.chord?esc(c.chord.name):''}</span><span class="tly">${c.end?'＋':c.ch===' '?' ':esc(c.ch)}</span></button>`).join('')+`</div>${pre?'':`<button class="ltag" data-sectag="${i}" title="從這句開始新段落">＋ 段落</button>`}</div>`;
+      cells.map((c,k)=>`<button class="tc${c.end?' end':''}${c.tail?' tail':''}" data-l="${i}" data-k="${k}" aria-label="${c.end?'行尾，唱完後的和弦':c.tail?'唱完後的和弦':esc(c.ch)}${c.chord?' 和弦 '+esc(c.chord.name):''}"><span class="tch">${c.chord?esc(c.chord.name):''}</span><span class="tly">${c.end?'＋':c.ch===' '?' ':esc(c.ch)}</span></button>`).join('')+`</div></div>`;
   }).join('');}
 function renderSheet(){const s=cur();if(!s)return;queueMicrotask(()=>{if(editing)markSel();});
-  const hasLyrics=s.src.split('\n').some(l=>isLyricLine(l));
+  const hasLyrics=s.src.split('\n').some(l=>isLyricLine(l));$('secBar').hidden=!isEditing()||!hasLyrics;
   if(isEditing()&&!hasLyrics){$('sheetHint').textContent='';$('sheet').innerHTML=`<div class="guide"><b>三步驟完成一首歌</b>
     <ol><li><b>貼上歌詞</b>：下方「歌詞」，一行一句。</li><li><b>上傳 Demo</b>：下方「Demo」，會自動抓調性、BPM，把和弦配到歌詞上。</li><li><b>點字修正</b>：點譜上任何一個字就能加或改和弦。</li></ol>
     <button class="primary" id="guideText">開始貼歌詞</button></div>`;$('guideText').onclick=()=>openDrawer('text');return;}
@@ -1047,20 +1057,34 @@ $('secMenu').onclick=e=>{const b=e.target.closest('[data-sn]');if(!b)return;cons
   if(n==='?'){n=prompt('段落名稱（例如 Rap、Chorus 2）','');if(!n||!n.trim())return;n=n.trim();}else n=nextSecName(n,lines,ed?i:-1);
   if(ed)lines[i]=`[${n}]`;else lines.splice(i,0,`[${n}]`);commitLines(lines);toast(`已標成「${n}」`);};
 let secMove=null,secDrag=null;
+$('secChips').innerHTML=SEC_PRESETS.map(n=>`<button class="secchip" data-chip="${n}">${n}</button>`).join('')+'<button class="secchip" data-chip="?">自訂…</button>';
+function insertSec(name,at){const lines=cur().src.split('\n');if(name==='?'){name=prompt('段落名稱（例如 Rap、Chorus 2）','');if(!name||!name.trim())return;name=name.trim();}
+  else name=nextSecName(name,lines,-1);
+  // 若那句前面緊接著就是段落標籤，直接改名
+  let j=at-1;while(j>=0&&!lines[j].trim())j--;
+  if(j>=0&&secMatch(lines[j])&&!isChordOnly(lines[j]))lines[j]=`[${name}]`;else lines.splice(at,0,`[${name}]`);
+  commitLines(lines);toast(`已標成「${name}」`);}
+function disarm(){secMove=null;document.body.classList.remove('secmoving');document.querySelectorAll('.secchip.on').forEach(x=>x.classList.remove('on'));$('secHint').textContent='拖到歌詞上，或點一下再點那一句';}
+$('secChips').addEventListener('pointerdown',e=>{const b=e.target.closest('[data-chip]');if(!b)return;e.preventDefault();
+  secDrag={name:b.dataset.chip,x:e.clientX,y:e.clientY,on:false,el:b};});
+$('secChips').addEventListener('click',e=>{const b=e.target.closest('[data-chip]');if(!b||justDragged)return;
+  if(secMove?.name===b.dataset.chip){disarm();return;}disarm();secMove={name:b.dataset.chip};b.classList.add('on');document.body.classList.add('secmoving');
+  $('secHint').textContent=`點要從哪一句開始「${b.dataset.chip==='?'?'自訂段落':b.dataset.chip}」（再點一次取消）`;});
 function moveSec(from,to){const lines=cur().src.split('\n');if(to===from||to===from+1)return;const h=lines.splice(from,1)[0];
   lines.splice(to>from?to-1:to,0,h);commitLines(lines);toast('段落已移動');}
 function rowAt(x,y){const el=document.elementFromPoint(x,y)?.closest('#sheet [data-row]');return el?+el.dataset.row:null;}
 $('sheet').addEventListener('click',e=>{if(secMove==null)return;const r=e.target.closest('[data-row]');e.stopImmediatePropagation();e.preventDefault();
-  document.body.classList.remove('secmoving');const f=secMove;secMove=null;if(r)moveSec(f,+r.dataset.row);},true);
+  const f=secMove;disarm();if(!r)return;if(typeof f==='number')moveSec(f,+r.dataset.row);else insertSec(f.name,+r.dataset.row);},true);
 $('sheet').addEventListener('pointerdown',e=>{const b=e.target.closest('.secname');if(!b||!isEditing())return;
   secDrag={i:+b.dataset.secedit,x:e.clientX,y:e.clientY,on:false,el:b.closest('.sec')};});
 addEventListener('pointermove',e=>{const d=secDrag;if(!d)return;
-  if(!d.on&&Math.hypot(e.clientX-d.x,e.clientY-d.y)>8){d.on=true;d.el.classList.add('dragging');document.body.classList.add('secmoving');}
+  if(!d.on&&Math.hypot(e.clientX-d.x,e.clientY-d.y)>8){d.on=true;d.el.classList.add('dragging');document.body.classList.add('secmoving');if(d.name){d.ghost=Object.assign(document.createElement('div'),{className:'secghost',textContent:d.name==='?'?'自訂…':d.name});document.body.append(d.ghost);}}
+  if(d.ghost){d.ghost.style.left=e.clientX+12+'px';d.ghost.style.top=e.clientY-14+'px';}
   if(!d.on)return;e.preventDefault();document.querySelectorAll('.dropline').forEach(x=>x.classList.remove('dropline'));
   const r=rowAt(e.clientX,e.clientY);if(r!=null)document.querySelector(`#sheet [data-row="${r}"]`).classList.add('dropline');},{passive:false});
-addEventListener('pointerup',e=>{const d=secDrag;secDrag=null;if(!d||!d.on)return;justDragged=true;setTimeout(()=>justDragged=false,50);
+addEventListener('pointerup',e=>{const d=secDrag;secDrag=null;if(!d||!d.on)return;d.ghost?.remove();justDragged=true;setTimeout(()=>justDragged=false,50);
   d.el.classList.remove('dragging');document.body.classList.remove('secmoving');document.querySelectorAll('.dropline').forEach(x=>x.classList.remove('dropline'));
-  const r=rowAt(e.clientX,e.clientY);if(r!=null)moveSec(d.i,r);});
+  const r=rowAt(e.clientX,e.clientY);if(r==null)return;if(d.name)insertSec(d.name,r);else moveSec(d.i,r);});
 document.addEventListener('click',e=>{if(!$('secMenu').hidden&&!e.target.closest('#secMenu,[data-sectag],[data-secedit]'))$('secMenu').hidden=true;});
 function commitLines(lines){const src=lines.join('\n');saveSong({src});$('src').value=src;renderSheet();}
 
