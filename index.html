@@ -421,6 +421,21 @@ button,.btn,.tc,.song{-webkit-tap-highlight-color:transparent;touch-action:manip
 .irow label{display:flex;align-items:center;gap:2px;font-family:var(--mono)}
 .irow [data-f=bpm]{width:5.5em}.irow [data-f=artist]{width:12em}
 .irow select{font-family:var(--mono);color:var(--chord);font-weight:700}
+.livebox{display:grid;gap:10px;justify-items:center;text-align:center;padding:40px 16px}
+.livebox>b{font-size:20px}
+.livedot{width:16px;height:16px;border-radius:50%;background:var(--muted)}
+.livedot.on{background:#e5484d;animation:lp 1.2s infinite}
+@keyframes lp{50%{opacity:.35}}
+.livemeter{width:min(320px,80%);height:6px;border-radius:3px;background:var(--line);overflow:hidden}
+.livemeter span{display:block;height:100%;width:0;background:var(--accent);transition:width .2s}
+.ytdlg{position:fixed;inset:0;z-index:70;background:rgba(0,0,0,.55);display:grid;place-items:center;padding:16px}
+.ytcard{width:min(560px,100%);background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px;display:grid;gap:18px;box-shadow:0 20px 60px #0008}
+.ytop{display:flex;justify-content:space-between;align-items:center}.ytop b{font-size:18px}
+.ystep{display:grid;grid-template-columns:28px 1fr;gap:12px}.ystep>div{display:grid;gap:8px}
+.ystep .n{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:var(--soft);color:var(--accent);font-weight:700}
+.ystep .row{display:flex;gap:8px}.ystep input{flex:1;min-width:0;padding:10px 12px;border-radius:10px;background:var(--bg);border:1px solid var(--line);font-size:15px}
+#ytStep2{opacity:.55}#ytStep2.ready{opacity:1}
+.ymore summary{cursor:pointer;color:var(--muted);font-size:13px}
 .hhero-old{display:grid;gap:16px;padding:28px 24px;border-radius:18px;background:radial-gradient(120% 140% at 0% 0%,color-mix(in srgb,var(--chord) 22%,transparent),transparent 60%),linear-gradient(135deg,var(--panel),var(--bg));border:1px solid var(--line)}
 .htitle h1{margin:0;font-size:clamp(26px,4vw,36px)}
 .htitle h1 span{color:var(--chord)}
@@ -518,6 +533,16 @@ body.secmoving #sheet [data-row]:hover{box-shadow:inset 0 3px 0 var(--accent)}
 </head>
 <body>
 <div id="secMenu" class="secmenu" hidden role="menu"></div>
+<div class="ytdlg" id="ytDlg" hidden role="dialog" aria-label="自動配和弦"><div class="ytcard">
+  <div class="ytop"><b>自動配和弦</b><button class="ghost" id="ytX" aria-label="關閉">✕</button></div>
+  <div class="ystep"><span class="n">1</span><div><b>貼上 YouTube 影片網址</b>
+    <div class="row"><input id="ytUrl" type="url" inputmode="url" placeholder="https://www.youtube.com/watch?v=…"><button class="primary" id="ytOpen">打開影片</button></div>
+    <span class="small">會在新分頁打開，先不用播放。網址會存成這首的原始連結。</span></div></div>
+  <div class="ystep" id="ytStep2"><span class="n">2</span><div><b>開始聽</b>
+    <button class="primary big" id="ytGo">◉ 開始抓和弦</button>
+    <span class="small">瀏覽器會問要分享哪裡：選<b>剛剛的 YouTube 分頁</b>，並打開「<b>分享分頁音訊</b>」。然後去那個分頁按播放，播完會自動結束。只能用電腦版 Chrome／Edge。</span></div></div>
+  <details class="ymore"><summary>其他方式：Demo 錄音檔、Suno</summary><div class="row" style="margin-top:8px"><button id="ytDemo">用這首的 Demo</button><label class="btn" for="detFile">上傳錄音檔</label><button id="ytOther">其他網頁正在播放（Suno 等）</button></div></details>
+</div></div>
 
 <header class="topbar"><div class="tb">
   <a class="logo" href="#/"><span>♯</span>和弦室</a>
@@ -621,7 +646,7 @@ body.secmoving #sheet [data-row]:hover{box-shadow:inset 0 3px 0 var(--accent)}
             <div class="hint">分析錄音，自動把和弦配到歌詞上，先給你預覽再決定要不要套用。上傳 Demo 時也會自動執行。</div>
             <div class="row">
               <button class="primary" id="wizGo">▶ 用這首的 Demo 配和弦</button>
-              <button id="liveGo">◉ 邊播邊抓（Suno 等網頁播放）</button>
+              <button id="liveGo">◉ 邊播邊抓（YouTube、Suno 等網頁）</button>
               <label class="btn" for="detFile">用別的錄音檔</label><input type="file" id="detFile" accept="audio/*" hidden>
             </div>
             <span class="small" id="detMsg"></span>
@@ -1483,7 +1508,16 @@ $('editMoreBtn').onclick=e=>{e.stopPropagation();$('editMenu').hidden=!$('editMe
 $('editActs').addEventListener('click',e=>{const b=e.target.closest('[data-open]');if(b)openDrawer(b.dataset.open);});
 document.addEventListener('click',e=>{if(!$('editMenu').hidden&&!e.target.closest('#editActs .menuwrap'))$('editMenu').hidden=true;
   const pm=$('palMenu');if(pm&&!pm.hidden&&!e.target.closest('#palActs .menuwrap'))pm.hidden=true;});
-$('autoBtn').onclick=()=>{if(cur()?.audio_url)$('wizGo').click();else{openDrawer('demo');toast('先上傳 Demo 錄音，上傳後會自動配和弦');}};
+$('autoBtn').onclick=()=>{const s=cur();if(!s)return;if(!s.src.split('\n').some(isLyricLine)){openDrawer('text');toast('先貼上歌詞，再自動配和弦');return;}
+  $('ytUrl').value=/youtu\.?be/.test(s.url||'')?s.url:'';$('ytDemo').hidden=!s.audio_url;$('ytDlg').hidden=false;};
+const ytOk=u=>/^https?:\/\/(www\.|m\.|music\.)?(youtube\.com|youtu\.be)\//i.test(u);
+$('ytX').onclick=()=>$('ytDlg').hidden=true;
+$('ytOpen').onclick=()=>{const u=$('ytUrl').value.trim();if(!ytOk(u)){toast('請貼上 YouTube 影片網址');return;}
+  if(cur().url!==u)saveSong({url:u});window.open(u,'_blank','noopener');$('ytStep2').classList.add('ready');$('ytGo').focus();};
+$('ytGo').onclick=()=>{if(!me){askName();return;}$('ytDlg').hidden=true;wizLive();};
+$('ytOther').onclick=()=>{$('ytDlg').hidden=true;if(!me){askName();return;}wizLive();};
+$('ytDemo').onclick=()=>{$('ytDlg').hidden=true;$('wizGo').click();};
+$('detFile').addEventListener('change',()=>$('ytDlg').hidden=true);
 $('editDone').onclick=()=>openEditor(false);
 $('editBtn').onclick=()=>openEditor(true);
 $('doneBtn').onclick=closeDrawer;
@@ -1611,7 +1645,7 @@ async function wizLive(){
   let stream;
   try{stream=await navigator.mediaDevices.getDisplayMedia({video:true,audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false},preferCurrentTab:false,selfBrowserSurface:'exclude',systemAudio:'include'});}
   catch(e){toast('沒有分享，已取消');return;}
-  if(!stream.getAudioTracks().length){stream.getTracks().forEach(t=>t.stop());toast('沒有聲音：分享時請選 Suno 分頁，並勾選「分享分頁音訊」');return;}
+  if(!stream.getAudioTracks().length){stream.getTracks().forEach(t=>t.stop());toast('沒有聲音：分享時請選 YouTube 分頁，並打開「分享分頁音訊」');return;}
   stream.getVideoTracks().forEach(t=>t.stop());
   W.live=true;W.liveOn=false;W.cap=ChordDetect.live(stream);
   const lines=stripDetectBlock(s.src.split('\n'));W.lines=lines;
@@ -1620,15 +1654,23 @@ async function wizLive(){
   W.taps=W.rows.map(()=>null);W.ptr=W.rows.findIndex(r=>r.lyric);
   $('wizBarTap').hidden=false;$('wizBarDone').hidden=true;$('wizInfo').textContent=s.title+'・邊播邊抓';
   $('wizTap').innerHTML='這句開始了<small>或按空白鍵</small>';$('wizRestart').textContent='結束（歌播完了）';
-  wizRenderTap();
-  $('wizBody').insertAdjacentHTML('afterbegin','<div class="hint" id="liveHint" style="margin-bottom:12px">到 Suno 分頁按播放。聽到聲音後這裡會開始計時；每句開始唱的時候按下面的按鈕（或空白鍵）。歌播完按「結束」。</div>');
+  W.vocalStart=null;W.quiet=0;
+  $('wizBody').innerHTML=`<div class="livebox"><div class="livedot" id="liveDot"></div><b id="liveHint">到剛剛分享的分頁按播放</b>
+    <span class="small" id="liveSub">聽到聲音就會開始，不用一直盯著。歌播完會自動結束。</span>
+    <div class="livemeter"><span id="liveLv"></span></div>
+    <span class="small">想更準？聽到<b>開始唱歌</b>時按一下下面的「🎤 開始唱了」（只要一次），其他都自動。</span></div>`;
+  $('wizUndo').hidden=$('wizSkip').hidden=true;
+  $('wizTap').innerHTML='🎤 開始唱了<small>只要按一次，可不按</small>';$('wizTap').disabled=false;
   // 等第一個聲音出現才開始計時
   W.liveTimer=setInterval(()=>{const lv=W.cap.level();
-    if(!W.liveOn&&lv>0.01){W.liveOn=true;W.liveStart=performance.now();$('liveHint')&&($('liveHint').textContent='正在聽…每句開始唱就按一下。歌播完按「結束」。');}
+    $('liveLv')&&($('liveLv').style.width=Math.min(100,lv*800)+'%');
+    if(!W.liveOn&&lv>0.01){W.liveOn=true;W.liveStart=performance.now();$('liveHint')&&($('liveHint').textContent='正在聽…');$('liveDot')?.classList.add('on');}
+    // 安靜超過 6 秒（而且已經聽了 30 秒以上）就當作歌播完了
+    if(W.liveOn){W.quiet=lv<0.004?W.quiet+0.2:0;if(W.quiet>=6&&(performance.now()-W.liveStart)>30000){wizLiveEnd();return;}}
     if(W.liveOn)$('wizInfo').textContent=`${s.title}・邊播邊抓・${fmt((performance.now()-W.liveStart)/1000)}`;},200);
   stream.getAudioTracks()[0].onended=()=>W.live&&wizLiveEnd();}
 function wizLiveEnd(){
-  if(!W.live||!W.cap)return;clearInterval(W.liveTimer);
+  if(!W.live||!W.cap)return;clearInterval(W.liveTimer);$('wizUndo').hidden=$('wizSkip').hidden=false;$('wizTap').disabled=false;
   const an=W.cap.stop();W.cap=null;W.live=false;$('wizRestart').textContent='重來';
   if(an.frames<50){toast('聽到的聲音太短，沒辦法分析');wizClose();return;}
   // 從開始計時那刻起算
@@ -1659,7 +1701,8 @@ function wizRenderTap(){
   document.querySelector('.wl.cur')?.scrollIntoView({block:'center',behavior:'smooth'});}
 function wizNext(){do W.ptr++;while(W.ptr<W.rows.length&&!W.rows[W.ptr].lyric);if(W.ptr>=W.rows.length)wizFinish();else wizRenderTap();}
 $('wizTap').onclick=()=>{
-  if(W.live){if(!W.liveOn){toast('先在 Suno 分頁按播放，聽到聲音後才開始計時');return;}}
+  if(W.live){if(!W.liveOn){toast('先在分享的分頁按播放，聽到聲音後才開始計時');return;}
+    W.vocalStart=Math.max(0,wizNow()-0.3);$('wizTap').innerHTML='✓ 已記下開始唱的時間';$('wizTap').disabled=true;return;}
   else if(W.audio.paused&&W.taps.every(t=>t==null)){W.audio.play().catch(()=>{});$('wizTap').innerHTML='這句開始了<small>或按空白鍵</small>';return;}
   W.taps[W.ptr]=Math.max(0,wizNow()-0.15);wizNext();};
 $('wizSkip').onclick=()=>{W.taps[W.ptr]='skip';wizNext();};
@@ -1713,7 +1756,7 @@ function wizBuild(){
   return out.join('\n');}
 // 不點的話：估計每句開始時間。前奏約 4 小節，句子長度依字數分配，換段落多留 2 小節
 function wizAutoTaps(){
-  const an=W.an,bar=240/W.bpm,start=Math.min(an.firstSound+bar*4,an.duration*0.25),end=Math.max(start+bar*4,an.duration-bar*4);
+  const an=W.an,bar=240/W.bpm,start=W.vocalStart!=null?W.vocalStart:Math.min(an.firstSound+bar*4,an.duration*0.25),end=Math.max(start+bar*4,an.duration-bar*4);
   let w=0;const ws=W.rows.map(r=>{if(r.sec){w+=8;return null;}const x=[...r.lyric].length+6;const at=w;w+=x;return at;});
   const scale=(end-start)/Math.max(1,w);W.taps=ws.map(v=>v==null?null:start+v*scale);W.auto=true;}
 function wizFinish(){
