@@ -923,7 +923,7 @@ function parse(src){
 // 某首歌在某個移調下的樂譜
 function sheetHTML(s,shift,capo,mark){
   const pk=mod(s.key+shift),fk=mod(pk-capo),sh=shift-capo;
-  return parse(s.src).map(r=>{
+  return parse(effSrc(s)).map(r=>{
     if(r.sec) return `<div class="sec">${esc(r.sec)}${r.ref?' <span class="rep">再一次</span>':''}${r.rep>1?` <span class="rep">×${r.rep}</span>`:''}</div>`;
     if(r.note!==undefined) return `<div><span class="note">${esc(r.note)}</span></div>`;
     if(r.gap) return '<div class="ln gap"></div>';
@@ -937,7 +937,7 @@ function textOut(s,shift,capo){
   const pk=mod(s.key+shift),fk=mod(pk-capo),sh=shift-capo,w=t=>[...t].reduce((a,c)=>a+(c.charCodeAt(0)>255?2:1),0);
   const out=[s.title,`Key ${keyName(pk)}`+(capo?`  Capo ${capo}`:'')+(s.bpm?`  ♩=${s.bpm}`:''),''];
   if(s.memo)out.push('※ '+s.memo,'');
-  parse(s.src).forEach(r=>{
+  parse(effSrc(s)).forEach(r=>{
     if(r.sec){out.push('','['+r.sec+(r.ref?' 再一次':'')+(r.rep>1?' x'+r.rep:'')+']');return;}
     if(r.note!==undefined){out.push('※ '+r.note);return;}
     if(r.gap){out.push('');return;}
@@ -948,7 +948,7 @@ function textOut(s,shift,capo){
 
 // ---- render ----
 const ago=t=>{const d=(Date.now()-t)/1000;return d<60?'剛剛':d<3600?Math.floor(d/60)+' 分鐘前':d<86400?Math.floor(d/3600)+' 小時前':d<86400*30?Math.floor(d/86400)+' 天前':new Date(t).toLocaleDateString('zh-TW');};
-const chordPreview=s=>{const c=[];(s.src||'').replace(/\[([^\]]+)\]/g,(m,x)=>{if(CHORD_ONLY.test(x.trim())&&c[c.length-1]!==x)c.push(x);return m;});return c.slice(0,8).join(' ');};
+const chordPreview=s=>{const c=[];effSrc(s).replace(/\[([^\]]+)\]/g,(m,x)=>{if(CHORD_ONLY.test(x.trim())&&c[c.length-1]!==x)c.push(x);return m;});return c.slice(0,8).join(' ');};
 function songCard(s){const pv=chordPreview(s);return `<a class="scard" href="#/song/${s.id}"><b>${esc(s.title||'未命名')}</b>
   <span class="meta"><span class="k">${KEYS[s.key]}</span>${s.bpm?`<span>♩ ${s.bpm}</span>`:''}${s.audio_url?'<span class="badge">Demo</span>':''}<span>${s.updatedBy?esc(s.updatedBy)+'・':''}${ago(s.updatedAt)}</span></span>
   <span class="prev">${pv?esc(pv):'<span class="small">還沒有和弦</span>'}</span></a>`;}
@@ -975,7 +975,7 @@ function renderFilters(){const keys=[...new Set(songs.map(x=>x.key))].sort((a,b)
   const chip=(lbl,on,attr)=>`<button class="fchip${on?' on':''}" ${attr}>${lbl}</button>`;
   $('filtBar').innerHTML=chip('全部',!filt.status&&filt.key<0,'data-f="all"')+chip(`還沒有和弦 ${songs.filter(x=>!hasChords(x)).length}`,filt.status==='wip','data-f="wip"')+chip('已有和弦',filt.status==='done','data-f="done"')+chip('有 Demo',filt.status==='demo','data-f="demo"')+
     '<span class="lbl" style="margin-left:6px">調</span>'+keys.map(k=>chip(KEYS[k],filt.key===k,`data-k="${k}"`)).join('');}
-const hasChords=x=>/\[[^\]]+\]/.test((x.src||'').split('\n').filter(l=>!secMatch(l)).join(''));
+const hasChords=x=>looseChordLines(x.src||'')>=2||/\[[^\]]+\]/.test((x.src||'').split('\n').filter(l=>!secMatch(l)).join(''));
 function renderSongs(){
   renderFilters();
   const q=$('q').value.trim().toLowerCase();
@@ -1000,18 +1000,24 @@ function hashStr(t){let h=0;for(const c of t||'')h=(h*31+c.codePointAt(0))>>>0;r
 // 封面圖：Suno 的歌用 Suno 封面；別的歌手的歌用專輯封面（Apple iTunes 搜尋），找不到就用配色
 const OWN_ARTISTS=new Set(['','subarunism']);
 // 自創曲沒有封面時，用 subarunism 的 StreetVoice 大頭照
-const OWN_PIC='https://akstatic.streetvoice.com/profile_images/su/ba/subarunism/920a6fe8b8db11e3bee522000a8495a2.jpg?x-oss-process=image/resize,m_fill,h_600,w_600,limit_0/interlace,1/quality,q_95/format,jpg';let artCache=lsGet('cb_art2',{});const artPending=new Set();
+const OWN_PIC='https://akstatic.streetvoice.com/profile_images/su/ba/subarunism/920a6fe8b8db11e3bee522000a8495a2.jpg?x-oss-process=image/resize,m_fill,h_600,w_600,limit_0/interlace,1/quality,q_95/format,jpg';let artCache=lsGet('cb_art3',{});const artPending=new Set();
 function artKey(x){return x.title+'|'+x.artist;}
 function artOf(x){if(x.sunoId)return `https://cdn2.suno.ai/image_${x.sunoId}.jpeg`;if(OWN_ARTISTS.has((x.artist||'').trim()))return OWN_PIC;
   const k=artKey(x),v=artCache[k];if(v&&typeof v==='object')return v.u;if(!artPending.has(k)){artPending.add(k);fetchArt(x,k);}return '';}
-async function fetchArt(x,k){try{const r=await fetch(`https://itunes.apple.com/search?entity=song&limit=25&country=tw&term=${encodeURIComponent(x.title+' '+x.artist)}`);
+// 歌手照片（Deezer，只能用 JSONP）
+function deezerArtist(name){return new Promise(res=>{const cb='dz'+Math.random().toString(36).slice(2),el=document.createElement('script');
+  const done=v=>{delete window[cb];el.remove();res(v);};window[cb]=j=>{const a=(j.data||[])[0];done(a?a.picture_medium||'':'');};
+  el.onerror=()=>done('');setTimeout(()=>done(''),8000);el.src=`https://api.deezer.com/search/artist?q=${encodeURIComponent(name)}&limit=1&output=jsonp&callback=${cb}`;document.head.append(el);});}
+async function fetchArt(x,k){try{const q=`entity=song&limit=25&term=${encodeURIComponent(x.title+' '+x.artist)}`;
+  let r=await fetch(`https://itunes.apple.com/search?${q}&country=tw`);let j0=await r.clone().json().catch(()=>({}));
+  if(!(j0.results||[]).length)r=await fetch(`https://itunes.apple.com/search?${q}&country=us`);
   // 挑「歌手、歌名都對」的那首，優先原專輯，避開精選、Live、合輯
   const norm=v=>(v||'').toLowerCase().replace(/[\s'’"「」《》()（）\-–.,!?！？]/g,''),A=norm(x.artist),T=norm(x.title);
   const score=t=>(norm(t.artistName).includes(A)||A.includes(norm(t.artistName))?4:0)+(norm(t.trackName)===T?4:norm(t.trackName).includes(T)?2:0)
     -(/精選|best|greatest|hits|live|演唱會|合輯|collection|remaster|karaoke|伴奏/i.test(t.collectionName||'')?3:0)-(/single|ep$/i.test(t.collectionName||'')?1:0)-(t.collectionArtistName&&/various|群星/i.test(t.collectionArtistName)?3:0);
-  const j=await r.json(),best=(j.results||[]).map(t=>({t,s:score(t)})).sort((a,b)=>b.s-a.s||(a.t.releaseDate||'').localeCompare(b.t.releaseDate||''))[0],t=best&&best.s>=6?best.t:{},u=(t.artworkUrl100||'').replace('100x100bb','400x400bb');artCache[k]={u,al:t.collectionName||''};lsSet('cb_art2',artCache);
+  const j=await r.json().catch(()=>({})),best=(j.results||[]).map(t=>({t,s:score(t)})).sort((a,b)=>b.s-a.s||(a.t.releaseDate||'').localeCompare(b.t.releaseDate||''))[0],t=best&&best.s>=6?best.t:{},u=(t.artworkUrl100||'').replace('100x100bb','400x400bb');let uu=u;if(!uu)uu=await deezerArtist(x.artist);artCache[k]={u:uu,al:t.collectionName||'',ap:!u&&!!uu};lsSet('cb_art3',artCache);
   if(view==='songs'&&grp){clearTimeout(fetchArt.t);fetchArt.t=setTimeout(renderSongs,300);}
-  if(u)document.querySelectorAll(`[data-artk="${CSS.escape(k)}"]`).forEach(el=>{el.insertAdjacentHTML('beforeend',`<img src="${u}" alt="" loading="lazy">`);});}catch{}}
+  if(uu)document.querySelectorAll(`[data-artk="${CSS.escape(k)}"]`).forEach(el=>{el.insertAdjacentHTML('beforeend',`<img src="${uu}" alt="" loading="lazy">`);});}catch{}}
 // 自動歸類：歌手、專輯
 let grp=lsGet('cb_grp','');
 function artistOf(x){const a=(x.artist||'').trim();return OWN_ARTISTS.has(a)?'自創曲':a;}
@@ -1504,6 +1510,7 @@ $('newForm').onsubmit=async e=>{e.preventDefault();
 const TAB_TITLES={chords:'貼上別處的和弦譜',helper:'貼上別處的和弦譜',text:'歌詞與和弦文字',info:'歌曲資訊',demo:'Demo 錄音',hist:'版本紀錄'};
 function openEditor(on,tabName){
   if(on&&!me){askName();toast('先告訴大家你是誰，再開始編輯');return;}
+  if(on&&cur()&&looseChordLines(cur().src)>=2){editing=true;fixLooseSheet();}
   editing=on;sel=null;$('keybar').hidden=on;$('palette').hidden=true;$('viewActs').hidden=on;$('editActs').hidden=!on;$('songView').classList.toggle('is-editing',on);closePicker();
   if(!on)closeDrawer();else if(tabName)openDrawer(tabName);else if(!cur()?.src.split('\n').some(l=>isLyricLine(l)))openDrawer('text');
   render();}
@@ -1596,6 +1603,8 @@ const looseChordLines=t=>t.split('\n').filter(l=>l.trim()&&!/\[/.test(l)&&isChor
 $('src').addEventListener('paste',e=>{const t=e.clipboardData?.getData('text/plain')||'';if(looseChordLines(t)<2)return;
   e.preventDefault();const r=convertSheet(t),el=$('src');el.setRangeText(r.src,el.selectionStart,el.selectionEnd,'end');
   el.dispatchEvent(new Event('input',{bubbles:true}));toast(`已自動把 ${r.n} 行和弦放到歌詞上，請對一下位置`);});
+// 顯示時直接把「和弦在上、歌詞在下」當成和弦（不改資料）
+function effSrc(s){return looseChordLines(s.src||'')>=2?convertSheet(s.src).src:(s.src||'');}
 function fixLooseSheet(){const s=cur(),r=convertSheet(s.src);const patch={src:r.src};
   if(r.key&&IDX[r.key]!==undefined)patch.key=KEYS.findIndex(k=>IDX[k]===IDX[r.key]);saveSong(patch);$('src').value=patch.src;render();toast(`已轉換 ${r.n} 行和弦，可以在「以前的版本」還原`);}
 $('impX').onclick=()=>{$('impSrc').value='';$('impMsg').textContent='';};
