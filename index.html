@@ -1852,6 +1852,19 @@ $('bkGo').onclick=async()=>{
   rows.forEach(r=>songs.unshift(fromRow({...r,updated_at:new Date().toISOString()})));cacheAll();
   $('bulkDlg').hidden=true;toast(`已匯入 ${rows.length} 首`);nav('#/songs');};
 
+// ---- 一鍵送譜：書籤從別的分頁把譜送進來 ----
+window.addEventListener('message',e=>{const d=e.data;if(!d||d.type!=='cb-send'||typeof d.text!=='string')return;
+  e.source?.postMessage({type:'cb-got'},'*');recvSheet(d);});
+if(window.opener&&/[?&#]recv/.test(location.href))setTimeout(()=>{try{window.opener.postMessage({type:'cb-ready'},'*');}catch(_){}},800);
+function recvSheet(d){const b=parseOne(d.title||'',d.text);if(d.artist&&!b.artist)b.artist=d.artist;
+  if(!(b.src.match(/\[[^\]]+\]/g)||[]).length){toast('這頁沒找到和弦譜，可以先選取譜的範圍再按一次');return;}
+  const nz=v=>(v||'').toLowerCase().replace(/[\s'’"「」《》()（）\-–.,!?！？]/g,'');
+  const hit=songs.find(x=>nz(x.title)===nz(b.title));
+  if(hit&&confirm(`「${hit.title}」已經在和弦室了，要把這份譜放進去嗎？\n（原本的內容會留在「以前的版本」，可以還原）`)){
+    nav('#/song/'+hit.id);setTimeout(()=>{$('impSrc').value=d.text;doImport(false);
+      if(d.url&&!cur().url)saveSong({url:d.url});},400);return;}
+  openBulk();bulk=[{...b,on:true}];$('bkMsg').textContent=d.url?'來源：'+d.url:'';drawBulk();}
+
 // ---- 匯入紀錄與復原 ----
 async function loadBatches(){
   $('batchList').innerHTML='<div class="small">讀取中…</div>';

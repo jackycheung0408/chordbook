@@ -1,0 +1,31 @@
+<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>一鍵送譜</title>
+<style>
+:root{--bg:#faf8f4;--fg:#222;--mut:#666;--acc:#c2410c;--card:#fff;--line:#e5e1d8}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#17161a;--fg:#eee;--mut:#aaa;--acc:#fb923c;--card:#221f26;--line:#333}}
+body{background:var(--bg);color:var(--fg);font:16px/1.7 system-ui,-apple-system,"PingFang TC",sans-serif;margin:0;padding:24px 16px}
+main{max-width:620px;margin:auto}h1{font-size:24px}
+.bm{display:inline-block;background:var(--acc);color:#fff;padding:12px 20px;border-radius:10px;font-weight:700;text-decoration:none;cursor:grab}
+ol li{margin:8px 0}.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 20px;margin:20px 0}.mut{color:var(--mut);font-size:14px}
+</style></head><body><main>
+<h1>一鍵送譜到和弦室</h1>
+<div class="card"><p>把下面的按鈕<b>拖到瀏覽器的書籤列</b>：</p>
+<p><a class="bm" id="bm" href="#">🎸 送到和弦室</a></p>
+<p class="mut">看不到書籤列？Mac 按 ⌘⇧B，Windows 按 Ctrl+Shift+B。</p></div>
+<div class="card"><b>使用方式</b><ol>
+<li>在任何譜站打開一首歌的譜。</li>
+<li>點書籤列上的「🎸 送到和弦室」。</li>
+<li>和弦室會自動打開：已有同名的歌，就問你要不要放進去；沒有的話，就幫你新增一首。</li></ol>
+<p class="mut">抓錯範圍時，先用滑鼠選取譜的部分，再點一次書籤。只會送出你正在看的這一頁。</p></div>
+</main><script>
+const APP=location.href.replace(/send\.html.*$/,'')+'#/songs?recv';
+const src=`(function(){var sel=String(getSelection()).trim(),t=sel;
+if(!t){var c=[].slice.call(document.querySelectorAll('pre,code,[class*=chord],[class*=Chord],[id*=chord],[class*=tab],[class*=lyric]'));
+c.sort(function(a,b){return b.innerText.length-a.innerText.length});t=c[0]?c[0].innerText:document.body.innerText;}
+var ti=document.title.split(/\\s*[|｜\\-–—_]\\s*/)[0].replace(/(吉他譜|和弦譜|和弦|chords?|tabs?|ver\\.?\\s*\\d*)/ig,'').trim();
+var w=open('${APP}','chordroom'),d={type:'cb-send',title:ti,text:t,url:location.href},done=0;
+function f(e){if(e.data&&e.data.type=='cb-ready'&&!done){w.postMessage(d,'*')}if(e.data&&e.data.type=='cb-got'){done=1;removeEventListener('message',f)}}
+addEventListener('message',f);var n=0,iv=setInterval(function(){if(done||++n>20)return clearInterval(iv);try{w.postMessage(d,'*')}catch(e){}},700);})()`;
+document.getElementById('bm').href='javascript:'+encodeURIComponent(src);
+document.getElementById('bm').onclick=e=>{e.preventDefault();alert('請把這個按鈕拖到書籤列，不是直接點它。');};
+</script></body></html>
