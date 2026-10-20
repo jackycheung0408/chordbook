@@ -1983,7 +1983,9 @@ function auChart(an){const bpm=an.bpm||90,seg=240/bpm,off=(an.phase||an.firstSou
   const lines=[];for(let i=0;i<bars.length;i+=4){lines.push(bars.slice(i,i+4).map(b=>'['+(b||'N.C.')+']').join(' '));if(i%16===12)lines.push('');}
   return lines.join('\n').trim();}
 async function auSave(s,{src,key,bpm,url}){
-  const body=s.src.trim()?'{Auto Chords}\n'+src+'\n\n'+s.src.trim():'{Auto Chords}\n'+src;
+  // 已經有歌詞：直接把和弦對到歌詞上；沒有歌詞就先存小節譜
+  const lyr=s.src.split('\n').some(l=>isLyricLine(l))?alignLyrics(autoBars('{Auto Chords}\n'+src).bars,s.src,4,0):null;
+  const body=lyr||(s.src.trim()?'{Auto Chords}\n'+src+'\n\n'+s.src.trim():'{Auto Chords}\n'+src);
   Object.assign(s,{src:body,key,bpm:s.bpm||bpm,url,status:'draft',updatedAt:Date.now(),updatedBy:AUTO_NAME});cacheAll();
   const {error}=await sb.from('songs').update({src:body,key,bpm:s.bpm||bpm,url,status:'draft',updated_by:AUTO_NAME,updated_at:new Date().toISOString()}).eq('id',s.id);
   if(error&&/status/.test(error.message))await sb.from('songs').update({src:body,key,bpm:s.bpm||bpm,url,updated_by:AUTO_NAME,updated_at:new Date().toISOString()}).eq('id',s.id);}
@@ -2069,7 +2071,10 @@ function recvSheet(d){const b=parseOne(d.title||'',d.text);if(d.artist&&!b.artis
     const ab=hit&&autoBars(hit.src);
     if(ab&&!hit.src.split('\n').some(l=>isLyricLine(l))){nav('#/song/'+hit.id);setTimeout(()=>{const r=alignLyrics(ab.bars,d.text,4,0);if(!r){toast('對不上，請選取歌詞範圍再按一次');return;}
       saveSong({src:r,status:'draft'});$('src').value=r;render();toast(`已把歌詞對上「${hit.title}」的和弦，對歪的地方點和弦修改`);},400);return;}
-    toast(hit?`「${hit.title}」還沒有自動扒的和弦，先跑整批自動配和弦再送歌詞`:'這頁沒找到和弦譜，也找不到同名的歌');return;}
+    if(hit&&!hasChords(hit)){const lyr=d.text.replace(/\r/g,'').split('\n').map(l=>l.trim()).join('\n').replace(/\n{3,}/g,'\n\n').trim();
+      if(hit.src.trim()&&!confirm(`「${hit.title}」已經有歌詞了，要換成這份嗎？`))return;
+      nav('#/song/'+hit.id);setTimeout(()=>{saveSong({src:lyr});$('src').value=lyr;render();toast(`已存「${hit.title}」的歌詞。整批自動配和弦時會直接把和弦對上`);},400);return;}
+    toast(hit?`「${hit.title}」已經有和弦了，要換歌詞請在編輯裡改`:'找不到同名的歌，請先新增這首歌');return;}
   if(hit&&confirm(`「${hit.title}」已經在和弦室了，要把這份譜放進去嗎？\n（原本的內容會留在「以前的版本」，可以還原）`)){
     nav('#/song/'+hit.id);setTimeout(()=>{$('impSrc').value=d.text;doImport(false);
       if(d.url&&!cur().url)saveSong({url:d.url});},400);return;}
