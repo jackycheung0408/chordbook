@@ -443,6 +443,7 @@ button,.btn,.tc,.song{-webkit-tap-highlight-color:transparent;touch-action:manip
 .ystep .row{display:flex;gap:8px}.ystep input{flex:1;min-width:0;padding:10px 12px;border-radius:10px;background:var(--bg);border:1px solid var(--line);font-size:15px}
 #ytStep2{opacity:.55}#ytStep2.ready{opacity:1}
 .ymore summary{cursor:pointer;color:var(--muted);font-size:13px}
+.fixbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;padding:12px 14px;margin-bottom:14px;border-radius:12px;background:color-mix(in srgb,var(--chord) 14%,transparent);border:1px solid color-mix(in srgb,var(--chord) 40%,transparent)}
 .hhero-old{display:grid;gap:16px;padding:28px 24px;border-radius:18px;background:radial-gradient(120% 140% at 0% 0%,color-mix(in srgb,var(--chord) 22%,transparent),transparent 60%),linear-gradient(135deg,var(--panel),var(--bg));border:1px solid var(--line)}
 .htitle h1{margin:0;font-size:clamp(26px,4vw,36px)}
 .htitle h1 span{color:var(--chord)}
@@ -1157,7 +1158,7 @@ function renderSheet(){const s=cur();if(!s)return;queueMicrotask(()=>{if(editing
   if(isEditing()&&!hasLyrics){$('sheetHint').textContent='';$('sheet').innerHTML=`<div class="guide"><b>三步驟完成一首歌</b>
     <ol><li><b>貼上歌詞</b>：下方「歌詞」，一行一句。</li><li><b>上傳 Demo</b>：下方「Demo」，會自動抓調性、BPM，把和弦配到歌詞上。</li><li><b>點字修正</b>：點譜上任何一個字就能加或改和弦。</li></ol>
     <button class="primary" id="guideText">開始貼歌詞</button></div>`;$('guideText').onclick=()=>openDrawer('text');return;}
-  if(isEditing()){$('sheetHint').textContent=`點字加和弦・按住和弦可以拖到別的字・原調 ${KEYS[s.key]}`;$('sheet').innerHTML=tapHTML(s);}
+  if(isEditing()){$('sheetHint').textContent=`點字加和弦・按住和弦可以拖到別的字・原調 ${KEYS[s.key]}`;$('sheet').innerHTML=(looseChordLines(s.src)>=2?`<div class="fixbar"><span>這首的和弦是寫在歌詞<b>上一行</b>的文字，還沒放到字上。</span><button class="primary" onclick="fixLooseSheet()">一鍵把和弦放到歌詞上</button></div>`:'')+tapHTML(s);}
   else{const p=prefOf(s.id);$('sheetHint').textContent='';$('sheet').innerHTML=hasLyrics||s.src.trim()?sheetHTML(s,p.shift,p.capo,true):`<div class="empty">這首還沒有歌詞和和弦。<button class="primary" onclick="openEditor(true)">✎ 開始編輯</button></div>`;}}
 // 段落標籤：點「＋ 標段落」或段落名稱，選一個就好
 const SEC_PRESETS=['Intro','Verse','Pre-Chorus','Chorus','Interlude','Bridge','Solo','Outro'];
@@ -1589,7 +1590,14 @@ function convertSheet(text){
       if(nx.trim()&&!isChordLine(nx)&&!SEC_RE.test(nx)){out.push(merge(ch,nx));i++;}
       else out.push(ch.map(x=>'['+x.c+']').join(' '));continue;}
     out.push(l);}
-  return {src:out.join('\n').replace(/\n{3,}/g,'\n\n').trim(),key,n};}
+  return {src:out.join('\n').replace(/^((?:\[[^\]]+\])+)\s+(?=\S)(?!\[)/gm,'$1').replace(/\n{3,}/g,'\n\n').trim(),key,n};}
+// 「和弦在上、歌詞在下」：貼進歌詞框時自動轉換；已經存成這種格式的歌，譜上給一鍵轉換
+const looseChordLines=t=>t.split('\n').filter(l=>l.trim()&&!/\[/.test(l)&&isChordLine(l)).length;
+$('src').addEventListener('paste',e=>{const t=e.clipboardData?.getData('text/plain')||'';if(looseChordLines(t)<2)return;
+  e.preventDefault();const r=convertSheet(t),el=$('src');el.setRangeText(r.src,el.selectionStart,el.selectionEnd,'end');
+  el.dispatchEvent(new Event('input',{bubbles:true}));toast(`已自動把 ${r.n} 行和弦放到歌詞上，請對一下位置`);});
+function fixLooseSheet(){const s=cur(),r=convertSheet(s.src);const patch={src:r.src};
+  if(r.key&&IDX[r.key]!==undefined)patch.key=KEYS.findIndex(k=>IDX[k]===IDX[r.key]);saveSong(patch);$('src').value=patch.src;render();toast(`已轉換 ${r.n} 行和弦，可以在「以前的版本」還原`);}
 $('impX').onclick=()=>{$('impSrc').value='';$('impMsg').textContent='';};
 function doImport(append){const r=convertSheet($('impSrc').value);if(!r.src){$('impMsg').textContent='沒有內容可以轉換';return;}
   const patch={src:append&&cur().src.trim()?cur().src.trimEnd()+'\n\n'+r.src:r.src};
