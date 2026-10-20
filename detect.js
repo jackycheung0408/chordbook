@@ -221,6 +221,16 @@
     }, frameSec * 1000);
     return {
       t0, ctx, level: () => E.length ? E[E.length - 1] : 0, seconds: () => E.length * frameSec,
+      // 最近 n 秒聽到的和弦（只給畫面即時顯示用）
+      now(n = 1.5) {
+        const k = Math.min(C.length, Math.round(n / frameSec)); if (k < 5) return null;
+        const v = new Array(12).fill(0); let e = 0;
+        for (let f = C.length - k; f < C.length; f++) { e += E[f]; for (let i = 0; i < 12; i++) v[i] += C[f][i]; }
+        if (e / k < 0.004) return null;
+        const mean = v.reduce((a, x) => a + x, 0) / 12, w = v.map(x => Math.max(0, x - mean)), nn = Math.hypot(...w) || 1;
+        let best = null, bs = -1; for (const T of TEMPL) { let sc = 0; for (let i = 0; i < 12; i++) sc += T.t[i] * w[i] / nn; if (sc > bs) { bs = sc; best = T; } }
+        return { root: best.root, q: best.q };
+      },
       stop() {
         clearInterval(tick); stream.getTracks().forEach(t => t.stop()); ctx.close?.();
         const frames = E.length, Cf = new Float32Array(frames * 12), Bf = new Float32Array(frames * 12), Ef = Float32Array.from(E);

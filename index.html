@@ -421,8 +421,15 @@ button,.btn,.tc,.song{-webkit-tap-highlight-color:transparent;touch-action:manip
 .irow label{display:flex;align-items:center;gap:2px;font-family:var(--mono)}
 .irow [data-f=bpm]{width:5.5em}.irow [data-f=artist]{width:12em}
 .irow select{font-family:var(--mono);color:var(--chord);font-weight:700}
-.livebox{display:grid;gap:10px;justify-items:center;text-align:center;padding:40px 16px}
-.livebox>b{font-size:20px}
+.livebox{display:grid;gap:14px;justify-items:center;text-align:center;padding:36px 16px;max-width:640px;margin:0 auto}
+.lstate{display:flex;align-items:center;gap:10px;font-size:17px}.ltime{font-family:var(--mono);color:var(--muted)}
+.lchord{font-family:var(--mono);font-weight:700;font-size:clamp(64px,12vw,120px);line-height:1;color:var(--chord);min-height:1em}
+.lhist{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;min-height:30px}
+.lhist span{font-family:var(--mono);font-size:14px;padding:3px 9px;border-radius:8px;background:var(--soft);color:var(--muted)}
+.lhist span.cur{color:var(--chord);box-shadow:0 0 0 1px var(--chord)}
+.lsteps{display:grid;gap:8px;text-align:left;margin:10px 0 0;padding:16px 20px 16px 40px;border:1px solid var(--line);border-radius:12px;width:100%;box-sizing:border-box;color:var(--muted)}
+.lsteps li.done{color:var(--fg)}.lsteps li.done::marker{content:'✓  ';color:var(--accent)}
+.lsteps small{color:var(--muted)}
 .livedot{width:16px;height:16px;border-radius:50%;background:var(--muted)}
 .livedot.on{background:#e5484d;animation:lp 1.2s infinite}
 @keyframes lp{50%{opacity:.35}}
@@ -586,7 +593,7 @@ body.secmoving #sheet [data-row]:hover{box-shadow:inset 0 3px 0 var(--accent)}
           <div class="menuwrap">
             <button id="editMoreBtn" class="ibtn" aria-haspopup="true" aria-label="更多"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg></button>
             <div class="menu" id="editMenu" hidden role="menu">
-              <button role="menuitem" data-open="chords">貼上別處的和弦譜</button><button role="menuitem" data-open="helper">常用和弦與進行</button>
+              <button role="menuitem" data-open="chords">貼上別處的和弦譜</button>
               <button role="menuitem" data-open="hist">以前的版本（可還原）</button>
             </div>
           </div>
@@ -671,7 +678,7 @@ body.secmoving #sheet [data-row]:hover{box-shadow:inset 0 3px 0 var(--accent)}
             <div class="row"><button class="primary" id="impGo">轉換並取代</button><button id="impAdd">轉換並加在最後</button><button class="ghost" id="impX">清空</button><span class="small" id="impMsg"></span></div>
           </div>
             </details>
-            <details class="more" id="helperSec"><summary><b>常用和弦與進行</b></summary>
+            <details class="more" id="helperSec" hidden><summary><b>常用和弦與進行</b></summary>
               <div class="hint">列出這首歌的調裡最常用的和弦，以及常見的和弦進行（例如 C–G–Am–F）。先到「歌詞」裡把游標放在要插入的位置，再點這裡的和弦。</div>
             <span class="lbl" id="harmLbl">這個調的和弦　點一下插入</span>
             <div class="chips" id="chipsIn"></div>
@@ -837,7 +844,7 @@ body.secmoving #sheet [data-row]:hover{box-shadow:inset 0 3px 0 var(--accent)}
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="config.js"></script>
-<script src="detect.js?v=36"></script>
+<script src="detect.js?v=51"></script>
 <script>
 const SH=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 const FL=['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
@@ -1491,7 +1498,7 @@ $('newForm').onsubmit=async e=>{e.preventDefault();
   await createSong({title,artist:$('ndArtist').value.trim(),key:0,src});
   if(f){openEditor(true);await uploadDemo(f);}else openEditor(true,src?undefined:'text');
   $('ndOk').disabled=false;};
-const TAB_TITLES={chords:'貼上和弦譜・常用和弦',helper:'貼上和弦譜・常用和弦',text:'歌詞與和弦文字',info:'歌曲資訊',demo:'Demo 錄音',hist:'版本紀錄'};
+const TAB_TITLES={chords:'貼上別處的和弦譜',helper:'貼上別處的和弦譜',text:'歌詞與和弦文字',info:'歌曲資訊',demo:'Demo 錄音',hist:'版本紀錄'};
 function openEditor(on,tabName){
   if(on&&!me){askName();toast('先告訴大家你是誰，再開始編輯');return;}
   editing=on;sel=null;$('keybar').hidden=on;$('palette').hidden=true;$('viewActs').hidden=on;$('editActs').hidden=!on;$('songView').classList.toggle('is-editing',on);closePicker();
@@ -1652,16 +1659,21 @@ async function wizLive(){
   $('wizBarTap').hidden=false;$('wizBarDone').hidden=true;$('wizInfo').textContent=s.title+'・邊播邊抓';
   $('wizTap').innerHTML='這句開始了<small>或按空白鍵</small>';$('wizRestart').textContent='結束（歌播完了）';
   W.vocalStart=null;W.quiet=0;
-  $('wizBody').innerHTML=`<div class="livebox"><div class="livedot" id="liveDot"></div><b id="liveHint">到剛剛分享的分頁按播放</b>
-    <span class="small" id="liveSub">聽到聲音就會開始，不用一直盯著。歌播完會自動結束。</span>
-    <div class="livemeter"><span id="liveLv"></span></div>
-    <span class="small">想更準？聽到<b>開始唱歌</b>時按一下下面的「🎤 開始唱了」（只要一次），其他都自動。</span></div>`;
+  W.hist=[];
+  $('wizBody').innerHTML=`<div class="livebox">
+    <div class="lstate"><span class="livedot" id="liveDot"></span><b id="liveHint">去 YouTube 分頁按播放</b><span class="ltime" id="liveTime"></span></div>
+    <div class="lchord" id="liveChord">–</div><span class="small" id="liveSub">聽到聲音就會開始。不用盯著，歌播完會自動結束。</span>
+    <div class="lhist" id="liveHist"></div>
+    <ol class="lsteps"><li class="done">分享 YouTube 分頁</li><li id="lsPlay">按播放</li><li id="lsSing">開始唱歌時按「🎤 開始唱了」<small>（可不按，按了會更準）</small></li><li id="lsEnd">播完自動產生預覽</li></ol></div>`;
   $('wizUndo').hidden=$('wizSkip').hidden=true;
   $('wizTap').innerHTML='🎤 開始唱了<small>只要按一次，可不按</small>';$('wizTap').disabled=false;
   // 等第一個聲音出現才開始計時
   W.liveTimer=setInterval(()=>{const lv=W.cap.level();
-    $('liveLv')&&($('liveLv').style.width=Math.min(100,lv*800)+'%');
-    if(!W.liveOn&&lv>0.01){W.liveOn=true;W.liveStart=performance.now();$('liveHint')&&($('liveHint').textContent='正在聽…');$('liveDot')?.classList.add('on');}
+    if(!W.liveOn&&lv>0.01){W.liveOn=true;W.liveStart=performance.now();$('liveHint').textContent='正在聽，和弦會即時出現';$('liveDot')?.classList.add('on');$('lsPlay')?.classList.add('done');}
+    if(W.liveOn&&$('liveChord')){const c=W.cap.now?.();
+      $('liveTime').textContent=fmt((performance.now()-W.liveStart)/1000);
+      const nm=c?nn(c.root,FLAT_KEYS.has(cur().key))+c.q:null;W.cand=nm===W.candN?W.cand+1:1;W.candN=nm;
+      if(nm&&W.cand>=3){$('liveChord').textContent=nm;if(W.hist[W.hist.length-1]!==nm){W.hist.push(nm);$('liveHist').innerHTML=W.hist.slice(-16).map((x,i,a)=>`<span${i===a.length-1?' class="cur"':''}>${x}</span>`).join('');}}}
     // 安靜超過 6 秒（而且已經聽了 30 秒以上）就當作歌播完了
     if(W.liveOn){W.quiet=lv<0.004?W.quiet+0.2:0;if(W.quiet>=6&&(performance.now()-W.liveStart)>30000){wizLiveEnd();return;}}
     if(W.liveOn)$('wizInfo').textContent=`${s.title}・邊播邊抓・${fmt((performance.now()-W.liveStart)/1000)}`;},200);
@@ -1699,7 +1711,7 @@ function wizRenderTap(){
 function wizNext(){do W.ptr++;while(W.ptr<W.rows.length&&!W.rows[W.ptr].lyric);if(W.ptr>=W.rows.length)wizFinish();else wizRenderTap();}
 $('wizTap').onclick=()=>{
   if(W.live){if(!W.liveOn){toast('先在分享的分頁按播放，聽到聲音後才開始計時');return;}
-    W.vocalStart=Math.max(0,wizNow()-0.3);$('wizTap').innerHTML='✓ 已記下開始唱的時間';$('wizTap').disabled=true;return;}
+    W.vocalStart=Math.max(0,wizNow()-0.3);$('wizTap').innerHTML='✓ 已記下開始唱的時間';$('wizTap').disabled=true;$('lsSing')?.classList.add('done');return;}
   else if(W.audio.paused&&W.taps.every(t=>t==null)){W.audio.play().catch(()=>{});$('wizTap').innerHTML='這句開始了<small>或按空白鍵</small>';return;}
   W.taps[W.ptr]=Math.max(0,wizNow()-0.15);wizNext();};
 $('wizSkip').onclick=()=>{W.taps[W.ptr]='skip';wizNext();};
