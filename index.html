@@ -878,7 +878,7 @@ body.secmoving #sheet [data-row]:hover{box-shadow:inset 0 3px 0 var(--accent)}
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="config.js"></script>
-<script src="detect.js?v=52"></script>
+<script src="detect.js?v=53"></script>
 <script>
 const SH=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 const FL=['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
@@ -1981,6 +1981,8 @@ $('auGo').onclick=async()=>{
     x.st='▶ 播放中…';drawAuto();
     const r=file?await auPlayFile(file,x):await auPlayOne(vid,x);if(!AU.run)break;
     if(!r){x.st='⚠️ 播不了（可能禁止嵌入）';drawAuto();continue;}
+    // AI 模型重新分析（失敗就用原本的結果）
+    try{x.st='🧠 AI 分析中…';drawAuto();await ChordDetect.refine(r.an,p=>{x.st=`🧠 AI 分析中 ${Math.round(p*100)}%`;drawAuto();});r.key=auKey(r.an).key;}catch(e){console.warn('AI 分析失敗，用原本的結果',e);}
     const src=auChart(r.an);if(!src){x.st='⚠️ 聽不出和弦';drawAuto();continue;}
     await auSave(x.s,{src,key:r.key,bpm:r.an.realBpm||r.an.bpm||0,url:x.s.url||(vid?'https://www.youtube.com/watch?v='+vid:'')});
     x.st=`✅ ${KEYS[r.key]} 調・${r.an.realBpm||r.an.bpm||'?'} BPM・把握 ${r.an.confPct}%`;ok++;drawAuto();clearInterval(keep);}

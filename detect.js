@@ -233,6 +233,10 @@
       for (let k = 1; k < nb; k++) { if (pc[k] < 0) continue; const m = Math.sqrt(Math.pow(10, fd[k] / 20)); c[pc[k]] += m; if (bass[k]) b[pc[k]] += m; }
       C.push(c); B.push(b); E.push(Math.sqrt(e / td.length));
     }, frameSec * 1000);
+    // 原始聲音只留在記憶體，給 AI 模型重新分析用；分析完就丟掉，不存檔
+    const rec = ctx.createScriptProcessor(4096, 1, 1), raw = []; let rawN = 0;
+    rec.onaudioprocess = e => { if (rawN < sr * 600) { const d = e.inputBuffer.getChannelData(0); raw.push(new Float32Array(d)); rawN += d.length; } };
+    srcNode.connect(rec); const mute = ctx.createGain(); mute.gain.value = 0; rec.connect(mute); mute.connect(ctx.destination);
     // 另外每 20ms 記一次音量突增，用來估速度與小節起點
     const an3 = ctx.createAnalyser(); an3.fftSize = 1024; srcNode.connect(an3);
     const td3 = new Float32Array(1024), O = [], oT = [];let oPrev = 0;
@@ -256,7 +260,8 @@
         clearInterval(tick); clearInterval(tick2); if (!keep) stream.getTracks().forEach(t => t.stop()); ctx.close?.();
         const frames = E.length, Cf = new Float32Array(frames * 12), Bf = new Float32Array(frames * 12), Ef = Float32Array.from(E);
         C.forEach((c, f) => Cf.set(c, f * 12)); B.forEach((b, f) => Bf.set(b, f * 12));
-        const an2 = { C: Cf, B: Bf, E: Ef, frames, frameSec, duration: frames * frameSec };
+        const an2 = { C: Cf, B: Bf, E: Ef, frames, frameSec, duration: frames * frameSec, sr, startOff: 0 };
+        an2.raw = () => { const o = new Float32Array(rawN); let p = 0; raw.forEach(c => { o.set(c, p); p += c.length; }); return o; };
         const total = new Array(12).fill(0); for (let f = 0; f < frames; f++) for (let i = 0; i < 12; i++) total[i] += Cf[f * 12 + i] * Ef[f];
         an2.key = detectKey(total);
         const maxE = Ef.reduce((m, x) => Math.max(m, x), 0); let first = 0; while (first < frames && Ef[first] < maxE * 0.12) first++;
@@ -270,5 +275,37 @@
     };
   }
 
-  window.ChordDetect = { analyze, group, keyFromChords, smooth, live };
+  // AI 模型（Spotify Basic Pitch，Apache-2.0）：先辨認音符，再把音符轉成每 0.1 秒的音級能量，取代原本的頻譜音級
+  let BP = null;
+  async function bpModel() {
+    if (!BP) BP = (async () => {
+      const m = await import('https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@1.0.1/+esm');
+      return new m.BasicPitch('https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@1.0.1/model/model.json');
+    })().catch(e => { BP = null; throw e; });
+    return BP;
+  }
+  async function refine(an, onProgress) {
+    if (!an.raw) return an;
+    const data = an.raw(); an.raw = null; if (data.length < an.sr * 10) return an;
+    // 轉成模型要的 22050Hz 單聲道
+    const len = Math.ceil(data.length * 22050 / an.sr), off = new OfflineAudioContext(1, len, 22050);
+    const b = off.createBuffer(1, data.length, an.sr); b.copyToChannel(data, 0);
+    const n = off.createBufferSource(); n.buffer = b; n.connect(off.destination); n.start(); const buf = await off.startRendering();
+    const bp = await bpModel(), F = [];
+    await bp.evaluateModel(buf, (frames) => { for (const f of frames) F.push(f); }, p => onProgress?.(p));
+    if (!F.length) return an;
+    const fps = F.length / buf.duration, per = an.frameSec * fps, C = new Float32Array(an.frames * 12), B = new Float32Array(an.frames * 12);
+    for (let f = 0; f < an.frames; f++) {
+      const a = Math.floor(f * per), z = Math.min(F.length, Math.floor((f + 1) * per)); let low = -1;
+      for (let t = a; t < z; t++) { const row = F[t];
+        for (let k = 0; k < row.length; k++) { const v = row[k]; if (v < 0.3) continue; const midi = k + 21, pc = midi % 12;
+          C[f * 12 + pc] += v; if (midi < 55) B[f * 12 + pc] += v * (midi < 48 ? 2 : 1); } }
+    }
+    an.C = C; an.B = B; an.ai = true;
+    const total = new Array(12).fill(0); for (let f = 0; f < an.frames; f++) for (let i = 0; i < 12; i++) total[i] += C[f * 12 + i];
+    an.key = detectKey(total);
+    return an;
+  }
+
+  window.ChordDetect = { analyze, group, keyFromChords, smooth, live, refine };
 })();
