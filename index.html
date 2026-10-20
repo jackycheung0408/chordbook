@@ -715,7 +715,7 @@ body.secmoving #sheet [data-row]:hover{box-shadow:inset 0 3px 0 var(--accent)}
               <span class="small" id="demoMsg"></span>
             </div>
           <div class="box" id="demoUrlBox" hidden>
-            <div class="hint">貼錄音檔的網址（mp3、m4a、wav）。Dropbox、Google Drive 的分享連結會自動轉成下載連結。YouTube、StreetVoice 等網頁連結不能用。</div>
+            <div class="hint">貼錄音檔的網址（mp3、m4a、wav）。Dropbox、Google Drive 的分享連結會自動轉成下載連結。YouTube 連結會改用「自動配和弦」邊聽邊抓。</div>
             <div class="row"><input type="text" id="demoUrl" placeholder="https://…" inputmode="url" aria-label="錄音網址" style="flex:1;min-width:0"><button class="primary" id="demoUrlOk">使用</button></div>
           </div>
           </div>
@@ -1889,6 +1889,7 @@ function directAudioUrl(u){
 $('demoUrlBtn').onclick=()=>{$('demoUrlBox').hidden=!$('demoUrlBox').hidden;if(!$('demoUrlBox').hidden)$('demoUrl').focus();};
 $('demoUrlOk').onclick=async()=>{
   const raw=$('demoUrl').value;if(!/^https?:\/\//.test(raw.trim())){toast('請貼 https:// 開頭的網址');return;}
+  if(ytOk(raw)){closeDrawer();$('autoBtn').click();$('ytUrl').value=raw;toast('YouTube 影片用「邊聽邊抓」：按「打開影片」再按「開始抓和弦」');return;}
   if(/suno\.(com|ai)\//i.test(raw)){toast('Suno 的連結是網頁，聲音有加密，沒辦法直接當 Demo。要配和弦請用「自動配和弦 → 邊播邊抓」；要放 Demo 請從 Suno 下載後上傳');return;}
   if(/youtu\.?be|streetvoice|spotify|soundcloud\.com\/(?!.*\.(mp3|m4a|wav))/i.test(raw)){toast('這是網頁連結，不是錄音檔。請改用上傳檔案');return;}
   const u=directAudioUrl(raw),old=cur().audio_url;$('demoMsg').textContent='檢查中…';
