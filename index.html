@@ -541,6 +541,9 @@ body.secmoving #sheet [data-row]:hover{box-shadow:inset 0 3px 0 var(--accent)}
 .lb{padding:4px 14px}.lbrow{display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line,#8883)}.lbrow:last-child{border:0}
 .lbn{width:1.4em;opacity:.6}.lbw{flex:1;min-width:0}.vchip{font-size:13px;padding:1px 8px;border-radius:99px;background:#f59e0b22}.vchip.ok{background:#16a34a22}
 .linkbtn{background:none;border:0;padding:0;color:inherit;text-decoration:underline;cursor:pointer;font:inherit}
+.fpop{position:fixed;z-index:60;background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:12px;padding:10px 12px;box-shadow:0 8px 30px #0005;display:grid;gap:6px;justify-items:center;min-width:150px}
+.fpop .fh{display:flex;gap:8px;align-items:center;width:100%;justify-content:space-between}.fpop .fh b{font-size:18px}.fpop button{padding:2px 8px}
+#sheet .c,#sheet .bc{cursor:pointer}
 </style>
 </head>
 <body>
@@ -1897,6 +1900,40 @@ $('lyGo').onclick=()=>{const s=cur(),ab=autoBars(s.src);if(!ab){toast('這首沒
   const t=$('lyIn').value;if(!t.trim()){toast('先貼上歌詞');return;}
   const r=alignLyrics(ab.bars,t,Math.max(0,+$('lyIntro').value||0),+$('lyPer').value||0);if(!r){toast('對不上，請確認歌詞有內容');return;}
   saveSong({src:r,status:'draft'});$('src').value=r;$('lyrDlg').hidden=true;render();toast('已把和弦對到歌詞上。對歪的地方點和弦修改，或用「以前的版本」還原');};
+
+// ---- 點和弦看吉他指型（指型資料：chords-db，MIT） ----
+let FDB=null;
+const fdb=()=>FDB||(FDB=fetch('https://cdn.jsdelivr.net/npm/@tombatossals/chords-db@0.5.1/lib/guitar.json').then(r=>r.json()).catch(()=>{FDB=null;return null;}));
+const F_KEY={'C':'C','C#':'Csharp','Db':'Csharp','D':'D','D#':'Eb','Eb':'Eb','E':'E','F':'F','F#':'Fsharp','Gb':'Fsharp','G':'G','G#':'Ab','Ab':'Ab','A':'A','A#':'Bb','Bb':'Bb','B':'B'};
+const F_SUF={'':'major','M':'major','maj':'major','m':'minor','min':'minor','-':'minor','7':'7','maj7':'maj7','M7':'maj7','m7':'m7','min7':'m7','sus4':'sus4','sus':'sus4','sus2':'sus2','7sus4':'7sus4','dim':'dim','dim7':'dim7','aug':'aug','+':'aug','6':'6','m6':'m6','9':'9','add9':'add9','madd9':'madd9','m9':'m9','maj9':'maj9','m7b5':'m7b5','11':'11','13':'13','mmaj7':'mmaj7','7b9':'7b9','7#9':'7#9','69':'69'};
+async function fingerFor(name){const m=name.replace(/[_=()]/g,'').match(/^([A-G][#b]?)([^/]*)(?:\/([A-G][#b]?))?$/);if(!m)return null;
+  const db=await fdb();if(!db)return null;const k=F_KEY[m[1]];let suf=F_SUF[m[2]]??null;if(!k||suf==null)return null;
+  if(m[3]){const b=m[3].replace('A#','Bb').replace('D#','Eb').replace('Db','C#').replace('Gb','F#').replace('G#','G#');const ss=(suf==='minor'?'m/':'/')+b;
+    const hit=(db.chords[k]||[]).find(c=>c.suffix===ss);if(hit)return hit;}
+  return (db.chords[k]||[]).find(c=>c.suffix===suf)||null;}
+function fingerSVG(p){const W=110,H=130,x0=18,y0=26,dx=15,dy=22,fr=4;let g='';
+  for(let i=0;i<6;i++)g+=`<line x1="${x0+i*dx}" y1="${y0}" x2="${x0+i*dx}" y2="${y0+fr*dy}" stroke="currentColor" stroke-width="1"/>`;
+  for(let j=0;j<=fr;j++)g+=`<line x1="${x0}" y1="${y0+j*dy}" x2="${x0+5*dx}" y2="${y0+j*dy}" stroke="currentColor" stroke-width="${j===0&&p.baseFret===1?4:1}"/>`;
+  if(p.baseFret>1)g+=`<text x="${x0+5*dx+6}" y="${y0+dy*0.7}" font-size="11" fill="currentColor">${p.baseFret}fr</text>`;
+  (p.barres||[]).forEach(b=>{const idx=p.frets.map((f,i)=>f===b?i:-1).filter(i=>i>=0);if(idx.length>1)g+=`<rect x="${x0+idx[0]*dx-6}" y="${y0+(b-0.5)*dy-6}" width="${(idx[idx.length-1]-idx[0])*dx+12}" height="12" rx="6" fill="var(--chord)"/>`;});
+  p.frets.forEach((f,i)=>{const x=x0+i*dx;if(f<0)g+=`<text x="${x}" y="${y0-8}" font-size="12" text-anchor="middle" fill="currentColor">×</text>`;
+    else if(f===0)g+=`<circle cx="${x}" cy="${y0-12}" r="4" fill="none" stroke="currentColor"/>`;
+    else{g+=`<circle cx="${x}" cy="${y0+(f-0.5)*dy}" r="6" fill="var(--chord)"/>`;const fi=p.fingers?.[i];if(fi)g+=`<text x="${x}" y="${y0+(f-0.5)*dy+4}" font-size="9" text-anchor="middle" fill="var(--panel)">${fi}</text>`;}});
+  return `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="吉他指型">${g}</svg>`;}
+async function showFinger(el){document.querySelector('.fpop')?.remove();const names=el.textContent.trim().split(/\s+/).filter(x=>/^[A-G]/.test(x));if(!names.length)return;
+  const pop=document.createElement('div');pop.className='fpop';pop.innerHTML='<span class="small">讀取指型…</span>';document.body.appendChild(pop);
+  const r=el.getBoundingClientRect();const place=()=>{const w=pop.offsetWidth,h=pop.offsetHeight;pop.style.left=Math.max(8,Math.min(innerWidth-w-8,r.left+r.width/2-w/2))+'px';pop.style.top=(r.bottom+h+8<innerHeight?r.bottom+6:Math.max(8,r.top-h-6))+'px';};place();
+  let ni=0,pi=0;const draw=async()=>{const nm=names[ni].replace(/[_=]/g,''),c=await fingerFor(nm);
+    if(!c){pop.innerHTML=`<div class="fh"><b>${esc(nm)}</b><button class="ghost" data-fx>✕</button></div><span class="small">沒有這個和弦的指型</span>`;place();return;}
+    const P=c.positions,p=P[pi%P.length];
+    pop.innerHTML=`<div class="fh"><b>${esc(nm)}</b><button class="ghost" data-fx aria-label="關閉">✕</button></div>${fingerSVG(p)}
+      <div class="fh"><button data-fp="-1" aria-label="上一個按法">‹</button><span class="small">按法 ${pi%P.length+1}/${P.length}</span><button data-fp="1" aria-label="下一個按法">›</button></div>
+      ${names.length>1?`<div class="fh">${names.map((n,i)=>`<button data-fn="${i}"${i===ni?' class="primary"':''}>${esc(n.replace(/[_=]/g,''))}</button>`).join('')}</div>`:''}`;place();};
+  pop.onclick=e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.fx!=null){pop.remove();return;}
+    if(b.dataset.fp){const n=pi+ +b.dataset.fp;pi=n<0?99:n;}if(b.dataset.fn){ni=+b.dataset.fn;pi=0;}draw();};
+  draw();}
+document.addEventListener('click',e=>{const el=e.target.closest('#sheet .c,#sheet .bc,#stage .c,#stage .bc');
+  if(el&&!isEditing()){showFinger(el);return;}if(!e.target.closest('.fpop'))document.querySelector('.fpop')?.remove();});
 
 // ---- 整批自動配和弦：在本頁嵌入 YouTube，分享本分頁聲音，逐首扒和弦存成待確認小節譜 ----
 const AU={q:[],run:false,player:null,stream:null};
