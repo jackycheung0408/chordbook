@@ -829,6 +829,17 @@ body.secmoving #sheet [data-row]:hover{box-shadow:inset 0 3px 0 var(--accent)}
     <div class="row" style="justify-content:flex-end"><button class="ghost" id="bkCancel">取消</button><button class="primary" id="bkGo" disabled>匯入</button></div>
   </div>
 </div>
+<div class="dlg" id="autoDlg" hidden role="dialog" aria-modal="true" aria-labelledby="auH">
+  <div class="dlgbox" style="width:min(760px,100%)">
+    <div class="pkhead"><b id="auH" style="font-size:18px">整批自動配和弦</b><button type="button" class="ghost" id="auX" aria-label="關閉">✕</button></div>
+    <div class="hint">一首接一首在這裡播 YouTube，邊播邊扒和弦，結果存成 <b>🟡 待確認</b> 的小節譜。全部在你的瀏覽器裡計算，不會下載影片。<br>
+      按「開始」後，Chrome 會問要分享哪個畫面：選<b>這個分頁</b>，並勾選<b>分享分頁音訊</b>。開始後可以把這個分頁留著去做別的事，但不要關掉。</div>
+    <div class="row"><label class="small"><input type="checkbox" id="auAll"> 全選</label><span class="small" id="auSum"></span></div>
+    <div class="hist" id="auList" style="max-height:34vh"></div>
+    <div id="auStage" hidden style="display:grid;gap:8px"><div id="auNow" class="small"></div><div id="auPlayer" style="aspect-ratio:16/9;max-height:220px;background:#000;border-radius:8px"></div></div>
+    <div class="row" style="justify-content:flex-end"><button class="ghost" id="auStop" hidden>停止</button><button class="primary" id="auGo">開始</button></div>
+  </div>
+</div>
 <div class="dlg" id="batchDlg" hidden role="dialog" aria-modal="true" aria-labelledby="btH">
   <div class="dlgbox" style="width:min(620px,100%)">
     <div class="pkhead"><b id="btH" style="font-size:18px">匯入紀錄</b><button type="button" class="ghost" id="btX" aria-label="關閉">✕</button></div>
@@ -853,7 +864,7 @@ body.secmoving #sheet [data-row]:hover{box-shadow:inset 0 3px 0 var(--accent)}
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="config.js"></script>
-<script src="detect.js?v=51"></script>
+<script src="detect.js?v=52"></script>
 <script>
 const SH=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 const FL=['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
@@ -1050,7 +1061,7 @@ function renderHome(){
     <div class="hin">
       <div class="htitle"><span class="eyebrow">和弦室 · ChordRoom</span><h1>今天練哪一首？</h1><p>${songs.length} 首歌${wip?`・<a href="#/songs" id="wipLink">${wip} 首還沒有和弦</a>`:''}</p></div>
       <form class="hsearch" id="hsearch"><input type="search" id="hq" placeholder="搜尋歌名或歌手" aria-label="搜尋歌名或歌手"><button class="primary">搜尋</button></form>
-      <div class="hacts"><button class="primary" id="heroNew">＋ 新增歌曲</button></div>
+      <div class="hacts"><button class="primary" id="heroNew">＋ 新增歌曲</button>${wip?'<button id="heroAuto">整批自動配和弦</button>':''}</div>
     </div>
   </section>
   ${seen.length?`<div class="sechead"><h3>最近看過</h3></div><div class="hscroll">${seen.map(x=>homeCard(x)).join('')}</div>`:''}
@@ -1061,7 +1072,7 @@ function renderHome(){
   <div class="hcols"><section><div class="sechead"><h3>貢獻榜</h3><span class="small">改和弦 +2・確認校對 +5</span></div><div id="lbBox" class="card lb"><div class="empty">讀取中…</div></div></section>
   <section><div class="sechead"><h3>點歌佇列</h3><button id="reqBtn">花 10 分點歌</button></div><div id="reqBox" class="card lb"><div class="empty">讀取中…</div></div></section></div>
 `;
-  $('heroNew').onclick=openNew;
+  $('heroNew').onclick=openNew;$('heroAuto')&&($('heroAuto').onclick=openAuto);
   $('hsearch').onsubmit=e=>{e.preventDefault();$('q').value=$('hq').value;filt={status:'',key:-1};nav('#/songs');};
   $('wipLink')&&($('wipLink').onclick=e=>{e.preventDefault();filt={status:'wip',key:-1};$('q').value='';nav('#/songs');});
   $('rankTabs').onclick=e=>{const b=e.target.closest('[data-d]');if(b){rankDays=+b.dataset.d;drawRank();}};
@@ -1738,7 +1749,7 @@ function wizLiveEnd(){
   const an=W.cap.stop();W.cap=null;W.live=false;$('wizRestart').textContent='重來';
   if(an.frames<50){toast('聽到的聲音太短，沒辦法分析');wizClose();return;}
   // 從開始計時那刻起算
-  W.an=an;if(!W.bpm)W.bpm=90;
+  W.an=an;if(!W.bpm)W.bpm=an.bpm||90;
   const k=ChordDetect.keyFromChords(ChordDetect.group(an,{segSec:240/W.bpm,offset:an.firstSound,keyMajor:an.key.major}));if(k)an.key=k;
   if(!W.taps.some(t=>typeof t==='number'))wizAutoTaps();
   wizFinish();}
@@ -1837,6 +1848,90 @@ $('wizApply').onclick=()=>{W.auto=false;if(!W.audio.src)W.audio.removeAttribute(
   saveSong(patch);$('src').value=W.src;wizClose();render();openEditor(true);closeDrawer();toast('已配好和弦。點譜上任何和弦就能修改');};
 $('wizGo').onclick=()=>{const u=cur()?.audio_url;if(!u){toast('這首還沒有 Demo，請先上傳，或用別的錄音檔');return;}
   wizStart(async()=>{const r=await fetch(u);if(!r.ok)throw 0;return r.arrayBuffer();},u);};
+
+// ---- 整批自動配和弦：在本頁嵌入 YouTube，分享本分頁聲音，逐首扒和弦存成待確認小節譜 ----
+const AU={q:[],run:false,player:null,stream:null};
+const ytIdOf=u=>(u||'').match(/(?:v=|youtu\.be\/|shorts\/|embed\/)([\w-]{11})/)?.[1]||'';
+const PIPED=['https://pipedapi.kavin.rocks','https://api.piped.private.coffee','https://pipedapi.adminforge.de'];
+async function findVideo(s){const id=ytIdOf(s.url);if(id)return id;
+  const q=`${artistOf(s)==='自創曲'?'':s.artist} ${s.title}`.trim();
+  for(const h of PIPED)for(const f of ['music_songs','videos']){
+    try{const r=await fetch(`${h}/search?q=${encodeURIComponent(q)}&filter=${f}`,{signal:AbortSignal.timeout(8000)});if(!r.ok)continue;
+      const it=(await r.json()).items?.find(x=>x.url&&x.url.includes('watch?v=')&&(x.duration||0)>60&&(x.duration||0)<600);
+      if(it)return ytIdOf(it.url);}catch(_){}}
+  return '';}
+function openAuto(){if(!me){askName();return;}
+  AU.q=songs.filter(x=>!hasChords(x)&&x.status!=='verified').map(x=>({s:x,on:true,st:''}));
+  $('autoDlg').hidden=false;$('auStage').hidden=true;$('auGo').hidden=false;$('auStop').hidden=true;drawAuto();}
+function drawAuto(){const on=AU.q.filter(x=>x.on).length;$('auAll').checked=on===AU.q.length;
+  $('auSum').textContent=AU.q.length?`選了 ${on} 首，每首約 4 分鐘，全部約 ${Math.round(on*4.3)} 分鐘`:'所有歌都有和弦了';
+  $('auList').innerHTML=AU.q.map((x,i)=>`<label class="bkrow"><input type="checkbox" data-ai="${i}" ${x.on?'checked':''} ${AU.run?'disabled':''}><span style="flex:1">${esc(x.s.title)} <span class="small">${esc(x.s.artist||'')}</span></span><span class="small">${x.st}</span></label>`).join('');
+  $('auGo').disabled=!on;}
+$('auList').addEventListener('change',e=>{const i=e.target.dataset.ai;if(i!=null){AU.q[+i].on=e.target.checked;drawAuto();}});
+$('auAll').onchange=e=>{AU.q.forEach(x=>x.on=e.target.checked);drawAuto();};
+$('auX').onclick=()=>{if(AU.run&&!confirm('還在扒和弦，確定要停止嗎？'))return;auHalt();$('autoDlg').hidden=true;};
+$('auStop').onclick=()=>auHalt();
+function auHalt(){AU.run=false;AU.cap?.stop(true);AU.cap=null;AU.stream?.getTracks().forEach(t=>t.stop());AU.stream=null;AU.player?.stopVideo?.();AU.audio?.pause();
+  $('auStop').hidden=true;$('auGo').hidden=false;$('auNow').textContent='已停止';drawAuto();}
+function ytApi(){return window.YT?.Player?Promise.resolve():new Promise(r=>{window.onYouTubeIframeAPIReady=r;const sc=document.createElement('script');sc.src='https://www.youtube.com/iframe_api';document.head.appendChild(sc);});}
+$('auGo').onclick=async()=>{
+  if(!navigator.mediaDevices?.getDisplayMedia){toast('請用電腦版 Chrome');return;}
+  try{AU.stream=await navigator.mediaDevices.getDisplayMedia({video:true,audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false,suppressLocalAudioPlayback:false},preferCurrentTab:true,selfBrowserSurface:'include'});}
+  catch(e){toast('沒有分享，已取消');return;}
+  if(!AU.stream.getAudioTracks().length){AU.stream.getTracks().forEach(t=>t.stop());toast('沒有分享到聲音。請選「這個分頁」並勾選分享分頁音訊');return;}
+  AU.stream.getVideoTracks().forEach(t=>t.enabled=false);
+  AU.stream.getAudioTracks()[0].onended=()=>{if(AU.run){toast('分享被停止了');auHalt();}};
+  AU.run=true;$('auGo').hidden=true;$('auStop').hidden=false;$('auStage').hidden=false;drawAuto();
+  await ytApi();let ok=0;
+  for(const x of AU.q){if(!AU.run)break;if(!x.on||x.st.startsWith('✅'))continue;
+    x.st='找音源…';drawAuto();$('auNow').textContent=`正在處理：${x.s.title}`;
+    const own=artistOf(x.s)==='自創曲',file=x.s.audio_url||'';
+    const vid=file?'':(own&&!ytIdOf(x.s.url)?'':await findVideo(x.s));
+    if(!file&&!vid){x.st=own?'⚠️ 自創曲：請先在歌曲貼 YouTube 連結或上傳 Demo':'⚠️ 找不到影片';drawAuto();continue;}
+    x.st='▶ 播放中…';drawAuto();
+    const r=file?await auPlayFile(file,x):await auPlayOne(vid,x);if(!AU.run)break;
+    if(!r){x.st='⚠️ 播不了（可能禁止嵌入）';drawAuto();continue;}
+    const src=auChart(r.an);if(!src){x.st='⚠️ 聽不出和弦';drawAuto();continue;}
+    await auSave(x.s,{src,key:r.key,bpm:r.an.bpm||0,url:x.s.url||(vid?'https://www.youtube.com/watch?v='+vid:'')});
+    x.st=`✅ ${KEYS[r.key]} 調・${r.an.bpm||'?'} BPM・把握 ${r.an.confPct}%`;ok++;drawAuto();}
+  const was=AU.run;auHalt();$('auNow').textContent=was?`完成：${ok} 首已配好和弦，都標成 🟡 待確認`:`已停止，完成 ${ok} 首`;toast(`整批自動配和弦：完成 ${ok} 首`);};
+function auPlayOne(vid,x){return new Promise(res=>{let done=false,t0=0,stall=null;
+  const fin=v=>{if(done)return;done=true;clearInterval(stall);const an=AU.cap?.stop(true);AU.cap=null;res(v&&an&&an.frames>300?{an,...auKey(an)}:null);};
+  const onState=e=>{if(e.data===YT.PlayerState.PLAYING&&!AU.cap){AU.cap=ChordDetect.live(AU.stream);t0=Date.now();}
+    if(e.data===YT.PlayerState.ENDED)fin(true);};
+  const onErr=()=>fin(false);
+  if(AU.player){AU.player.loadVideoById(vid);AU.onState=onState;AU.onErr=onErr;}
+  else{AU.onState=onState;AU.onErr=onErr;AU.player=new YT.Player('auPlayer',{videoId:vid,playerVars:{autoplay:1,playsinline:1,rel:0},
+    events:{onReady:e=>e.target.playVideo(),onStateChange:e=>AU.onState(e),onError:e=>AU.onErr(e)}});}
+  // 沒開始播（被擋自動播放）或超過 8 分鐘就結束這首
+  stall=setInterval(()=>{if(!AU.run)return fin(false);const el=(Date.now()-(t0||Date.now()));
+    if(!t0&&AU.player?.getPlayerState?.()===YT.PlayerState.UNSTARTED)AU.player.playVideo?.();
+    if(t0&&el>8*60e3)fin(true);
+    if(AU.cap){const k=Math.round(AU.cap.seconds());x.st=`▶ 播放中 ${Math.floor(k/60)}:${String(k%60).padStart(2,'0')}`;drawAuto();}},1000);
+  setTimeout(()=>{if(!t0)fin(false);},30e3);});}
+// Suno／Demo 音檔：在本頁串流播放（不下載存檔），一樣從分享的分頁聲音分析
+function auPlayFile(url,x){return new Promise(res=>{const a=AU.audio||(AU.audio=new Audio());let done=false;
+  const fin=v=>{if(done)return;done=true;clearInterval(iv);a.pause();const an=AU.cap?.stop(true);AU.cap=null;res(v&&an&&an.frames>300?{an,...auKey(an)}:null);};
+  a.onplaying=()=>{if(!AU.cap)AU.cap=ChordDetect.live(AU.stream);};a.onended=()=>fin(true);a.onerror=()=>fin(false);
+  a.src=url;a.play().catch(()=>fin(false));
+  const iv=setInterval(()=>{if(!AU.run)return fin(false);if(AU.cap){const k=Math.round(AU.cap.seconds());x.st=`▶ 播放中 ${Math.floor(k/60)}:${String(k%60).padStart(2,'0')}`;drawAuto();}},1000);});}
+function auKey(an){const bpm=an.bpm||90,seg=240/bpm,off=(an.phase||an.firstSound)%seg;
+  const k=ChordDetect.keyFromChords(ChordDetect.group(an,{segSec:seg,offset:off,keyMajor:an.key.major}));if(k)an.key=k;
+  return {key:KEYS.findIndex(x=>IDX[x]===an.key.major)};}
+// 一小節一格，每行 4 小節，每 16 小節空一行
+function auChart(an){const bpm=an.bpm||90,seg=240/bpm,off=(an.phase||an.firstSound)%seg,fl=FLAT_KEYS.has(an.key.major);
+  const raw=ChordDetect.group(an,{segSec:seg,offset:off,keyMajor:an.key.major});
+  const sm=ChordDetect.smooth?ChordDetect.smooth(raw,{penalty:0.15,outPen:0.06,keyMajor:an.key.major}):raw;
+  const bars=sm.map(r=>r.root===undefined?null:(fl?FL:SH)[r.root]+r.q);if(bars.filter(Boolean).length<4)return '';
+  const cf=raw.filter(r=>r.conf!=null&&r.root!==undefined);an.confPct=Math.round(100*Math.min(1,cf.reduce((a,r)=>a+r.conf,0)/Math.max(1,cf.length)/0.15));
+  const lines=[];for(let i=0;i<bars.length;i+=4){lines.push(bars.slice(i,i+4).map(b=>'['+(b||'N.C.')+']').join(' '));if(i%16===12)lines.push('');}
+  return lines.join('\n').trim();}
+async function auSave(s,{src,key,bpm,url}){
+  const body=s.src.trim()?'{Auto Chords}\n'+src+'\n\n'+s.src.trim():'{Auto Chords}\n'+src;
+  Object.assign(s,{src:body,key,bpm:s.bpm||bpm,url,status:'draft',updatedAt:Date.now(),updatedBy:AUTO_NAME});cacheAll();
+  const {error}=await sb.from('songs').update({src:body,key,bpm:s.bpm||bpm,url,status:'draft',updated_by:AUTO_NAME,updated_at:new Date().toISOString()}).eq('id',s.id);
+  if(error&&/status/.test(error.message))await sb.from('songs').update({src:body,key,bpm:s.bpm||bpm,url,updated_by:AUTO_NAME,updated_at:new Date().toISOString()}).eq('id',s.id);}
+const AUTO_NAME='自動扒和弦';
 
 // ---- 批次匯入 ----
 // ChordPro → 這裡的格式

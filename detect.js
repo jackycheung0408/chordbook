@@ -137,7 +137,10 @@
       let e = 0; for (let i = 0; i < hop; i++) { const v = data[f * hop + i]; e += v * v; }
       e = Math.log1p(1000 * e); env[f] = Math.max(0, e - prev); prev = e;
     }
-    const fps = SR / hop; let best = 0, bestBpm = 0;
+    return tempoOf(env, SR / hop);
+  }
+  function tempoOf(env, fps) {
+    const frames = env.length; let best = 0, bestBpm = 0;
     for (let bpm = 70; bpm <= 180; bpm += 0.5) {
       const lag = fps * 60 / bpm, l0 = Math.floor(lag), fr = lag - l0; let s = 0;
       for (let f = 0; f + l0 + 1 < frames; f++) s += env[f] * (env[f + l0] * (1 - fr) + env[f + l0 + 1] * fr);
@@ -203,6 +206,17 @@
     return out;
   }
 
+  // 小節起點：在一小節長度內找相位，讓每拍（尤其第一拍）落在音量突增最多的位置
+  function beatPhase(env, fps, bpm) {
+    const beat = fps * 60 / bpm, bar = beat * 4; let best = 0, bp = 0;
+    for (let ph = 0; ph < bar; ph += 1) {
+      let s = 0;
+      for (let t = ph; t < env.length; t += beat) { const w = Math.round((t - ph) / beat) % 4 === 0 ? 1.5 : 1; s += w * (env[Math.round(t)] || 0); }
+      if (s > best) { best = s; bp = ph; }
+    }
+    return bp / fps;
+  }
+
   // 邊播邊抓：分析使用者分享的分頁聲音（不錄、不存，只留 12 音級能量）
   function live(stream) {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -219,6 +233,13 @@
       for (let k = 1; k < nb; k++) { if (pc[k] < 0) continue; const m = Math.sqrt(Math.pow(10, fd[k] / 20)); c[pc[k]] += m; if (bass[k]) b[pc[k]] += m; }
       C.push(c); B.push(b); E.push(Math.sqrt(e / td.length));
     }, frameSec * 1000);
+    // 另外每 20ms 記一次音量突增，用來估速度與小節起點
+    const an3 = ctx.createAnalyser(); an3.fftSize = 1024; srcNode.connect(an3);
+    const td3 = new Float32Array(1024), O = [], oT = [];let oPrev = 0;
+    const tick2 = setInterval(() => {
+      an3.getFloatTimeDomainData(td3); let e = 0; for (let i = 0; i < td3.length; i++) e += td3[i] * td3[i];
+      e = Math.log1p(1000 * e / td3.length * 256); O.push(Math.max(0, e - oPrev)); oT.push(performance.now()); oPrev = e;
+    }, 20);
     return {
       t0, ctx, level: () => E.length ? E[E.length - 1] : 0, seconds: () => E.length * frameSec,
       // 最近 n 秒聽到的和弦（只給畫面即時顯示用）
@@ -231,15 +252,19 @@
         let best = null, bs = -1; for (const T of TEMPL) { let sc = 0; for (let i = 0; i < 12; i++) sc += T.t[i] * w[i] / nn; if (sc > bs) { bs = sc; best = T; } }
         return { root: best.root, q: best.q };
       },
-      stop() {
-        clearInterval(tick); stream.getTracks().forEach(t => t.stop()); ctx.close?.();
+      stop(keep) {
+        clearInterval(tick); clearInterval(tick2); if (!keep) stream.getTracks().forEach(t => t.stop()); ctx.close?.();
         const frames = E.length, Cf = new Float32Array(frames * 12), Bf = new Float32Array(frames * 12), Ef = Float32Array.from(E);
         C.forEach((c, f) => Cf.set(c, f * 12)); B.forEach((b, f) => Bf.set(b, f * 12));
         const an2 = { C: Cf, B: Bf, E: Ef, frames, frameSec, duration: frames * frameSec };
         const total = new Array(12).fill(0); for (let f = 0; f < frames; f++) for (let i = 0; i < 12; i++) total[i] += Cf[f * 12 + i] * Ef[f];
         an2.key = detectKey(total);
         const maxE = Ef.reduce((m, x) => Math.max(m, x), 0); let first = 0; while (first < frames && Ef[first] < maxE * 0.12) first++;
-        an2.firstSound = first * frameSec; an2.bpm = 0;
+        an2.firstSound = first * frameSec; an2.bpm = 0; an2.phase = 0;
+        if (O.length > 500) { // 計時器不一定準，用實際經過的時間算每秒幾格，再重取樣成等間隔
+          const fps = (O.length - 1) / ((oT[oT.length - 1] - oT[0]) / 1000), env = Float32Array.from(O);
+          an2.bpm = tempoOf(env, fps); if (an2.bpm) an2.phase = beatPhase(env, fps, an2.bpm) + (oT[0] - t0) / 1000;
+        }
         return an2;
       }
     };

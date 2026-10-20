@@ -21,7 +21,7 @@ grant select on public.credits to anon, authenticated;   -- 不開放直接寫�
 create or replace function public.credit_edit() returns trigger
 language plpgsql security definer set search_path = public as $$
 begin
-  if new.updated_by <> '' and old.src is distinct from new.src
+  if new.updated_by not in ('', '自動扒和弦') and old.src is distinct from new.src
      and not exists (select 1 from credits where who = new.updated_by and song_id = new.id
                      and reason = 'edit' and at > now() - interval '1 day') then
     insert into credits (who, pts, reason, song_id, artist) values (new.updated_by, 2, 'edit', new.id, new.artist);
