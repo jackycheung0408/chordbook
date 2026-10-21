@@ -559,6 +559,9 @@ body.secmoving #sheet [data-row]:hover{box-shadow:inset 0 3px 0 var(--accent)}
 .rrow img,.rimg{width:44px;height:44px;border-radius:8px;object-fit:cover;background:var(--soft);flex:none}
 .rt{display:grid;flex:1;min-width:0}.rt b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.rk{font-family:var(--mono);color:var(--chord);font-weight:700}.rv{width:4em;text-align:right}
 .waitbar{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
+.tapbtn{padding:4px 12px;border-radius:8px;font-weight:700;min-width:64px}
+#editMenu hr{border:0;border-top:1px solid var(--line);margin:4px 0}
+#editMenu svg{vertical-align:-3px;margin-right:6px}
 </style>
 </head>
 <body>
@@ -607,15 +610,14 @@ body.secmoving #sheet [data-row]:hover{box-shadow:inset 0 3px 0 var(--accent)}
           <div class="headmeta" id="headmeta"></div>
         </div>
         <div class="acts" id="editActs" hidden>
-          <div class="tgroup" role="toolbar" aria-label="編輯工具">
-            <button id="autoBtn" class="hl"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/></svg>自動配和弦</button>
-            <button data-open="text"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h10M4 18h7"/></svg>歌詞</button>
-            <button data-open="info"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>備註・連結</button>
-            <button data-open="demo"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg>Demo</button>
-          </div>
           <div class="menuwrap">
             <button id="editMoreBtn" class="ibtn" aria-haspopup="true" aria-label="更多"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg></button>
             <div class="menu" id="editMenu" hidden role="menu">
+              <button role="menuitem" id="autoBtn" class="hl"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/></svg>自動配和弦</button>
+              <button role="menuitem" data-open="text"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h10M4 18h7"/></svg>歌詞</button>
+              <button role="menuitem" data-open="info"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>備註・連結</button>
+              <button role="menuitem" data-open="demo"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg>Demo</button>
+              <hr>
               <button role="menuitem" data-open="chords">貼上別處的和弦譜</button>
               <button role="menuitem" data-open="hist">以前的版本（可還原）</button>
             </div>
@@ -1207,9 +1209,12 @@ function render(){
   // 編輯中：標題區直接改歌名、歌手、原調、BPM（沿用資訊面板的欄位與存檔）
   const hf=$('headmeta').parentElement;let ih=$('inlineHead');
   if(isEditing()){if(!ih){ih=document.createElement('div');ih.id='inlineHead';ih.className='ihead';hf.appendChild(ih);
-      ih.innerHTML=`<input class="ititle" data-f="title" placeholder="歌名" aria-label="歌名"><div class="irow"><input data-f="artist" placeholder="歌手／作者" aria-label="歌手"><label>Key <select data-f="origKey" aria-label="原調"></select></label><label>♩ <input data-f="bpm" type="number" inputmode="numeric" min="0" max="300" placeholder="BPM" aria-label="BPM"></label></div>`;
+      ih.innerHTML=`<input class="ititle" data-f="title" placeholder="歌名" aria-label="歌名"><div class="irow"><input data-f="artist" placeholder="歌手／作者" aria-label="歌手"><label>Key <select data-f="origKey" aria-label="原調"></select></label><label>♩ <input data-f="bpm" type="number" inputmode="numeric" min="0" max="300" placeholder="BPM" aria-label="BPM"></label><button type="button" class="tapbtn" data-tap title="跟著拍子連點幾下">Tap</button></div>`;
       ih.querySelector('[data-f=origKey]').innerHTML=[...$('origKey').options].map(o=>`<option value="${o.value}">${esc(o.textContent.replace(/^原調\s*/,''))}</option>`).join('');
       ih.addEventListener('input',e=>{const f=e.target.dataset.f;if(!f||f==='origKey')return;$(f).value=e.target.value;$(f).dispatchEvent(new Event(f==='origKey'?'change':'input',{bubbles:true}));});
+      let taps=[];ih.addEventListener('click',e=>{if(!e.target.closest('[data-tap]'))return;const t=performance.now();if(taps.length&&t-taps[taps.length-1]>2000)taps=[];taps.push(t);taps=taps.slice(-8);
+        const b=e.target.closest('[data-tap]');if(taps.length<3){b.textContent='Tap '+taps.length;return;}
+        const bpm=Math.round(60000/((taps[taps.length-1]-taps[0])/(taps.length-1)));b.textContent='Tap ✓';const inp=ih.querySelector('[data-f=bpm]');inp.value=bpm;$('bpm').value=bpm;$('bpm').dispatchEvent(new Event('input',{bubbles:true}));});
       ih.addEventListener('change',e=>{const f=e.target.dataset.f;if(f==='origKey'){$(f).value=e.target.value;$(f).dispatchEvent(new Event('change',{bubbles:true}));}});}
     if(!ih.contains(document.activeElement)){const v={title:s.title,artist:s.artist,origKey:s.key,bpm:s.bpm||''};ih.querySelectorAll('[data-f]').forEach(el=>el.value=v[el.dataset.f]??'');}
     ih.hidden=false;$('h').hidden=true;$('headmeta').hidden=true;}
@@ -1637,7 +1642,7 @@ $('editMoreBtn').onclick=e=>{e.stopPropagation();$('editMenu').hidden=!$('editMe
 $('editActs').addEventListener('click',e=>{const b=e.target.closest('[data-open]');if(b)openDrawer(b.dataset.open);});
 document.addEventListener('click',e=>{if(!$('editMenu').hidden&&!e.target.closest('#editActs .menuwrap'))$('editMenu').hidden=true;
   const pm=$('palMenu');if(pm&&!pm.hidden&&!e.target.closest('#palActs .menuwrap'))pm.hidden=true;});
-$('autoBtn').onclick=()=>{const s=cur();if(!s)return;if(!s.src.split('\n').some(isLyricLine)){openDrawer('text');toast('先貼上歌詞，再自動配和弦');return;}
+$('autoBtn').onclick=()=>{$('editMenu').hidden=true;const s=cur();if(!s)return;if(!s.src.split('\n').some(isLyricLine)){openDrawer('text');toast('先貼上歌詞，再自動配和弦');return;}
   $('ytUrl').value=/youtu\.?be/.test(s.url||'')?s.url:'';$('ytDemo').hidden=!s.audio_url;$('ytDlg').hidden=false;};
 const ytOk=u=>/^https?:\/\/(www\.|m\.|music\.)?(youtube\.com|youtu\.be)\//i.test(u);
 $('ytX').onclick=()=>$('ytDlg').hidden=true;
