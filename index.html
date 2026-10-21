@@ -1215,10 +1215,10 @@ function render(){
   else{if(ih)ih.hidden=true;$('h').hidden=false;$('headmeta').hidden=false;}
   const ed=[...new Set([s.createdBy,s.updatedBy,s.verifiedBy].filter(Boolean))];
   const wv=WISH.find(r=>r.song_id===s.id||inNz(r.title)===inNz(s.title));
-  const wb=!hasChords(s)?`<button class="linkbtn" id="wishBtn">🙏 許願這首的譜${wv?`（${wv.votes} 人）`:''}</button>`:'';
+  const wb=!hasChords(s)?(isAdmin()?`<button class="linkbtn" id="autoOneBtn">▶ 現在扒這首的和弦</button> `:'')+`<button class="linkbtn" id="wishBtn">🙏 許願這首的譜${wv?`（${wv.votes} 人）`:''}</button>`:'';
   const st=s.status==='verified'?`<span class="vchip ok">✅ 已校對${s.verifiedBy?'（'+esc(s.verifiedBy)+'）':''}</span>`:hasChords(s)&&lbOk?`<span class="vchip">🟡 待確認</span> <button class="linkbtn" id="vfyBtn">確認和弦正確</button>`:'';
   $('songFoot').innerHTML=[wb,st,ed.length?`<span>校對：${ed.map(esc).join('、')}</span>`:'',`<span>${s.updatedBy?esc(s.updatedBy)+' 更新・':''}${ago(s.updatedAt)}</span>`,'<span>移調與 Capo 只存給你自己</span>',u?`<a class="srclink" href="${esc(u)}" target="_blank" rel="noopener">原始連結 ↗</a>`:''].filter(Boolean).join('<span class="dot">·</span>');
-  $('vfyBtn')&&($('vfyBtn').onclick=verifySong);$('wishBtn')&&($('wishBtn').onclick=()=>wish(s.title,s.artist));
+  $('vfyBtn')&&($('vfyBtn').onclick=verifySong);$('wishBtn')&&($('wishBtn').onclick=()=>wish(s.title,s.artist));$('autoOneBtn')&&($('autoOneBtn').onclick=()=>autoOne(s));
   if(s.audio_url){if($('player').dataset.src!==s.audio_url){$('player').src=s.audio_url;$('player').dataset.src=s.audio_url;}$('player').hidden=false;}else{$('player').hidden=true;}
   $('memoShow').hidden=!s.memo;$('memoShow').innerHTML=s.memo?`<span class="lbl">給團員</span>${esc(s.memo)}`:'';
   $('origShow').textContent=KEYS[s.key];
@@ -1951,9 +1951,8 @@ $('lyGo').onclick=()=>{const s=cur(),ab=autoBars(s.src);if(!ab){toast('這首沒
 
 // 歌詞進來了但還沒和弦：管理員直接接著扒這一首，其他人提示稍後會有人處理
 function lyrThenChords(s){if(!s)return;
-  if(!isAdmin()){toast(`已存「${s.title}」的歌詞，等管理員自動配和弦後會直接對上`);return;}
-  toast(`已存「${s.title}」的歌詞，接著扒和弦：按「開始」並分享這個分頁`);
-  openAuto();AU.q.forEach(x=>x.on=x.s.id===s.id);drawAuto();}
+  toast(`已存「${s.title}」的歌詞，自動配和弦時會直接對上`);}
+function autoOne(s){openAuto();AU.q.forEach(x=>x.on=x.s.id===s.id);drawAuto();}
 // ---- 收進和弦室：所有來源（貼上、書籤）走同一套「辨識 → 清理 → 對歌 → 合併」 ----
 const IN={hint:{},plan:null};
 const JUNK=/^(作詞|作曲|編曲|監製|製作人?|詞|曲|ISRC|發行|專輯|歌手|演唱|主唱|lyrics?|歌詞|KKBOX|Spotify|播放|暫停|分享|收藏|加入|下載|登入|註冊|更多|相關|留言|推薦|熱門|排行|首頁|搜尋|選單|訂閱|免費|立即|打開|開啟|App|©|copyright|all rights|http|www\.|cookie|隱私|條款|廣告)/i;
