@@ -1901,6 +1901,11 @@ $('lyGo').onclick=()=>{const s=cur(),ab=autoBars(s.src);if(!ab){toast('這首沒
   const r=alignLyrics(ab.bars,t,Math.max(0,+$('lyIntro').value||0),+$('lyPer').value||0);if(!r){toast('對不上，請確認歌詞有內容');return;}
   saveSong({src:r,status:'draft'});$('src').value=r;$('lyrDlg').hidden=true;render();toast('已把和弦對到歌詞上。對歪的地方點和弦修改，或用「以前的版本」還原');};
 
+// 歌詞進來了但還沒和弦：管理員直接接著扒這一首，其他人提示稍後會有人處理
+function lyrThenChords(s){if(!s)return;
+  if(!isAdmin()){toast(`已存「${s.title}」的歌詞，等管理員自動配和弦後會直接對上`);return;}
+  toast(`已存「${s.title}」的歌詞，接著扒和弦：按「開始」並分享這個分頁`);
+  openAuto();AU.q.forEach(x=>x.on=x.s.id===s.id);drawAuto();}
 // ---- 點和弦看吉他指型（指型資料：chords-db，MIT） ----
 let FDB=null;
 const fdb=()=>FDB||(FDB=fetch('https://cdn.jsdelivr.net/npm/@tombatossals/chords-db@0.5.1/lib/guitar.json').then(r=>r.json()).catch(()=>{FDB=null;return null;}));
@@ -2102,7 +2107,7 @@ $('bkGo').onclick=async()=>{
 window.addEventListener('message',e=>{const d=e.data;if(!d||d.type!=='cb-send'||typeof d.text!=='string')return;
   e.source?.postMessage({type:'cb-got'},'*');recvSheet(d);});
 if(window.opener&&/[?&#]recv/.test(location.href))setTimeout(()=>{try{window.opener.postMessage({type:'cb-ready'},'*');}catch(_){}},800);
-function recvSheet(d){const b=parseOne(d.title||'',d.text);if(d.artist&&!b.artist)b.artist=d.artist;
+async function recvSheet(d){const b=parseOne(d.title||'',d.text);if(d.artist&&!b.artist)b.artist=d.artist;
   const nz=v=>(v||'').toLowerCase().replace(/[\s'’"「」《》()（）\-–.,!?！？]/g,'');
   const hit=songs.find(x=>nz(x.title)===nz(b.title)&&(!d.artist||!x.artist||nz(d.artist).includes(nz(x.artist))))||songs.find(x=>nz(x.title)===nz(b.title));
   if(!(b.src.match(/\[[^\]]+\]/g)||[]).length){
@@ -2112,8 +2117,11 @@ function recvSheet(d){const b=parseOne(d.title||'',d.text);if(d.artist&&!b.artis
       saveSong({src:r,status:'draft'});$('src').value=r;render();toast(`已把歌詞對上「${hit.title}」的和弦，對歪的地方點和弦修改`);},400);return;}
     if(hit&&!hasChords(hit)){const lyr=d.text.replace(/\r/g,'').split('\n').map(l=>l.trim()).join('\n').replace(/\n{3,}/g,'\n\n').trim();
       if(hit.src.trim()&&!confirm(`「${hit.title}」已經有歌詞了，要換成這份嗎？`))return;
-      nav('#/song/'+hit.id);setTimeout(()=>{saveSong({src:lyr});$('src').value=lyr;render();toast(`已存「${hit.title}」的歌詞。整批自動配和弦時會直接把和弦對上`);},400);return;}
-    toast(hit?`「${hit.title}」已經有和弦了，要換歌詞請在編輯裡改`:'找不到同名的歌，請先新增這首歌');return;}
+      nav('#/song/'+hit.id);setTimeout(()=>{saveSong({src:lyr});$('src').value=lyr;render();lyrThenChords(hit);},400);return;}
+    if(!hit){const lyr=d.text.replace(/\r/g,'').split('\n').map(l=>l.trim()).join('\n').replace(/\n{3,}/g,'\n\n').trim();
+      if(!confirm(`和弦室還沒有「${b.title}」，要新增這首歌並存入歌詞嗎？`))return;
+      await createSong({title:b.title.trim()||'未命名',artist:(d.artist||'').trim(),key:0,bpm:0,src:lyr,url:''});lyrThenChords(cur());return;}
+    toast(`「${hit.title}」已經有和弦了，要換歌詞請在編輯裡改`);return;}
   if(hit&&confirm(`「${hit.title}」已經在和弦室了，要把這份譜放進去嗎？\n（原本的內容會留在「以前的版本」，可以還原）`)){
     nav('#/song/'+hit.id);setTimeout(()=>{$('impSrc').value=d.text;doImport(false);
       if(d.url&&!cur().url)saveSong({url:d.url});},400);return;}

@@ -15,7 +15,11 @@ ol li{margin:8px 0}.card{background:var(--card);border:1px solid var(--line);bor
 <div class="card"><b>使用方式</b><ol>
 <li>在譜站打開一首歌的譜，或在 KKBOX 等歌詞頁打開一首歌。</li>
 <li>點書籤列上的「🎸 送到和弦室」。</li>
-<li>和弦室會自動打開：送的是和弦譜，就存進同名的歌；送的是歌詞，而且這首已經自動扒好和弦，就直接把歌詞對上和弦。</li></ol>
+<li>和弦室會自動打開並合併：
+  <ul><li>送和弦譜：存進同名的歌，沒有這首就新增。</li>
+  <li>送歌詞，這首已經扒好和弦：直接把和弦對到歌詞上，完成。</li>
+  <li>送歌詞，還沒有和弦（或還沒有這首歌）：先存歌詞，管理員接著按「開始」扒和弦，扒完自動對上。</li></ul></li></ol>
+<p class="mut"><b>設快捷鍵（Mac）</b>：系統設定 → 鍵盤 → 鍵盤快速鍵 → App 快捷鍵 → ＋，應用程式選 Google Chrome，選單標題填 <code>🎸 送到和弦室</code>（要跟書籤名稱一模一樣），再按你想要的組合鍵，例如 ⌃⌥S。</p>
 <p class="mut">抓錯範圍時，先用滑鼠選取譜的部分，再點一次書籤。只會送出你正在看的這一頁。</p></div>
 </main><script>
 const APP=location.href.replace(/send\.html.*$/,'')+'#/songs?recv';
