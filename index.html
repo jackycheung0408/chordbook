@@ -395,16 +395,24 @@ button,.btn,.tc,.song{-webkit-tap-highlight-color:transparent;touch-action:manip
 /* 編輯中：每一行上方顯示一條和弦欄，看得出來可以點 */
 .is-editing .tc.sel{background:var(--soft);box-shadow:0 0 0 2px var(--accent);border-radius:4px}
 .is-editing .tc.sel .tly{box-shadow:inset 0 -3px 0 var(--chord)}
-.hhero{position:relative;overflow:hidden;min-height:300px;display:grid;align-items:end;padding:0!important}
-.hwall{position:absolute;inset:0;display:grid;grid-template-columns:repeat(7,1fr);gap:0;transform:rotate(-6deg) scale(1.25);opacity:.55}
-.hwall img{width:100%;aspect-ratio:1;object-fit:cover;display:block}
-.hhero::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(10,12,16,.35),rgba(10,12,16,.92) 70%)}
-.hin{position:relative;z-index:1;display:grid;gap:16px;padding:40px 28px 28px}
+.hhero{position:relative;display:grid;grid-template-columns:minmax(0,1.6fr) minmax(260px,1fr);gap:28px;align-items:stretch;padding:36px 32px!important;border-radius:20px;border:1px solid var(--line);
+  background:radial-gradient(90% 120% at 0% 0%,color-mix(in srgb,var(--chord) 14%,transparent),transparent 55%),radial-gradient(80% 100% at 100% 100%,color-mix(in srgb,var(--accent) 22%,transparent),transparent 60%),var(--panel)}
+.hin{display:grid;gap:18px;align-content:center}
 .eyebrow{font-size:12px;font-weight:700;letter-spacing:.14em;color:var(--chord);text-transform:uppercase}
-.htitle h1{font-size:clamp(30px,5vw,46px)!important;margin-top:6px!important}
-.htitle p a{color:var(--muted);text-decoration:underline;text-underline-offset:3px}
-.cover img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:1}
-@media(max-width:640px){.hwall{grid-template-columns:repeat(4,1fr)}.hin{padding:28px 18px 20px}}
+.htitle h1{font-size:clamp(28px,4.4vw,44px)!important;margin:8px 0 0!important;letter-spacing:-.01em;line-height:1.15}
+.htitle h1 span{color:var(--chord)}
+.htitle p{color:var(--muted);margin:8px 0 0!important;font-size:15px}
+.hchips{display:flex;gap:8px;flex-wrap:wrap}.chip{border-radius:99px;padding:5px 12px;font-size:13px;background:transparent;border:1px solid var(--line);color:var(--muted)}.chip:hover{color:var(--fg);border-color:var(--muted)}
+.hhint{color:var(--muted)}
+.hside{display:grid;gap:12px;align-content:center}
+.hstats{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.hstats>a{display:grid;gap:2px;padding:14px 12px;text-align:center;text-decoration:none;color:inherit;border-left:1px solid var(--line)}.hstats>a:hover{background:var(--soft)}
+.hstats>div{display:grid;gap:2px;padding:14px 12px;text-align:center}.hstats>div+div{border-left:1px solid var(--line)}
+.hstats b{font-size:24px;font-variant-numeric:tabular-nums}.hstats span{font-size:12px;color:var(--muted)}
+.hfeat{display:flex;gap:12px;align-items:center;padding:10px;border:1px solid var(--line);border-radius:14px;text-decoration:none;color:inherit}
+.hfeat:hover{border-color:var(--muted)}.hfeat img{width:56px;height:56px;border-radius:10px;object-fit:cover}.hfeat>span:not(.go){display:grid;flex:1;min-width:0}.hfeat b{font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.hfeat .go{color:var(--muted);font-size:18px}
+.hwip{color:var(--muted);text-align:right}
+@media(max-width:820px){.hhero{grid-template-columns:1fr;padding:24px 18px!important}.hhint{display:none}}
 .quiet{background:transparent;border-color:var(--line);color:var(--muted)}.quiet:hover{color:var(--fg);border-color:var(--muted)}
 .hacts .primary{font-weight:700;padding-inline:24px;box-shadow:0 6px 20px -8px var(--accent)}
 .cover:has(img)::after{display:none}
@@ -544,6 +552,12 @@ body.secmoving #sheet [data-row]:hover{box-shadow:inset 0 3px 0 var(--accent)}
 .fpop{position:fixed;z-index:60;background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:12px;padding:10px 12px;box-shadow:0 8px 30px #0005;display:grid;gap:6px;justify-items:center;min-width:150px}
 .fpop .fh{display:flex;gap:8px;align-items:center;width:100%;justify-content:space-between}.fpop .fh b{font-size:18px}.fpop button{padding:2px 8px}
 #sheet .c,#sheet .bc{cursor:pointer}
+.rlist{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:1fr 1fr;column-gap:24px;grid-auto-flow:column;grid-template-rows:repeat(5,auto)}
+@media(max-width:760px){.rlist{grid-template-columns:1fr;grid-auto-flow:row;grid-template-rows:none}}
+.rrow{display:flex;align-items:center;gap:12px;padding:10px 4px;border-bottom:1px solid var(--line);text-decoration:none;color:inherit}.rrow:hover{background:color-mix(in srgb,var(--soft) 40%,transparent)}
+.rn{width:1.6em;text-align:center;font-size:18px;color:var(--muted);font-variant-numeric:tabular-nums}.rn.top{color:var(--chord)}
+.rrow img,.rimg{width:44px;height:44px;border-radius:8px;object-fit:cover;background:var(--soft);flex:none}
+.rt{display:grid;flex:1;min-width:0}.rt b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.rk{font-family:var(--mono);color:var(--chord);font-weight:700}.rv{width:4em;text-align:right}
 </style>
 </head>
 <body>
@@ -1082,34 +1096,46 @@ async function loadRank(days){const c=rankCache[days];if(c&&Date.now()-c.at<6000
   if(!sb||!online)return [];const {data}=await sb.rpc('song_view_counts',{days});rankCache[days]={at:Date.now(),rows:data||[]};return data||[];}
 function renderHome(){
   const seen=lsGet('cb_seen',[]).map(song).filter(Boolean).slice(0,10);
-  const latest=[...songs].sort((a,b)=>b.updatedAt-a.updatedAt).slice(0,10);
+  const latest=songs.filter(hasChords).sort((a,b)=>b.updatedAt-a.updatedAt).slice(0,10);
   const next=setlists[0],keys=[...new Set(songs.map(x=>x.key))].sort((a,b)=>a-b);
-  const wip=songs.filter(x=>!hasChords(x)).length;
+  const wip=songs.filter(x=>!hasChords(x)).length,wk=songs.filter(x=>Date.now()-x.updatedAt<7*864e5).length;
+  const ac={};songs.forEach(x=>{const a=(x.artist||'').trim();if(a&&artistOf(x)!=='自創曲')ac[a]=(ac[a]||0)+1;});
+  const topArtists=Object.entries(ac).sort((a,b)=>b[1]-a[1]).slice(0,6).map(x=>x[0]);
+  const pick=seen.find(hasChords)||latest[0]||null;
   $('homeView').innerHTML=`
   <section class="hhero">
-    <div class="hwall" aria-hidden="true">${songs.filter(x=>artOf(x)&&artOf(x)!==OWN_PIC).slice(0,14).map(x=>`<img src="${artOf(x)}" alt="" loading="lazy" onerror="this.remove()">`).join('')}</div>
     <div class="hin">
-      <div class="htitle"><span class="eyebrow">和弦室 · ChordRoom</span><h1>今天練哪一首？</h1><p>${songs.length} 首歌${wip?`・<a href="#/songs" id="wipLink">${wip} 首還沒有和弦</a>`:''}</p></div>
-      <form class="hsearch" id="hsearch"><input type="search" id="hq" placeholder="搜尋歌名或歌手" aria-label="搜尋歌名或歌手"><button class="primary">搜尋</button></form>
-      <div class="hacts"><button class="primary" id="heroNew">＋ 新增歌曲</button>${wip&&isAdmin()?'<button id="heroAuto">整批自動配和弦</button>':''}</div>
+      <div class="htitle"><span class="eyebrow">和弦室 · ChordRoom</span><h1>找譜、練歌、<span>一起改譜</span></h1>
+        <p>樂團的共用和弦譜。移調、看指型、上台看譜都在這裡。</p></div>
+      <form class="hsearch" id="hsearch" role="search"><input type="search" id="hq" placeholder="搜尋歌名或歌手" aria-label="搜尋歌名或歌手" autocomplete="off"><button class="primary">搜尋</button></form>
+      <div class="hchips">${topArtists.map(a=>`<button type="button" class="chip" data-art="${esc(a)}">${esc(a)}</button>`).join('')}</div>
+      <div class="hacts"><button class="primary" id="heroNew">＋ 收進一首歌</button><span class="small hhint">在任何歌詞或和弦網按 ⌘A ⌘C，回來按 ⌘V</span></div>
     </div>
+    <aside class="hside">
+      <div class="hstats"><div><b>${songs.length}</b><span>首歌</span></div><div><b>${songs.length-wip}</b><span>首有和弦</span></div><a href="#/songs" id="wipLink"><b>${wip}</b><span>等和弦</span></a></div>
+      ${pick?`<a class="hfeat" href="#/song/${pick.id}">${artOf(pick)?`<img src="${artOf(pick)}" alt="" onerror="this.remove()">`:''}<span><span class="small">${seen.some(hasChords)?'繼續練':'最新上架'}</span><b>${esc(pick.title)}</b><span class="small">${esc(pick.artist||'')}${hasChords(pick)?' · '+KEYS[pick.key]+' 調':''}</span></span><span class="go">→</span></a>`:''}
+    </aside>
   </section>
   ${seen.length?`<div class="sechead"><h3>最近看過</h3></div><div class="hscroll">${seen.map(x=>homeCard(x)).join('')}</div>`:''}
-  <div class="sechead"><h3>最常練</h3><span class="seg" id="rankTabs"><button data-d="7">本週</button><button data-d="30">本月</button><button data-d="0">全部</button></span></div>
-  <div class="hscroll" id="rankRow"><div class="empty">讀取中…</div></div>
-  <div class="sechead"><h3>最新更新</h3><a href="#/songs">全部歌曲 →</a></div>
+  <div class="sechead"><h3>熱門排行</h3><span class="seg" id="rankTabs"><button data-d="7">本週</button><button data-d="30">本月</button><button data-d="90">本季</button><button data-d="0">全部</button></span></div>
+  <ol class="rlist" id="rankRow"><li class="empty">讀取中…</li></ol>
+  <div class="sechead"><h3>最新上架</h3><a href="#/songs">全部歌曲 →</a></div>
   ${latest.length?`<div class="hscroll">${latest.map(x=>homeCard(x)).join('')}</div>`:'<div class="empty card">還沒有歌。按「新增歌曲」開始。</div>'}
   <div class="hcols"><section><div class="sechead"><h3>貢獻榜</h3><span class="small">改和弦 +2・確認校對 +5</span></div><div id="lbBox" class="card lb"><div class="empty">讀取中…</div></div></section>
-  <section><div class="sechead"><h3>點歌佇列</h3><button id="reqBtn">花 10 分點歌</button></div><div id="reqBox" class="card lb"><div class="empty">讀取中…</div></div></section></div>
+  <section><div class="sechead"><h3>求譜許願池</h3><button class="primary" id="reqBtn">＋ 許願</button></div><div id="reqBox" class="card lb"><div class="empty">讀取中…</div></div></section></div>
 `;
-  $('heroNew').onclick=openNew;$('heroAuto')&&($('heroAuto').onclick=openAuto);
+  $('heroNew').onclick=()=>openInbox('');document.querySelectorAll('.hchips [data-art]').forEach(b=>b.onclick=()=>{$('q').value=b.dataset.art;filt={status:'',key:-1};nav('#/songs');});$('heroAuto')&&($('heroAuto').onclick=openAuto);
   $('hsearch').onsubmit=e=>{e.preventDefault();$('q').value=$('hq').value;filt={status:'',key:-1};nav('#/songs');};
   $('wipLink')&&($('wipLink').onclick=e=>{e.preventDefault();filt={status:'wip',key:-1};$('q').value='';nav('#/songs');});
   $('rankTabs').onclick=e=>{const b=e.target.closest('[data-d]');if(b){rankDays=+b.dataset.d;drawRank();}};
   drawRank();drawCredits();$('reqBtn').onclick=askRequest;}
 async function drawRank(){document.querySelectorAll('#rankTabs [data-d]').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.d===rankDays));
-  const rows=(await loadRank(rankDays)).map(r=>song(r.song_id)).filter(Boolean).slice(0,10);if(!$('rankRow'))return;
-  $('rankRow').innerHTML=rows.length?rows.map((x,i)=>homeCard(x,i+1)).join(''):'<div class="empty">還沒有紀錄。打開歌曲看譜、練習，這裡就會排出最常練的歌。</div>';}
+  const raw=(await loadRank(rankDays)).map(r=>({x:song(r.song_id),n:r.n})).filter(r=>r.x);if(!$('rankRow'))return;
+  // 有譜的優先，其次照瀏覽數；不足 10 首用最新上架補
+  let rows=[...raw.filter(r=>hasChords(r.x)),...raw.filter(r=>!hasChords(r.x))];
+  if(rows.length<10)songs.filter(x=>hasChords(x)&&!rows.some(r=>r.x===x)).sort((a,b)=>b.updatedAt-a.updatedAt).slice(0,10-rows.length).forEach(x=>rows.push({x,n:0}));
+  rows=rows.slice(0,10);
+  $('rankRow').innerHTML=rows.length?rows.map(({x,n},i)=>`<li><a class="rrow" href="#/song/${x.id}"><b class="rn${i<3?' top':''}">${i+1}</b>${artOf(x)?`<img src="${artOf(x)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">`:'<span class="rimg"></span>'}<span class="rt"><b>${esc(x.title)}</b><span class="small">${esc(x.artist||'')}</span></span><span class="rk">${hasChords(x)?KEYS[x.key]:'<span class="small">待和弦</span>'}</span><span class="small rv">${n?n+' 次':''}</span></a></li>`).join(''):'<li class="empty">還沒有紀錄。</li>';}
 function renderSets(){$('setList').innerHTML=setlists.length?setlists.map(setCard).join(''):'<div class="empty card">還沒有歌單。按「＋ 新歌單」排練習或演出的順序。</div>';}
 function renderList(){
   document.querySelectorAll('.nav [data-nav]').forEach(a=>{const on=a.dataset.nav===view||(a.dataset.nav==='songs'&&view==='song')||(a.dataset.nav==='sets'&&view==='set');on?a.setAttribute('aria-current','page'):a.removeAttribute('aria-current');});
@@ -1123,17 +1149,21 @@ const scoreOf=w=>lb.find(x=>x.who===w)?.pts||0;
 function badges(r){const b=[];if(r.verified>=100)b.push('🏅 百首校對者');else if(r.verified>=10)b.push('✅ 十首校對者');
   if(r.edits>=50)b.push('✍️ 勤勞改譜');if(r.top_artist&&r.edits+r.verified>=5)b.push(`🎤 ${r.top_artist} 專家`);return b;}
 async function loadCredits(){if(!sb)return;const {data,error}=await sb.rpc('leaderboard');if(error){lbOk=false;return;}lb=data||[];showMe();
+  sb.from('song_requests').select('*').eq('done',false).order('votes',{ascending:false}).order('at').limit(50).then(({data})=>{if(data)WISH=data;});
   const ha=document.querySelector('.hacts');if(ha&&isAdmin()&&!$('heroAuto')&&songs.some(x=>!hasChords(x))){const b=document.createElement('button');b.id='heroAuto';b.textContent='整批自動配和弦';b.onclick=openAuto;ha.appendChild(b);}}
 async function drawCredits(){await loadCredits();if(!$('lbBox')||!sb)return;
   if(!lbOk){$('lbBox').innerHTML=$('reqBox').innerHTML='<div class="empty">積分功能還沒啟用（需要執行 migrations/005_credits.sql）</div>';return;}
   $('lbBox').innerHTML=lb.length?lb.slice(0,10).map((r,i)=>`<div class="lbrow"><b class="lbn">${i+1}</b><span class="lbw">${esc(r.who)} <span class="small">${levelOf(r.pts)}</span><br><span class="small">${badges(r).map(esc).join('・')}</span></span><b>${r.pts}</b></div>`).join(''):'<div class="empty">還沒有人得分。修正一首歌的和弦就能上榜。</div>';
-  const {data}=await sb.from('song_requests').select('*').eq('done',false).order('votes',{ascending:false}).order('at').limit(15);
-  $('reqBox').innerHTML=(data||[]).length?data.map(r=>`<div class="lbrow"><span class="lbw">${esc(r.title)}${r.artist?` <span class="small">${esc(r.artist)}</span>`:''}</span><span class="small">${r.votes} 票</span></div>`).join(''):'<div class="empty">還沒有人點歌。點的歌會排進下一批自動配和弦。</div>';}
+  const {data}=await sb.from('song_requests').select('*').eq('done',false).order('votes',{ascending:false}).order('at').limit(50);
+  WISH=data||[];
+  $('reqBox').innerHTML=WISH.length?WISH.map((r,i)=>`<div class="lbrow"><b class="lbn">${i+1}</b><span class="lbw">${r.song_id&&song(r.song_id)?`<a href="#/song/${r.song_id}">${esc(r.title)}</a>`:esc(r.title)}${r.artist?` <span class="small">${esc(r.artist)}</span>`:''}</span><button class="ghost" data-wish="${i}" aria-label="我也想要">🙏 ${r.votes}</button></div>`).join(''):'<div class="empty">還沒有人許願。想要哪首歌的譜，按「＋ 許願」，票多的先自動配和弦。</div>';
+  $('reqBox').onclick=e=>{const b=e.target.closest('[data-wish]');if(b){const r=WISH[+b.dataset.wish];wish(r.title,r.artist);}};}
+let WISH=[];
 async function askRequest(){if(!me){askName();return;}
-  if(scoreOf(me)<10){toast(`點歌要 10 分，你現在 ${scoreOf(me)} 分。修正和弦可以賺分`);return;}
-  const t=prompt('想點哪一首歌？（歌名）');if(!t?.trim())return;const a=prompt('歌手（可不填）')||'';
-  const {data,error}=await sb.rpc('request_song',{p_title:t,p_artist:a,p_who:me});
-  toast(error?'點歌失敗：'+error.message:data==='ok'?`已點「${t.trim()}」，扣 10 分`:data);drawCredits();}
+  const t=prompt('想要哪一首歌的譜？（歌名）');if(!t?.trim())return;const a=prompt('歌手（可不填）')||'';wish(t,a);}
+async function wish(t,a){if(!me){askName();return;}
+  const {data,error}=await sb.rpc('request_song',{p_title:t,p_artist:a||'',p_who:me});
+  toast(error?'許願失敗：'+error.message:data==='ok'?`已許願「${t.trim()}」，票多的會先自動配和弦`:data);drawCredits();if(view==='song')render();}
 async function verifySong(){const s=cur();if(!me){askName();return;}
   const {data,error}=await sb.rpc('verify_song',{p_song:s.id,p_who:me});
   if(error||data!=='ok'){toast(error?error.message:data);return;}
@@ -1184,9 +1214,11 @@ function render(){
     ih.hidden=false;$('h').hidden=true;$('headmeta').hidden=true;}
   else{if(ih)ih.hidden=true;$('h').hidden=false;$('headmeta').hidden=false;}
   const ed=[...new Set([s.createdBy,s.updatedBy,s.verifiedBy].filter(Boolean))];
+  const wv=WISH.find(r=>r.song_id===s.id||inNz(r.title)===inNz(s.title));
+  const wb=!hasChords(s)?`<button class="linkbtn" id="wishBtn">🙏 許願這首的譜${wv?`（${wv.votes} 人）`:''}</button>`:'';
   const st=s.status==='verified'?`<span class="vchip ok">✅ 已校對${s.verifiedBy?'（'+esc(s.verifiedBy)+'）':''}</span>`:hasChords(s)&&lbOk?`<span class="vchip">🟡 待確認</span> <button class="linkbtn" id="vfyBtn">確認和弦正確</button>`:'';
-  $('songFoot').innerHTML=[st,ed.length?`<span>校對：${ed.map(esc).join('、')}</span>`:'',`<span>${s.updatedBy?esc(s.updatedBy)+' 更新・':''}${ago(s.updatedAt)}</span>`,'<span>移調與 Capo 只存給你自己</span>',u?`<a class="srclink" href="${esc(u)}" target="_blank" rel="noopener">原始連結 ↗</a>`:''].filter(Boolean).join('<span class="dot">·</span>');
-  $('vfyBtn')&&($('vfyBtn').onclick=verifySong);
+  $('songFoot').innerHTML=[wb,st,ed.length?`<span>校對：${ed.map(esc).join('、')}</span>`:'',`<span>${s.updatedBy?esc(s.updatedBy)+' 更新・':''}${ago(s.updatedAt)}</span>`,'<span>移調與 Capo 只存給你自己</span>',u?`<a class="srclink" href="${esc(u)}" target="_blank" rel="noopener">原始連結 ↗</a>`:''].filter(Boolean).join('<span class="dot">·</span>');
+  $('vfyBtn')&&($('vfyBtn').onclick=verifySong);$('wishBtn')&&($('wishBtn').onclick=()=>wish(s.title,s.artist));
   if(s.audio_url){if($('player').dataset.src!==s.audio_url){$('player').src=s.audio_url;$('player').dataset.src=s.audio_url;}$('player').hidden=false;}else{$('player').hidden=true;}
   $('memoShow').hidden=!s.memo;$('memoShow').innerHTML=s.memo?`<span class="lbl">給團員</span>${esc(s.memo)}`:'';
   $('origShow').textContent=KEYS[s.key];
@@ -2034,7 +2066,8 @@ async function findVideo(s){const id=ytIdOf(s.url);if(id)return id;
       if(it)return ytIdOf(it.url);}catch(_){}}
   return '';}
 function openAuto(){if(!me){askName();return;}if(!isAdmin()){toast('整批自動配和弦只有管理員（200 分以上）能用');return;}
-  AU.q=songs.filter(x=>!hasChords(x)&&x.status!=='verified').map(x=>({s:x,on:true,st:''}));
+  const vt=x=>WISH.find(r=>r.song_id===x.id||inNz(r.title)===inNz(x.title))?.votes||0;
+  AU.q=songs.filter(x=>!hasChords(x)&&x.status!=='verified').sort((a,b)=>vt(b)-vt(a)).map(x=>({s:x,on:true,st:vt(x)?`🙏 ${vt(x)} 人許願`:''}));
   $('autoDlg').hidden=false;$('auStage').hidden=true;$('auGo').hidden=false;$('auStop').hidden=true;drawAuto();}
 function drawAuto(){const on=AU.q.filter(x=>x.on).length;$('auAll').checked=on===AU.q.length;
   const rt=+($('auRate')?.value||1);$('auSum').textContent=AU.q.length?`選了 ${on} 首，約 ${Math.round(on*4.3/rt)} 分鐘`:'所有歌都有和弦了';
@@ -2094,7 +2127,8 @@ function auPlayFile(url,x){return new Promise(res=>{const a=AU.audio||(AU.audio=
   a.onplaying=()=>{if(!AU.cap)AU.cap=ChordDetect.live(AU.stream);};a.onended=()=>fin(true);a.onerror=()=>fin(false);
   a.src=url;a.playbackRate=AU.rate;a.play().catch(()=>fin(false));
   const iv=setInterval(()=>{if(!AU.run)return fin(false);if(AU.cap){const k=Math.round(AU.cap.seconds());x.st=`▶ 播放中 ${Math.floor(k/60)}:${String(k%60).padStart(2,'0')}`;drawAuto();}},1000);});}
-function auKey(an){if(an.bpm&&!an._h){an._h=1;if(an.bpm/(AU.rate||1)>135)an.bpm/=2;} // 速度常被抓成兩倍
+function auKey(an){if(an.bpm&&!an._h){an._h=1;const rt=AU.rate||1;let real=an.bpm/rt; // 換成原速再修正倍數：流行歌多在 60–150
+    while(real<60)real*=2;while(real>150)real/=2;an.bpm=real*rt;}
   if(an.bpm&&AU.rate!==1&&!an._r){an._r=1;an.realBpm=Math.round(an.bpm/AU.rate);}
   if(an.bpm&&AU.rate===1)an.bpm=Math.round(an.bpm);const bpm=an.bpm||90,seg=240/bpm,off=(an.phase||an.firstSound)%seg;
   const k=ChordDetect.keyFromChords(ChordDetect.group(an,{segSec:seg,offset:off,keyMajor:an.key.major}));if(k)an.key=k;
