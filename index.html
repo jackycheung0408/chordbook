@@ -2056,7 +2056,8 @@ document.addEventListener('paste',e=>{if(e.target.closest?.('input,textarea,[con
 // 無人值守：網址帶 ?autorun=1 時（每晚排程開啟），管理員身分就自動開始整批配和弦
 function autoRun(){const q=new URLSearchParams(location.search);if(!q.has('autorun')||!isAdmin())return;
   openAuto();const n=+q.get('n')||40;let k=0;AU.q.forEach(x=>x.on=x.on&&k++<n);$('auRate').value='2';drawAuto();
-  toast('按一次「開始」並分享這個分頁，之後會一直在背景跑');$('auGo').focus();}
+  // 有設定 Chrome 政策（免點擊分享）就會直接開始；沒有的話會失敗，改提示按一次
+  setTimeout(async()=>{await $('auGo').onclick();if(!AU.run){toast('按一次「開始」並分享這個分頁，之後會一直在背景跑');$('auGo').focus();}},1500);}
 // ---- 點和弦看吉他指型（指型資料：chords-db，MIT） ----
 let FDB=null;
 const fdb=()=>FDB||(FDB=fetch('https://cdn.jsdelivr.net/npm/@tombatossals/chords-db@0.5.1/lib/guitar.json').then(r=>r.json()).catch(()=>{FDB=null;return null;}));
