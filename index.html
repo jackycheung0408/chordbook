@@ -2027,6 +2027,10 @@ $('inGo').onclick=async()=>{if(!me){askName();return;}const p=IN.plan,s=IN.s;if(
 document.addEventListener('paste',e=>{if(e.target.closest?.('input,textarea,[contenteditable]'))return;
   const t=e.clipboardData?.getData('text/plain')||'';if(t.trim().length<20)return;e.preventDefault();openInbox(t);});
 
+// 無人值守：網址帶 ?autorun=1 時（每晚排程開啟），管理員身分就自動開始整批配和弦
+function autoRun(){const q=new URLSearchParams(location.search);if(!q.has('autorun')||!isAdmin())return;
+  openAuto();const n=+q.get('n')||40;let k=0;AU.q.forEach(x=>x.on=x.on&&k++<n);$('auRate').value='2';drawAuto();
+  setTimeout(()=>$('auGo').click(),1500);}
 // ---- 點和弦看吉他指型（指型資料：chords-db，MIT） ----
 let FDB=null;
 const fdb=()=>FDB||(FDB=fetch('https://cdn.jsdelivr.net/npm/@tombatossals/chords-db@0.5.1/lib/guitar.json').then(r=>r.json()).catch(()=>{FDB=null;return null;}));
@@ -2420,7 +2424,7 @@ const CFG=window.CHORDBOOK_CONFIG||{};
 function fromRow(r){return {id:r.id,importBatch:r.import_batch||'',sunoId:r.suno_id||'',createdBy:r.created_by||'',updatedBy:r.updated_by||'',title:r.title||'',artist:r.artist||'',key:+r.key||0,src:r.src||'',url:r.url||'',memo:r.memo||'',bpm:+r.bpm||0,audio_url:r.audio_url||'',status:r.status||'',verifiedBy:r.verified_by||'',updatedAt:Date.parse(r.updated_at)||0};}
 function setFromRow(r){return {id:r.id,updatedBy:r.updated_by||'',name:r.name||'',items:Array.isArray(r.items)?r.items:[],updatedAt:Date.parse(r.updated_at)||0};}
 function status(t,cls){$('sync').textContent=cls==='on'?'':t;$('sync').title=t;$('sync').className='sync '+(cls||'');}
-async function loadAll(){loadCredits();
+async function loadAll(){loadCredits().then(autoRun);
   const [a,b]=await Promise.all([
     sb.from('songs').select('*').order('updated_at',{ascending:false}),
     sb.from('setlists').select('*').order('updated_at',{ascending:false})]);
