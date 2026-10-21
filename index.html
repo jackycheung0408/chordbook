@@ -558,6 +558,7 @@ body.secmoving #sheet [data-row]:hover{box-shadow:inset 0 3px 0 var(--accent)}
 .rn{width:1.6em;text-align:center;font-size:18px;color:var(--muted);font-variant-numeric:tabular-nums}.rn.top{color:var(--chord)}
 .rrow img,.rimg{width:44px;height:44px;border-radius:8px;object-fit:cover;background:var(--soft);flex:none}
 .rt{display:grid;flex:1;min-width:0}.rt b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.rk{font-family:var(--mono);color:var(--chord);font-weight:700}.rv{width:4em;text-align:right}
+.waitbar{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
 </style>
 </head>
 <body>
@@ -1277,7 +1278,9 @@ function renderSheet(){const s=cur();if(!s)return;queueMicrotask(()=>{if(editing
     <button class="primary" id="guideText">開始貼歌詞</button></div>`;$('guideText').onclick=()=>openDrawer('text');return;}
   if(isEditing()){$('sheetHint').textContent=`點字加和弦・按住和弦可以拖到別的字・原調 ${KEYS[s.key]}`;$('sheet').innerHTML=(looseChordLines(s.src)>=2?`<div class="fixbar"><span>這首的和弦是寫在歌詞<b>上一行</b>的文字，還沒放到字上。</span><button class="primary" onclick="fixLooseSheet()">一鍵把和弦放到歌詞上</button></div>`:'')+tapHTML(s);}
   else{const p=prefOf(s.id);$('sheetHint').textContent='';const ab=autoBars(s.src);
-    $('sheet').innerHTML=(ab&&!hasLyrics?`<div class="fixbar"><span>這首只有自動扒的和弦，還沒有歌詞。</span><button class="primary" onclick="openLyr()">貼歌詞，自動對和弦</button></div>`:'')+(hasLyrics||s.src.trim()?sheetHTML(s,p.shift,p.capo,true):`<div class="empty">這首還沒有歌詞和和弦。<button class="primary" onclick="openEditor(true)">✎ 開始編輯</button></div>`);}}
+    const noCh=hasLyrics&&!hasChords(s),wv2=noCh&&WISH.find(r=>r.song_id===s.id||inNz(r.title)===inNz(s.title)),noSec=noCh&&!s.src.split('\n').some(l=>secMatch(l));
+    $('sheet').innerHTML=(noCh?`<div class="fixbar waitbar"><span><b>🟡 這首還沒有和弦</b><br><span class="small">歌詞已經存好。${isAdmin()?'可以現在自動扒和弦，扒完會直接對到歌詞上。':`已排進自動配和弦${wv2?`，${wv2.votes} 人許願中`:''}；會彈的話也可以自己加。`}</span></span>
+      <span class="row">${noSec?'<button onclick="doAutoSec()">自動分段</button>':''}${isAdmin()?'<button class="primary" onclick="autoOne(cur())">▶ 自動扒和弦</button>':`<button onclick="wish(cur().title,cur().artist)">🙏 許願</button>`}<button onclick="openEditor(true)">✎ 自己加和弦</button></span></div>`:'')+(ab&&!hasLyrics?`<div class="fixbar"><span>這首只有自動扒的和弦，還沒有歌詞。</span><button class="primary" onclick="openLyr()">貼歌詞，自動對和弦</button></div>`:'')+(hasLyrics||s.src.trim()?sheetHTML(s,p.shift,p.capo,true):`<div class="empty">這首還沒有歌詞和和弦。<button class="primary" onclick="openEditor(true)">✎ 開始編輯</button></div>`);}}
 // 段落標籤：點「＋ 標段落」或段落名稱，選一個就好
 const SEC_PRESETS=['Intro','Verse','Pre-Chorus','Chorus','Interlude','Bridge','Solo','Outro'];
 function nextSecName(base,lines,skip){if(/^(Chorus|Intro|Outro|Pre-Chorus)$/.test(base))return base;
@@ -1952,7 +1955,24 @@ $('lyGo').onclick=()=>{const s=cur(),ab=autoBars(s.src);if(!ab){toast('這首沒
 // 歌詞進來了但還沒和弦：管理員直接接著扒這一首，其他人提示稍後會有人處理
 function lyrThenChords(s){if(!s)return;
   toast(`已存「${s.title}」的歌詞，自動配和弦時會直接對上`);}
+function doAutoSec(){const s=cur(),r=autoSections(s.src);if(r===s.src){toast('分不出段落，可能沒有空行分隔');return;}saveSong({src:r});$('src').value=r;render();toast('已自動分段，可以在編輯裡改段落名稱');}
 function autoOne(s){openAuto();AU.q.forEach(x=>x.on=x.s.id===s.id);drawAuto();}
+// 自動分段：依空行切段，重複出現的段落是 Chorus，副歌前的短段是 Pre-Chorus，其餘依序 Verse，最後一次副歌後新的段落是 Bridge
+function autoSections(text){const L=text.replace(/\r/g,'').split('\n');if(L.some(l=>secMatch(l)))return text;
+  const B=[];let cur=[];L.forEach(l=>{if(!l.trim()){if(cur.length)B.push(cur);cur=[];}else cur.push(l.trim());});if(cur.length)B.push(cur);
+  if(B.length<2)return text;
+  const key=b=>inNz(b.join('')).replace(/[^\p{L}\p{N}]/gu,'');
+  const bg=t=>{const c=[...t],m=new Map();for(let i=0;i<c.length-1;i++){const k=c[i]+c[i+1];m.set(k,(m.get(k)||0)+1);}return m;};
+  const sim=(a,b)=>{const x=bg(key(a)),y=bg(key(b));let n=0,tx=0,ty=0;x.forEach(v=>tx+=v);y.forEach(v=>ty+=v);x.forEach((v,k)=>n+=Math.min(v,y.get(k)||0));return tx+ty?2*n/(tx+ty):0;};
+  const rep=B.map((b,i)=>B.some((c,j)=>j!==i&&sim(b,c)>0.7));
+  const lastCh=rep.lastIndexOf(true);let v=0;const name=[];
+  B.forEach((b,i)=>{if(rep[i]){name.push(b.length<=2&&rep[i+1]&&!rep[i-1]&&B[i+1].length>b.length?'Pre-Chorus':'Chorus');return;}
+    if(/^[ㄅ-ㄩˊˇˋ˙\s]+$/.test(b.join(''))||/^(la|na|oh|ah|啦|喔|哦|嗚)+$/i.test(key(b))){name.push('Interlude');return;}
+    if(rep[i+1]&&b.length<=2&&i>0&&!rep[i-1]){name.push('Pre-Chorus');return;}
+    if(lastCh>0&&i>lastCh&&rep.slice(0,i).some(Boolean)&&!B.slice(i+1).some((c,j)=>rep[i+1+j])){name.push(i===B.length-1?'Outro':'Bridge');return;}
+    name.push('Verse '+(++v));});
+  if(v===1)name.forEach((n,i)=>{if(n==='Verse 1')name[i]='Verse';});
+  return B.map((b,i)=>'{'+name[i]+'}\n'+b.join('\n')).join('\n\n');}
 // ---- 收進和弦室：所有來源（貼上、書籤）走同一套「辨識 → 清理 → 對歌 → 合併」 ----
 const IN={hint:{},plan:null};
 const JUNK=/^(作詞|作曲|編曲|監製|製作人?|詞|曲|ISRC|發行|專輯|歌手|演唱|主唱|lyrics?|歌詞|KKBOX|Spotify|播放|暫停|分享|收藏|加入|下載|登入|註冊|更多|相關|留言|推薦|熱門|排行|首頁|搜尋|選單|訂閱|免費|立即|打開|開啟|App|©|copyright|all rights|http|www\.|cookie|隱私|條款|廣告)/i;
@@ -1984,10 +2004,11 @@ function inBars(src){const b=[];src.split('\n').forEach(l=>(l.match(/\[([^\]]+)\
 // 決定怎麼合併：新的譜、說明、之後是否還要扒和弦
 function inPlan(s,P){const hasLy=x=>x.split('\n').some(l=>isLyricLine(l));
   if(P.kind==='lyrics'){
-    if(!s)return {src:P.body,msg:'新增這首歌，先存歌詞；之後自動配和弦會直接對上',need:true};
-    const ab=autoBars(s.src);if(ab&&!hasLy(s.src))return {src:alignLyrics(ab.bars,P.body,4,0),msg:'這首已經有自動扒的和弦：把歌詞對上和弦'};
+    const body=autoSections(P.body);
+    if(!s)return {src:body,msg:'新增這首歌，先存歌詞並自動分段；之後自動配和弦會直接對上',need:true};
+    const ab=autoBars(s.src);if(ab&&!hasLy(s.src))return {src:alignLyrics(ab.bars,body,4,0),msg:'這首已經有自動扒的和弦：把歌詞對上和弦'};
     if(hasChords(s)&&hasLy(s.src))return {src:null,msg:'這首已經有完整的歌詞和弦，不會更動'};
-    return {src:P.body,msg:s.src.trim()?'用這份歌詞取代原本的歌詞（舊版可還原）':'存入歌詞；之後自動配和弦會直接對上',need:true};}
+    return {src:body,msg:s.src.trim()?'用這份歌詞取代原本的歌詞（舊版可還原）':'存入歌詞並自動分段；之後自動配和弦會直接對上',need:true};}
   const r=parseOne(s?.title||'',P.body);
   if(P.kind==='chords'&&s&&hasLy(s.src)&&!hasChords(s)){const b=inBars(r.src);if(b.length)return {src:alignLyrics(b,s.src,0,0),key:r.key,msg:'這首已經有歌詞：把這份和弦依小節對到歌詞上'};}
   if(!s)return {src:r.src,key:r.key,msg:'新增這首歌，存入這份和弦譜'};
