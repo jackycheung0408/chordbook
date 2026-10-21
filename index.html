@@ -1972,11 +1972,15 @@ function inClean(text){
   return {kind:'lyrics',body};}
 const inNz=v=>(v||'').toLowerCase().replace(/[\s'’"「」《》()（）\-–.,!?！？]/g,'');
 function inCandidates(title,artist,raw){const T=inNz(title),A=inNz(artist),head=inNz(raw.slice(0,1500));
-  return songs.map(x=>{const t=inNz(x.title);let sc=0;if(!t)return null;
+  const all=songs.map(x=>{const t=inNz(x.title);let sc=0;if(!t)return null;
     if(T&&t===T)sc+=10;else if(T&&(t.includes(T)||T.includes(t))&&Math.min(t.length,T.length)>=2)sc+=5;
     if(!T&&t.length>=2&&head.includes(t))sc+=4+t.length/10;
+    if(!T&&sc&&inNz(x.artist).length>=2&&head.includes(inNz(x.artist)))sc+=7; // 頁面上同時有歌名和歌手
     const xa=inNz(x.artist);if(sc&&A&&xa&&(A.includes(xa)||xa.includes(A)))sc+=3;
-    return sc?{x,sc}:null;}).filter(Boolean).sort((a,b)=>b.sc-a.sc).slice(0,6).map(c=>c.x);}
+    return sc?{x,sc}:null;}).filter(Boolean).sort((a,b)=>b.sc-a.sc);
+  // 有把握：歌名完全相同，而且歌手也對上，或只有這一首同名
+  IN.sure=!!all[0]&&all[0].sc>=10&&(!all[1]||all[1].sc<=all[0].sc-3);
+  return all.slice(0,6).map(c=>c.x);}
 function inBars(src){const b=[];src.split('\n').forEach(l=>(l.match(/\[([^\]]+)\]/g)||[]).forEach(t=>{const v=t.slice(1,-1).trim();if(isBarTok(v))b.push(v);}));return b;}
 // 決定怎麼合併：新的譜、說明、之後是否還要扒和弦
 function inPlan(s,P){const hasLy=x=>x.split('\n').some(l=>isLyricLine(l));
@@ -1989,7 +1993,10 @@ function inPlan(s,P){const hasLy=x=>x.split('\n').some(l=>isLyricLine(l));
   if(P.kind==='chords'&&s&&hasLy(s.src)&&!hasChords(s)){const b=inBars(r.src);if(b.length)return {src:alignLyrics(b,s.src,0,0),key:r.key,msg:'這首已經有歌詞：把這份和弦依小節對到歌詞上'};}
   if(!s)return {src:r.src,key:r.key,msg:'新增這首歌，存入這份和弦譜'};
   return {src:r.src,key:r.key,msg:hasChords(s)?'用這份譜取代原本的譜（舊版可還原）':s.src.trim()?'用這份譜（含歌詞）取代原本只有歌詞的內容':'存入這份和弦譜'};}
-function openInbox(text,hint={}){IN.hint=hint;$('inText').value=text||'';$('inTitle').value=hint.title||'';$('inArtist').value=hint.artist||'';$('inDlg').hidden=false;inUpdate(true);if(!text)setTimeout(()=>$('inText').focus(),30);}
+function openInbox(text,hint={}){IN.hint=hint;IN.sure=false;$('inText').value=text||'';$('inTitle').value=hint.title||'';$('inArtist').value=hint.artist||'';$('inDlg').hidden=false;inUpdate(true);
+  if(!text){setTimeout(()=>$('inText').focus(),30);return;}
+  // 有把握又不會蓋掉現有內容：直接存，不用再按
+  const p=IN.plan;if(me&&IN.sure&&IN.s&&p?.src&&!/取代/.test(p.msg))$('inGo').click();}
 let inTmr=null;
 function inUpdate(rematch){const raw=$('inText').value;if(!raw.trim()){$('inInfo').hidden=true;$('inGo').disabled=true;return;}
   const P=inClean(raw);IN.P=P;$('inInfo').hidden=false;
@@ -2015,7 +2022,7 @@ $('inGo').onclick=async()=>{if(!me){askName();return;}const p=IN.plan,s=IN.s;if(
   if(!s)await createSong({title:$('inTitle').value.trim()||'未命名',artist:$('inArtist').value.trim(),key:key??0,bpm:0,src:p.src,url:IN.hint.url||''});
   else{nav('#/song/'+s.id);await new Promise(r=>setTimeout(r,300));const patch={src:p.src};if(key!=null)patch.key=key;if(!s.url&&IN.hint.url)patch.url=IN.hint.url;
     if(autoBars(s.src))patch.status='draft';saveSong(patch);$('src').value=p.src;render();}
-  toast(p.msg.split(/[：；]/)[0]+'，已存好');if(p.need)setTimeout(()=>lyrThenChords(cur()),600);};
+  toast(`「${(s||cur()).title}」：`+p.msg.split(/[：；]/).pop().replace(/^(新增這首歌，|存入)/,'')+'，已存好。不對的話可以在「以前的版本」還原');if(p.need)setTimeout(()=>lyrThenChords(cur()),600);};
 // 在和弦室任何地方（不在輸入框裡）按 ⌘V：直接收進來
 document.addEventListener('paste',e=>{if(e.target.closest?.('input,textarea,[contenteditable]'))return;
   const t=e.clipboardData?.getData('text/plain')||'';if(t.trim().length<20)return;e.preventDefault();openInbox(t);});
