@@ -804,6 +804,7 @@ body.secmoving #sheet [data-row]:hover{box-shadow:inset 0 3px 0 var(--accent)}
     <div class="pkhead"><b id="ndH" style="font-size:18px">新增歌曲</b><button type="button" class="ghost" id="ndX" aria-label="關閉">✕</button></div>
     <div class="row"><label class="field"><span class="lbl">歌名</span><input type="text" id="ndTitle" placeholder="例如：遠方的路口" required></label><label class="field"><span class="lbl">作者（選填）</span><input type="text" id="ndArtist" placeholder="詞曲作者或原唱"></label></div>
     <label class="field"><span class="lbl">歌詞（一行一句，可以留空之後再貼）</span><textarea id="ndLyrics" placeholder="[Intro]&#10;&#10;[Verse 1]&#10;第一句歌詞&#10;第二句歌詞&#10;&#10;[Chorus]&#10;…"></textarea></label>
+    <button type="button" class="ghost" id="ndInbox" style="justify-self:start;padding-left:0">從別的網站複製了歌詞或和弦譜？直接貼上，自動整理 →</button>
     <button type="button" class="ghost" id="ndBulk" style="justify-self:start;padding-left:0">很多首要一次加？用批次匯入 →</button>
     <label class="field"><span class="lbl">Demo 錄音（選填）：有的話會自動抓調性、BPM 並配好和弦</span><input type="file" id="ndDemo" accept="audio/*"></label>
     <div class="row" style="justify-content:flex-end"><button type="button" class="ghost" id="ndCancel">取消</button><button class="primary" type="submit" id="ndOk">建立</button></div>
@@ -830,6 +831,21 @@ body.secmoving #sheet [data-row]:hover{box-shadow:inset 0 3px 0 var(--accent)}
     <div class="row"><button id="bkParse">預覽</button><span class="small" id="bkMsg"></span></div>
     <div class="hist" id="bkList"></div>
     <div class="row" style="justify-content:flex-end"><button class="ghost" id="bkCancel">取消</button><button class="primary" id="bkGo" disabled>匯入</button></div>
+  </div>
+</div>
+<div class="dlg" id="inDlg" hidden role="dialog" aria-modal="true" aria-labelledby="inH">
+  <div class="dlgbox" style="width:min(820px,100%)">
+    <div class="pkhead"><b id="inH" style="font-size:18px">收進和弦室</b><button type="button" class="ghost" id="inX" aria-label="關閉">✕</button></div>
+    <div class="hint">在任何歌詞網或和弦網按 <b>⌘A 全選、⌘C 複製</b>，回到和弦室任何地方按 <b>⌘V</b> 就會到這裡。歌詞、和弦譜都可以，先來後到都會自動合併成同一首歌。</div>
+    <textarea id="inText" style="min-height:120px;font-family:var(--mono);font-size:13px" placeholder="把整頁貼進來，或只貼歌詞／和弦譜"></textarea>
+    <div id="inInfo" hidden style="display:grid;gap:10px">
+      <div class="row"><span class="vchip" id="inKind"></span><span class="small" id="inStat"></span></div>
+      <div class="row"><label class="field" style="flex:1"><span class="lbl">歌名</span><input type="text" id="inTitle"></label><label class="field" style="flex:1"><span class="lbl">歌手</span><input type="text" id="inArtist"></label></div>
+      <label class="field"><span class="lbl">存到</span><select id="inMatch"></select></label>
+      <div class="card" style="padding:10px 14px"><b id="inPlan"></b></div>
+      <div class="card" style="padding:12px 16px;max-height:36vh;overflow:auto"><div class="sheet" id="inPrev"></div></div>
+    </div>
+    <div class="row" style="justify-content:flex-end"><button class="ghost" id="inCancel">取消</button><button class="primary" id="inGo" disabled>存進和弦室</button></div>
   </div>
 </div>
 <div class="dlg" id="lyrDlg" hidden role="dialog" aria-modal="true" aria-labelledby="lyH">
@@ -1906,6 +1922,72 @@ function lyrThenChords(s){if(!s)return;
   if(!isAdmin()){toast(`已存「${s.title}」的歌詞，等管理員自動配和弦後會直接對上`);return;}
   toast(`已存「${s.title}」的歌詞，接著扒和弦：按「開始」並分享這個分頁`);
   openAuto();AU.q.forEach(x=>x.on=x.s.id===s.id);drawAuto();}
+// ---- 收進和弦室：所有來源（貼上、書籤）走同一套「辨識 → 清理 → 對歌 → 合併」 ----
+const IN={hint:{},plan:null};
+const JUNK=/^(作詞|作曲|編曲|監製|製作人?|詞|曲|ISRC|發行|專輯|歌手|演唱|主唱|lyrics?|歌詞|KKBOX|Spotify|播放|暫停|分享|收藏|加入|下載|登入|註冊|更多|相關|留言|推薦|熱門|排行|首頁|搜尋|選單|訂閱|免費|立即|打開|開啟|App|©|copyright|all rights|http|www\.|cookie|隱私|條款|廣告)/i;
+function inClean(text){
+  const L=text.replace(/\r/g,'').replace(/\u00a0/g,' ').split('\n').map(l=>l.replace(/\s+$/,''));
+  const isC=l=>isChordLine(l)||/\[[A-G][^\]]{0,8}\]/.test(l),isSec=l=>!!l.trim()&&(SEC_RE.test(l)||!!secMatch(l));
+  if(L.filter(isC).length>=2){// 和弦譜：從第一個和弦／段落附近到最後一個和弦後一行
+    let a=L.findIndex(l=>isC(l)||isSec(l)),z=L.length-1;while(z>a&&!isC(L[z]))z--;
+    while(a>0&&isSec(L[a-1]))a--;const seg=L.slice(a,Math.min(L.length,z+2));
+    const lyr=seg.filter(l=>l.trim()&&!isC(l)&&!isSec(l)&&!JUNK.test(l.trim())).length;
+    return {kind:lyr>=2?'chart':'chords',body:seg.join('\n')};}
+  // 純歌詞：找「像歌詞的行」最集中的一段（短句、非選單字），空行當段落
+  const sc=L.map(l=>{const t=l.trim();if(!t)return 0;if(JUNK.test(t)||t.length>48||/^[\d:\s.\-/|]+$/.test(t)||/[|｜›»]/.test(t))return -3;return 1;});
+  let best=0,bs=0,be=-1,cur=0,cs=0;sc.forEach((v,i)=>{if(cur<=0){cur=0;cs=i;}cur+=v;if(cur>best){best=cur;bs=cs;be=i;}});
+  const body=L.slice(bs,be+1).filter((l,i)=>sc[bs+i]>=0).map(l=>l.trim()).join('\n').replace(/\n{3,}/g,'\n\n').trim();
+  return {kind:'lyrics',body};}
+const inNz=v=>(v||'').toLowerCase().replace(/[\s'’"「」《》()（）\-–.,!?！？]/g,'');
+function inCandidates(title,artist,raw){const T=inNz(title),A=inNz(artist),head=inNz(raw.slice(0,1500));
+  return songs.map(x=>{const t=inNz(x.title);let sc=0;if(!t)return null;
+    if(T&&t===T)sc+=10;else if(T&&(t.includes(T)||T.includes(t))&&Math.min(t.length,T.length)>=2)sc+=5;
+    if(!T&&t.length>=2&&head.includes(t))sc+=4+t.length/10;
+    const xa=inNz(x.artist);if(sc&&A&&xa&&(A.includes(xa)||xa.includes(A)))sc+=3;
+    return sc?{x,sc}:null;}).filter(Boolean).sort((a,b)=>b.sc-a.sc).slice(0,6).map(c=>c.x);}
+function inBars(src){const b=[];src.split('\n').forEach(l=>(l.match(/\[([^\]]+)\]/g)||[]).forEach(t=>{const v=t.slice(1,-1).trim();if(isBarTok(v))b.push(v);}));return b;}
+// 決定怎麼合併：新的譜、說明、之後是否還要扒和弦
+function inPlan(s,P){const hasLy=x=>x.split('\n').some(l=>isLyricLine(l));
+  if(P.kind==='lyrics'){
+    if(!s)return {src:P.body,msg:'新增這首歌，先存歌詞；之後自動配和弦會直接對上',need:true};
+    const ab=autoBars(s.src);if(ab&&!hasLy(s.src))return {src:alignLyrics(ab.bars,P.body,4,0),msg:'這首已經有自動扒的和弦：把歌詞對上和弦'};
+    if(hasChords(s)&&hasLy(s.src))return {src:null,msg:'這首已經有完整的歌詞和弦，不會更動'};
+    return {src:P.body,msg:s.src.trim()?'用這份歌詞取代原本的歌詞（舊版可還原）':'存入歌詞；之後自動配和弦會直接對上',need:true};}
+  const r=parseOne(s?.title||'',P.body);
+  if(P.kind==='chords'&&s&&hasLy(s.src)&&!hasChords(s)){const b=inBars(r.src);if(b.length)return {src:alignLyrics(b,s.src,0,0),key:r.key,msg:'這首已經有歌詞：把這份和弦依小節對到歌詞上'};}
+  if(!s)return {src:r.src,key:r.key,msg:'新增這首歌，存入這份和弦譜'};
+  return {src:r.src,key:r.key,msg:hasChords(s)?'用這份譜取代原本的譜（舊版可還原）':s.src.trim()?'用這份譜（含歌詞）取代原本只有歌詞的內容':'存入這份和弦譜'};}
+function openInbox(text,hint={}){IN.hint=hint;$('inText').value=text||'';$('inTitle').value=hint.title||'';$('inArtist').value=hint.artist||'';$('inDlg').hidden=false;inUpdate(true);if(!text)setTimeout(()=>$('inText').focus(),30);}
+let inTmr=null;
+function inUpdate(rematch){const raw=$('inText').value;if(!raw.trim()){$('inInfo').hidden=true;$('inGo').disabled=true;return;}
+  const P=inClean(raw);IN.P=P;$('inInfo').hidden=false;
+  $('inKind').textContent={lyrics:'🎤 歌詞',chart:'🎸 和弦譜（含歌詞）',chords:'🎸 只有和弦'}[P.kind];
+  const n=P.body.split('\n').filter(l=>l.trim()).length,all=raw.split('\n').filter(l=>l.trim()).length;
+  $('inStat').textContent=`整理出 ${n} 行`+(all-n>3?`，去掉網頁上其他 ${all-n} 行`:'');
+  if(rematch){const c=inCandidates($('inTitle').value,$('inArtist').value,raw);
+    if(!$('inTitle').value&&c[0]){$('inTitle').value=c[0].title;$('inArtist').value=$('inArtist').value||c[0].artist||'';}
+    $('inMatch').innerHTML=c.map(x=>`<option value="${x.id}">${esc(x.title)}${x.artist?' － '+esc(x.artist):''}（${hasChords(x)?'有和弦':x.src.trim()?'只有歌詞':'空白'}）</option>`).join('')+`<option value="">＋ 新增一首歌</option>`;}
+  {const bad=new Set([inNz($('inTitle').value),inNz($('inArtist').value)].filter(Boolean)),Ls=P.body.split('\n');while(Ls.length&&(!Ls[0].trim()||bad.has(inNz(Ls[0]))))Ls.shift();P.body=Ls.join('\n');}
+  const s=songs.find(x=>x.id===$('inMatch').value)||null;IN.s=s;IN.plan=inPlan(s,P);
+  $('inPlan').textContent=IN.plan.msg;$('inGo').disabled=!IN.plan.src||(!s&&!$('inTitle').value.trim());
+  const kk=IN.plan.key&&IDX[IN.plan.key]!==undefined?KEYS.findIndex(k=>IDX[k]===IDX[IN.plan.key]):(s?.key||0);
+  $('inPrev').innerHTML=IN.plan.src?sheetHTML({...(s||{}),src:IN.plan.src,key:kk},0,0,false):'<div class="empty">不會更動</div>';}
+$('inText').addEventListener('input',()=>{clearTimeout(inTmr);inTmr=setTimeout(()=>inUpdate(true),250);});
+$('inTitle').addEventListener('input',()=>{clearTimeout(inTmr);inTmr=setTimeout(()=>inUpdate(true),300);});
+$('inArtist').addEventListener('change',()=>inUpdate(true));
+$('inMatch').onchange=()=>inUpdate(false);
+$('inX').onclick=$('inCancel').onclick=()=>$('inDlg').hidden=true;
+$('ndInbox').onclick=()=>{$('newDlg').hidden=true;openInbox('');};
+$('inGo').onclick=async()=>{if(!me){askName();return;}const p=IN.plan,s=IN.s;if(!p?.src)return;
+  const key=p.key&&IDX[p.key]!==undefined?KEYS.findIndex(k=>IDX[k]===IDX[p.key]):null;$('inDlg').hidden=true;
+  if(!s)await createSong({title:$('inTitle').value.trim()||'未命名',artist:$('inArtist').value.trim(),key:key??0,bpm:0,src:p.src,url:IN.hint.url||''});
+  else{nav('#/song/'+s.id);await new Promise(r=>setTimeout(r,300));const patch={src:p.src};if(key!=null)patch.key=key;if(!s.url&&IN.hint.url)patch.url=IN.hint.url;
+    if(autoBars(s.src))patch.status='draft';saveSong(patch);$('src').value=p.src;render();}
+  toast(p.msg.split(/[：；]/)[0]+'，已存好');if(p.need)setTimeout(()=>lyrThenChords(cur()),600);};
+// 在和弦室任何地方（不在輸入框裡）按 ⌘V：直接收進來
+document.addEventListener('paste',e=>{if(e.target.closest?.('input,textarea,[contenteditable]'))return;
+  const t=e.clipboardData?.getData('text/plain')||'';if(t.trim().length<20)return;e.preventDefault();openInbox(t);});
+
 // ---- 點和弦看吉他指型（指型資料：chords-db，MIT） ----
 let FDB=null;
 const fdb=()=>FDB||(FDB=fetch('https://cdn.jsdelivr.net/npm/@tombatossals/chords-db@0.5.1/lib/guitar.json').then(r=>r.json()).catch(()=>{FDB=null;return null;}));
@@ -2107,25 +2189,7 @@ $('bkGo').onclick=async()=>{
 window.addEventListener('message',e=>{const d=e.data;if(!d||d.type!=='cb-send'||typeof d.text!=='string')return;
   e.source?.postMessage({type:'cb-got'},'*');recvSheet(d);});
 if(window.opener&&/[?&#]recv/.test(location.href))setTimeout(()=>{try{window.opener.postMessage({type:'cb-ready'},'*');}catch(_){}},800);
-async function recvSheet(d){const b=parseOne(d.title||'',d.text);if(d.artist&&!b.artist)b.artist=d.artist;
-  const nz=v=>(v||'').toLowerCase().replace(/[\s'’"「」《》()（）\-–.,!?！？]/g,'');
-  const hit=songs.find(x=>nz(x.title)===nz(b.title)&&(!d.artist||!x.artist||nz(d.artist).includes(nz(x.artist))))||songs.find(x=>nz(x.title)===nz(b.title));
-  if(!(b.src.match(/\[[^\]]+\]/g)||[]).length){
-    // 只有歌詞：如果這首已經有自動扒的和弦，直接對上去
-    const ab=hit&&autoBars(hit.src);
-    if(ab&&!hit.src.split('\n').some(l=>isLyricLine(l))){nav('#/song/'+hit.id);setTimeout(()=>{const r=alignLyrics(ab.bars,d.text,4,0);if(!r){toast('對不上，請選取歌詞範圍再按一次');return;}
-      saveSong({src:r,status:'draft'});$('src').value=r;render();toast(`已把歌詞對上「${hit.title}」的和弦，對歪的地方點和弦修改`);},400);return;}
-    if(hit&&!hasChords(hit)){const lyr=d.text.replace(/\r/g,'').split('\n').map(l=>l.trim()).join('\n').replace(/\n{3,}/g,'\n\n').trim();
-      if(hit.src.trim()&&!confirm(`「${hit.title}」已經有歌詞了，要換成這份嗎？`))return;
-      nav('#/song/'+hit.id);setTimeout(()=>{saveSong({src:lyr});$('src').value=lyr;render();lyrThenChords(hit);},400);return;}
-    if(!hit){const lyr=d.text.replace(/\r/g,'').split('\n').map(l=>l.trim()).join('\n').replace(/\n{3,}/g,'\n\n').trim();
-      if(!confirm(`和弦室還沒有「${b.title}」，要新增這首歌並存入歌詞嗎？`))return;
-      await createSong({title:b.title.trim()||'未命名',artist:(d.artist||'').trim(),key:0,bpm:0,src:lyr,url:''});lyrThenChords(cur());return;}
-    toast(`「${hit.title}」已經有和弦了，要換歌詞請在編輯裡改`);return;}
-  if(hit&&confirm(`「${hit.title}」已經在和弦室了，要把這份譜放進去嗎？\n（原本的內容會留在「以前的版本」，可以還原）`)){
-    nav('#/song/'+hit.id);setTimeout(()=>{$('impSrc').value=d.text;doImport(false);
-      if(d.url&&!cur().url)saveSong({url:d.url});},400);return;}
-  openBulk();bulk=[{...b,on:true}];$('bkMsg').textContent=d.url?'來源：'+d.url:'';drawBulk();}
+function recvSheet(d){openInbox(d.text,{title:d.title,artist:d.artist,url:d.url});}
 
 // ---- 匯入紀錄與復原 ----
 async function loadBatches(){
