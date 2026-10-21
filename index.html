@@ -1153,7 +1153,7 @@ function badges(r){const b=[];if(r.verified>=100)b.push('🏅 百首校對者');
   if(r.edits>=50)b.push('✍️ 勤勞改譜');if(r.top_artist&&r.edits+r.verified>=5)b.push(`🎤 ${r.top_artist} 專家`);return b;}
 async function loadCredits(){if(!sb)return;const {data,error}=await sb.rpc('leaderboard');if(error){lbOk=false;return;}lb=data||[];showMe();
   sb.from('song_requests').select('*').eq('done',false).order('votes',{ascending:false}).order('at').limit(50).then(({data})=>{if(data)WISH=data;});
-  const ha=document.querySelector('.hacts');if(ha&&isAdmin()&&!$('heroAuto')&&songs.some(x=>!hasChords(x))){const b=document.createElement('button');b.id='heroAuto';b.textContent='整批自動配和弦';b.onclick=openAuto;ha.appendChild(b);}}
+  const hs=document.querySelector('.hside');if(hs&&isAdmin()&&!$('bgStat')){const n=songs.filter(x=>!hasChords(x)).length;if(n){const d=document.createElement('button');d.id='bgStat';d.className='linkbtn small hwip';d.textContent=`⚙ 背景配和弦：${n} 首排隊中`;d.onclick=openAuto;hs.appendChild(d);}}}
 async function drawCredits(){await loadCredits();if(!$('lbBox')||!sb)return;
   if(!lbOk){$('lbBox').innerHTML=$('reqBox').innerHTML='<div class="empty">積分功能還沒啟用（需要執行 migrations/005_credits.sql）</div>';return;}
   $('lbBox').innerHTML=lb.length?lb.slice(0,10).map((r,i)=>`<div class="lbrow"><b class="lbn">${i+1}</b><span class="lbw">${esc(r.who)} <span class="small">${levelOf(r.pts)}</span><br><span class="small">${badges(r).map(esc).join('・')}</span></span><b>${r.pts}</b></div>`).join(''):'<div class="empty">還沒有人得分。修正一首歌的和弦就能上榜。</div>';
