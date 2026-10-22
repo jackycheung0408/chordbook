@@ -1154,7 +1154,7 @@ function badges(r){const b=[];if(r.verified>=100)b.push('🏅 百首校對者');
   if(r.edits>=50)b.push('✍️ 勤勞改譜');if(r.top_artist&&r.edits+r.verified>=5)b.push(`🎤 ${r.top_artist} 專家`);return b;}
 async function loadCredits(){if(!sb)return;const {data,error}=await sb.rpc('leaderboard');if(error){lbOk=false;return;}lb=data||[];showMe();
   sb.from('song_requests').select('*').eq('done',false).order('votes',{ascending:false}).order('at').limit(50).then(({data})=>{if(data)WISH=data;});
-  const hs=document.querySelector('.hside');if(hs&&isAdmin()&&!$('bgStat')){const n=songs.filter(x=>!hasChords(x)).length;if(n){const d=document.createElement('button');d.id='bgStat';d.className='linkbtn small hwip';d.textContent=`⚙ 背景配和弦：${n} 首排隊中`;d.onclick=openAuto;hs.appendChild(d);}}}
+  cleanupBtn();}
 async function drawCredits(){await loadCredits();if(!$('lbBox')||!sb)return;
   if(!lbOk){$('lbBox').innerHTML=$('reqBox').innerHTML='<div class="empty">積分功能還沒啟用（需要執行 migrations/005_credits.sql）</div>';return;}
   $('lbBox').innerHTML=lb.length?lb.slice(0,10).map((r,i)=>`<div class="lbrow"><b class="lbn">${i+1}</b><span class="lbw">${esc(r.who)} <span class="small">${levelOf(r.pts)}</span><br><span class="small">${badges(r).map(esc).join('・')}</span></span><b>${r.pts}</b></div>`).join(''):'<div class="empty">還沒有人得分。修正一首歌的和弦就能上榜。</div>';
@@ -1222,7 +1222,7 @@ function render(){
   else{if(ih)ih.hidden=true;$('h').hidden=false;$('headmeta').hidden=false;}
   const ed=[...new Set([s.createdBy,s.updatedBy,s.verifiedBy].filter(Boolean))];
   const wv=WISH.find(r=>r.song_id===s.id||inNz(r.title)===inNz(s.title));
-  const wb=!hasChords(s)?(isAdmin()?`<button class="linkbtn" id="autoOneBtn">▶ 現在扒這首的和弦</button> `:'')+`<button class="linkbtn" id="wishBtn">🙏 許願這首的譜${wv?`（${wv.votes} 人）`:''}</button>`:'';
+  const wb=!hasChords(s)?`<button class="linkbtn" id="wishBtn">🙏 許願這首的譜${wv?`（${wv.votes} 人）`:''}</button>`:'';
   const st=s.status==='verified'?`<span class="vchip ok">✅ 已校對${s.verifiedBy?'（'+esc(s.verifiedBy)+'）':''}</span>`:hasChords(s)&&lbOk?`<span class="vchip">🟡 待確認</span> <button class="linkbtn" id="vfyBtn">確認和弦正確</button>`:'';
   $('songFoot').innerHTML=[wb,st,ed.length?`<span>校對：${ed.map(esc).join('、')}</span>`:'',`<span>${s.updatedBy?esc(s.updatedBy)+' 更新・':''}${ago(s.updatedAt)}</span>`,'<span>移調與 Capo 只存給你自己</span>',u?`<a class="srclink" href="${esc(u)}" target="_blank" rel="noopener">原始連結 ↗</a>`:''].filter(Boolean).join('<span class="dot">·</span>');
   $('vfyBtn')&&($('vfyBtn').onclick=verifySong);$('wishBtn')&&($('wishBtn').onclick=()=>wish(s.title,s.artist));$('autoOneBtn')&&($('autoOneBtn').onclick=()=>autoOne(s));
@@ -1285,8 +1285,8 @@ function renderSheet(){const s=cur();if(!s)return;queueMicrotask(()=>{if(editing
   if(isEditing()){$('sheetHint').textContent=`點字加和弦・按住和弦可以拖到別的字・原調 ${KEYS[s.key]}`;$('sheet').innerHTML=(looseChordLines(s.src)>=2?`<div class="fixbar"><span>這首的和弦是寫在歌詞<b>上一行</b>的文字，還沒放到字上。</span><button class="primary" onclick="fixLooseSheet()">一鍵把和弦放到歌詞上</button></div>`:'')+tapHTML(s);}
   else{const p=prefOf(s.id);$('sheetHint').textContent='';const ab=autoBars(s.src);
     const noCh=hasLyrics&&!hasChords(s),wv2=noCh&&WISH.find(r=>r.song_id===s.id||inNz(r.title)===inNz(s.title)),noSec=noCh&&!s.src.split('\n').some(l=>secMatch(l));
-    $('sheet').innerHTML=(noCh?`<div class="fixbar waitbar"><span><b>🟡 這首還沒有和弦</b><br><span class="small">歌詞已經存好。${isAdmin()?'可以現在自動扒和弦，扒完會直接對到歌詞上。':`已排進自動配和弦${wv2?`，${wv2.votes} 人許願中`:''}；會彈的話也可以自己加。`}</span></span>
-      <span class="row">${noSec?'<button onclick="doAutoSec()">自動分段</button>':''}${isAdmin()?'<button class="primary" onclick="autoOne(cur())">▶ 自動扒和弦</button>':`<button onclick="wish(cur().title,cur().artist)">🙏 許願</button>`}<button onclick="openEditor(true)">✎ 自己加和弦</button></span></div>`:'')+(ab&&!hasLyrics?`<div class="fixbar"><span>這首只有自動扒的和弦，還沒有歌詞。</span><button class="primary" onclick="openLyr()">貼歌詞，自動對和弦</button></div>`:'')+(hasLyrics||s.src.trim()?sheetHTML(s,p.shift,p.capo,true):`<div class="empty">這首還沒有歌詞和和弦。<button class="primary" onclick="openEditor(true)">✎ 開始編輯</button></div>`);}}
+    $('sheet').innerHTML=(noCh?`<div class="fixbar waitbar"><span><b>🟡 這首還沒有和弦</b><br><span class="small">歌詞已經存好。${wv2?`${wv2.votes} 人許願中。`:''}有和弦網的譜可以直接貼上（⌘V），會彈的話也可以自己加。</span></span>
+      <span class="row">${noSec?'<button onclick="doAutoSec()">自動分段</button>':''}<button onclick="wish(cur().title,cur().artist)">🙏 許願</button><button onclick="openEditor(true)">✎ 自己加和弦</button></span></div>`:'')+(ab&&!hasLyrics?`<div class="fixbar"><span>這首只有自動扒的和弦，還沒有歌詞。</span><button class="primary" onclick="openLyr()">貼歌詞，自動對和弦</button></div>`:'')+(hasLyrics||s.src.trim()?sheetHTML(s,p.shift,p.capo,true):`<div class="empty">這首還沒有歌詞和和弦。<button class="primary" onclick="openEditor(true)">✎ 開始編輯</button></div>`);}}
 // 段落標籤：點「＋ 標段落」或段落名稱，選一個就好
 const SEC_PRESETS=['Intro','Verse','Pre-Chorus','Chorus','Interlude','Bridge','Solo','Outro'];
 function nextSecName(base,lines,skip){if(/^(Chorus|Intro|Outro|Pre-Chorus)$/.test(base))return base;
@@ -1960,7 +1960,7 @@ $('lyGo').onclick=()=>{const s=cur(),ab=autoBars(s.src);if(!ab){toast('這首沒
 
 // 歌詞進來了但還沒和弦：管理員直接接著扒這一首，其他人提示稍後會有人處理
 function lyrThenChords(s){if(!s)return;
-  toast(`已存「${s.title}」的歌詞，自動配和弦時會直接對上`);}
+  toast(`已存「${s.title}」的歌詞。之後貼上和弦譜會自動合併`);}
 function doAutoSec(){const s=cur(),r=autoSections(s.src);if(r===s.src){toast('分不出段落，可能沒有空行分隔');return;}saveSong({src:r});$('src').value=r;render();toast('已自動分段，可以在編輯裡改段落名稱');}
 function autoOne(s){openAuto();AU.q.forEach(x=>x.on=x.s.id===s.id);drawAuto();}
 // 自動分段：依空行切段，重複出現的段落是 Chorus，副歌前的短段是 Pre-Chorus，其餘依序 Verse，最後一次副歌後新的段落是 Bridge
@@ -2011,10 +2011,10 @@ function inBars(src){const b=[];src.split('\n').forEach(l=>(l.match(/\[([^\]]+)\
 function inPlan(s,P){const hasLy=x=>x.split('\n').some(l=>isLyricLine(l));
   if(P.kind==='lyrics'){
     const body=autoSections(P.body);
-    if(!s)return {src:body,msg:'新增這首歌，先存歌詞並自動分段；之後自動配和弦會直接對上',need:true};
+    if(!s)return {src:body,msg:'新增這首歌，先存歌詞並自動分段',need:true};
     const ab=autoBars(s.src);if(ab&&!hasLy(s.src))return {src:alignLyrics(ab.bars,body,4,0),msg:'這首已經有自動扒的和弦：把歌詞對上和弦'};
     if(hasChords(s)&&hasLy(s.src))return {src:null,msg:'這首已經有完整的歌詞和弦，不會更動'};
-    return {src:body,msg:s.src.trim()?'用這份歌詞取代原本的歌詞（舊版可還原）':'存入歌詞並自動分段；之後自動配和弦會直接對上',need:true};}
+    return {src:body,msg:s.src.trim()?'用這份歌詞取代原本的歌詞（舊版可還原）':'存入歌詞並自動分段',need:true};}
   const r=parseOne(s?.title||'',P.body);
   if(P.kind==='chords'&&s&&hasLy(s.src)&&!hasChords(s)){const b=inBars(r.src);if(b.length)return {src:alignLyrics(b,s.src,0,0),key:r.key,msg:'這首已經有歌詞：把這份和弦依小節對到歌詞上'};}
   if(!s)return {src:r.src,key:r.key,msg:'新增這首歌，存入這份和弦譜'};
@@ -2058,6 +2058,20 @@ function autoRun(){const q=new URLSearchParams(location.search);if(!q.has('autor
   openAuto();const n=+q.get('n')||40;let k=0;AU.q.forEach(x=>x.on=x.on&&k++<n);$('auRate').value='2';drawAuto();
   // 有設定 Chrome 政策（免點擊分享）就會直接開始；沒有的話會失敗，改提示按一次
   setTimeout(async()=>{await $('auGo').onclick();if(!AU.run){toast('按一次「開始」並分享這個分頁，之後會一直在背景跑');$('auGo').focus();}},1500);}
+// 管理員：清除「自動扒和弦」產生、之後沒人改過的和弦（保留歌詞，舊版本可還原）
+function cleanupBtn(){const hs=document.querySelector('.hside');if(!hs||!isAdmin()||$('cleanBtn'))return;
+  const n=songs.filter(x=>x.updatedBy===AUTO_NAME).length;if(!n)return;
+  const b=document.createElement('button');b.id='cleanBtn';b.className='linkbtn small hwip';b.textContent=`🧹 清除自動扒的和弦（${n} 首）`;b.onclick=cleanAuto;hs.appendChild(b);}
+async function cleanAuto(){const L=songs.filter(x=>x.updatedBy===AUTO_NAME);
+  if(!confirm(`要清除 ${L.length} 首由「自動扒和弦」產生、之後沒有人改過的和弦嗎？\n歌詞會保留，舊版本可以從「以前的版本」還原。`))return;
+  let n=0;for(const s of L){const out=[];let skip=false;
+    for(const l of (s.src||'').split('\n')){if(/^\s*\{(Intro|Outro|Auto Chords)\}\s*$/i.test(l)){skip=true;continue;}
+      if(secMatch(l)&&!/^\s*\[/.test(l)){skip=false;out.push(l);continue;}
+      const t=l.replace(/\[[^\]]*\]/g,'');if(!t.trim()){if(!skip)out.push('');continue;}skip=false;out.push(t.replace(/\s+$/,''));}
+    const src=out.join('\n').replace(/\n{3,}/g,'\n\n').trim();
+    const {error}=await sb.from('songs').update({src,key:0,bpm:0,status:'',updated_by:me,updated_at:new Date().toISOString()}).eq('id',s.id);
+    if(!error){Object.assign(s,{src,key:0,bpm:0,status:'',updatedBy:me,updatedAt:Date.now()});n++;}}
+  cacheAll();toast(`已清除 ${n} 首的自動和弦`);render();}
 // ---- 點和弦看吉他指型（指型資料：chords-db，MIT） ----
 let FDB=null;
 const fdb=()=>FDB||(FDB=fetch('https://cdn.jsdelivr.net/npm/@tombatossals/chords-db@0.5.1/lib/guitar.json').then(r=>r.json()).catch(()=>{FDB=null;return null;}));
@@ -2103,7 +2117,7 @@ async function findVideo(s){const id=ytIdOf(s.url);if(id)return id;
       const it=(await r.json()).items?.find(x=>x.url&&x.url.includes('watch?v=')&&(x.duration||0)>60&&(x.duration||0)<600);
       if(it)return ytIdOf(it.url);}catch(_){}}
   return '';}
-function openAuto(){if(!me){askName();return;}if(!isAdmin()){toast('整批自動配和弦只有管理員（200 分以上）能用');return;}
+function openAuto(){toast('整批自動配和弦已下架：準確度不足，請改用貼上和弦譜');return;if(!me){askName();return;}if(!isAdmin()){toast('整批自動配和弦只有管理員（200 分以上）能用');return;}
   const vt=x=>WISH.find(r=>r.song_id===x.id||inNz(r.title)===inNz(x.title))?.votes||0;
   AU.q=songs.filter(x=>!hasChords(x)&&x.status!=='verified').sort((a,b)=>vt(b)-vt(a)).map(x=>({s:x,on:true,st:vt(x)?`🙏 ${vt(x)} 人許願`:''}));
   $('autoDlg').hidden=false;$('auStage').hidden=true;$('auGo').hidden=false;$('auStop').hidden=true;drawAuto();}
@@ -2461,7 +2475,7 @@ const CFG=window.CHORDBOOK_CONFIG||{};
 function fromRow(r){return {id:r.id,importBatch:r.import_batch||'',sunoId:r.suno_id||'',createdBy:r.created_by||'',updatedBy:r.updated_by||'',title:r.title||'',artist:r.artist||'',key:+r.key||0,src:r.src||'',url:r.url||'',memo:r.memo||'',bpm:+r.bpm||0,audio_url:r.audio_url||'',status:r.status||'',verifiedBy:r.verified_by||'',updatedAt:Date.parse(r.updated_at)||0};}
 function setFromRow(r){return {id:r.id,updatedBy:r.updated_by||'',name:r.name||'',items:Array.isArray(r.items)?r.items:[],updatedAt:Date.parse(r.updated_at)||0};}
 function status(t,cls){$('sync').textContent=cls==='on'?'':t;$('sync').title=t;$('sync').className='sync '+(cls||'');}
-async function loadAll(){loadCredits().then(autoRun);
+async function loadAll(){loadCredits().then(cleanupBtn);
   const [a,b]=await Promise.all([
     sb.from('songs').select('*').order('updated_at',{ascending:false}),
     sb.from('setlists').select('*').order('updated_at',{ascending:false})]);
