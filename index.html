@@ -1189,14 +1189,14 @@ function renderHome(){
   $('homeView').innerHTML=`
   <section class="hhero">
     <div class="hin">
-      <div class="htitle"><span class="eyebrow">和弦室 · ChordRoom</span><h1>一起把<span>和弦譜</span>補齊</h1>
-        <p>${wip?`還有 <b>${wip}</b> 首歌在等和弦。補一首 +2 分，被別人確認 +5 分。`:'所有歌都有和弦了，幫忙校對看看準不準。'}</p></div>
+      <div class="htitle"><span class="eyebrow">和弦室 · ChordRoom</span><h1>樂手<span>共筆</span>的和弦譜</h1>
+        <p>每份譜都是大家一起改出來的。看到錯的就改，缺的就補，你的名字會留在譜上。</p></div>
       <form class="hsearch" id="hsearch" role="search"><input type="search" id="hq" placeholder="搜尋歌名或歌手" aria-label="搜尋歌名或歌手" autocomplete="off"><button class="primary">搜尋</button></form>
       <div class="hchips">${topArtists.map(a=>`<button type="button" class="chip" data-art="${esc(a)}">${esc(a)}</button>`).join('')}</div>
-      <div class="hacts"><button class="primary" id="heroHelp">🙌 幫忙補譜</button><button id="heroNew">＋ 收進一首歌</button><span class="small hhint">${kbd('在和弦網按 ⌘A ⌘C，回來按 ⌘V')}</span></div>
+      <div class="hacts"><button class="primary" id="heroHelp">✍️ 我來補一首</button><button id="heroNew">＋ 分享一份譜</button><span class="small hhint">${kbd('在和弦網按 ⌘A ⌘C，回來按 ⌘V')}</span></div>
     </div>
     <aside class="hside">
-      <div class="hprog"><div class="hp1"><span><b>${songs.length-wip}</b> / ${songs.length} 首有和弦</span><span class="small">${Math.round((songs.length-wip)/Math.max(1,songs.length)*100)}%</span></div>
+      <div class="hprog"><div class="hp1"><span><b>${songs.length-wip}</b> / ${songs.length} 首已有人編</span><span class="small">${Math.round((songs.length-wip)/Math.max(1,songs.length)*100)}%</span></div>
         <div class="bar"><i style="width:${(songs.length-wip)/Math.max(1,songs.length)*100}%"></i></div>
         <div class="small" id="weekHelp">本週貢獻讀取中…</div><div class="htop" id="heroTop"></div></div>
       ${pick?`<a class="hfeat" href="#/song/${pick.id}">${artOf(pick)?`<img src="${artOf(pick)}" alt="" onerror="this.remove()">`:''}<span><span class="small">${seen.some(hasChords)?'繼續練':'最新上架'}</span><b>${esc(pick.title)}</b><span class="small">${esc(pick.artist||'')}${hasChords(pick)?' · '+KEYS[pick.key]+' 調':''}</span></span><span class="go">→</span></a>`:''}
@@ -2198,7 +2198,7 @@ async function weekStats(){if(!sb||!$('weekHelp'))return;const since=new Date(Da
   const {data,error}=await sb.from('credits').select('who,pts,reason').gte('at',since).in('reason',['edit','verify']);if(!$('weekHelp'))return;
   if(error||!data){$('weekHelp').textContent='';return;}
   const by={};data.forEach(r=>{if(r.who==='自動扒和弦')return;by[r.who]=(by[r.who]||0)+r.pts;});const top=Object.entries(by).sort((a,b)=>b[1]-a[1]);
-  $('weekHelp').textContent=top.length?`本週 ${top.length} 人幫忙補譜、校對`:'本週還沒有人補譜，來當第一個！';
+  $('weekHelp').textContent=top.length?`這週有 ${top.length} 位樂手一起編譜`:'這週還沒有人動筆，來當第一個！';
   $('heroTop').innerHTML=top.slice(0,3).map(([w,p],i)=>`<span class="tchip">${['🥇','🥈','🥉'][i]} ${esc(w)} <b>+${p}</b></span>`).join('');}
 // ---- 點和弦看吉他指型（指型資料：chords-db，MIT） ----
 let FDB=null;
