@@ -1449,6 +1449,9 @@ function removeChord(){
   if(pk.cl!=null){const lines=cur().src.split('\n'),t=chordTokens(lines[pk.cl]);if(pk.si!=null){const cs=t[pk.ci].trim().split(/\s+/);cs.splice(pk.si,1);if(cs.length)t[pk.ci]=cs.join(' ');else t.splice(pk.ci,1);}else t.splice(pk.ci,1);if(t.length)lines[pk.cl]=chordLine(t,lineRep(lines[pk.cl]));else lines.splice(pk.cl,1);closePicker();commitLines(lines);return;}
   const lines=cur().src.split('\n'),c=cellsOf(lines[pk.l])[pk.k];if(!c.chord)return;
   lines[pk.l]=lines[pk.l].slice(0,c.chord.s)+lines[pk.l].slice(c.chord.e);closePicker();commitLines(lines);}
+// 把一個和弦移到「開始唱之前」：放在行首並空一格，就不會黏在第一個字上
+function toPickup(l,ch,lines){lines=lines||cur().src.split('\n');if(/^\s*\[[^\]]+\]\s/.test(lines[l])&&lines[l].indexOf('['+ch.name+']')!==lines[l].search(/\[/)){toast('開始唱之前已經有和弦了');return;}
+  const stripped=lines[l].slice(0,ch.s)+lines[l].slice(ch.e);lines[l]='['+ch.name+'] '+stripped.replace(/^\s+/,'');closePicker();commitLines(lines);toast('已移到開始唱之前');}
 function moveChord(d){
   if(pk.cl!=null&&pk.si!=null){const lines=cur().src.split('\n'),t=chordTokens(lines[pk.cl]),cs=t[pk.ci].trim().split(/\s+/),j=pk.si+d;
     if(cs.length>1&&j>=0&&j<cs.length){[cs[pk.si],cs[j]]=[cs[j],cs[pk.si]];t[pk.ci]=cs.join(' ');lines[pk.cl]=chordLine(t,lineRep(lines[pk.cl]));const o={cl:pk.cl,ci:pk.ci,si:j};commitLines(lines);select(o);return;}
@@ -1457,7 +1460,8 @@ function moveChord(d){
     const cl=pk.cl;commitLines(lines);select({cl,ci:j});return;}
   const lines=cur().src.split('\n'),c=cellsOf(lines[pk.l])[pk.k];if(!c.chord)return;
   const stripped=lines[pk.l].slice(0,c.chord.s)+lines[pk.l].slice(c.chord.e),cells=cellsOf(stripped),k2=pk.k+d;
-  if(k2<0||k2>=cells.length)return;if(cells[k2].chord){toast('那個字已經有和弦了');return;}
+  if(k2<0){toPickup(pk.l,c.chord,lines);return;}
+  if(k2>=cells.length)return;if(cells[k2].chord){toast('那個字已經有和弦了');return;}
   lines[pk.l]=stripped.slice(0,cells[k2].off)+'['+c.chord.name+']'+stripped.slice(cells[k2].off);
   const l=pk.l;commitLines(lines);select({l,k:k2});}
 // 整段複製：記下這段每一行（歌詞行依字的位置、純和弦行整行）的和弦
@@ -1506,7 +1510,9 @@ document.addEventListener('touchmove',e=>{if(drag?.on)e.preventDefault();},{pass
 function endDrag(e,cancel){if(!drag)return;clearTimeout(drag.timer);const d=drag;drag=null;
   if(!d.on)return;justDragged=true;setTimeout(()=>justDragged=false,50);
   d.ghost?.remove();d.el.classList.remove('dragging');document.querySelectorAll('.tc.drop').forEach(t=>t.classList.remove('drop'));
-  if(cancel)return;const t=dragTarget(e.clientX,e.clientY);if(t)dropChord(d.from,{l:+t.dataset.l,k:+t.dataset.k});}
+  if(cancel)return;const t=dragTarget(e.clientX,e.clientY);if(!t)return;
+  if(t.dataset.start){const lines=cur().src.split('\n'),c=cellsOf(lines[d.from.l])[d.from.k];if(c?.chord&&+t.dataset.l===d.from.l){toPickup(d.from.l,c.chord,lines);return;}}
+  dropChord(d.from,{l:+t.dataset.l,k:+t.dataset.k});}
 document.addEventListener('pointerup',e=>endDrag(e,false));
 document.addEventListener('pointercancel',e=>endDrag(e,true));
 document.addEventListener('contextmenu',e=>{if(drag)e.preventDefault();});
