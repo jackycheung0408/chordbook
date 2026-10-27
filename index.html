@@ -632,6 +632,11 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:var(
 .addres{position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:20;background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:6px;display:grid;gap:2px;max-height:360px;overflow:auto}
 .addopt{display:flex;gap:10px;align-items:center;justify-content:flex-start;width:100%;border:0;background:transparent;border-radius:10px;padding:9px 12px;text-align:left}
 .addopt b{font-weight:600}.addopt .k{margin-left:auto;font-family:var(--mono);color:var(--chord);font-weight:700}.addopt.on,.addopt:hover{background:var(--soft)}
+.hprog{border:1px solid var(--line);border-radius:16px;padding:16px;display:grid;gap:10px;background:color-mix(in srgb,var(--bg) 40%,transparent)}
+.hp1{display:flex;justify-content:space-between;align-items:baseline}.hp1 b{font-size:26px;font-weight:800;letter-spacing:-.03em}
+.hprog .bar{height:8px;border-radius:99px;background:color-mix(in srgb,var(--fg) 8%,transparent);overflow:hidden}.hprog .bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--accent),var(--chord))}
+.htop{display:flex;gap:6px;flex-wrap:wrap}.tchip{font-size:13px;padding:3px 10px;border-radius:99px;background:var(--soft)}.tchip b{color:var(--accent)}
+.htitle p b{color:var(--fg)}
 </style>
 </head>
 <body>
@@ -923,7 +928,7 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:var(
 <div class="dlg" id="inDlg" hidden role="dialog" aria-modal="true" aria-labelledby="inH">
   <div class="dlgbox" style="width:min(820px,100%)">
     <div class="pkhead"><b id="inH" style="font-size:18px">收進和弦室</b><button type="button" class="ghost" id="inX" aria-label="關閉">✕</button></div>
-    <div class="hint">在任何歌詞網或和弦網按 <b>⌘A 全選、⌘C 複製</b>，回到和弦室任何地方按 <b>⌘V</b> 就會到這裡。歌詞、和弦譜都可以，先來後到都會自動合併成同一首歌。</div>
+    <div class="hint">在任何歌詞網或和弦網按 <b class="kb">⌘A</b> 全選、<b class="kb">⌘C</b> 複製，回到和弦室任何地方按 <b class="kb">⌘V</b> 就會到這裡。歌詞、和弦譜都可以，先來後到都會自動合併成同一首歌。</div>
     <textarea id="inText" style="min-height:120px;font-family:var(--mono);font-size:13px" placeholder="把整頁貼進來，或只貼歌詞／和弦譜"></textarea>
     <div id="inInfo" hidden style="display:grid;gap:10px">
       <div class="row"><span class="vchip" id="inKind"></span><span class="small" id="inStat"></span></div>
@@ -998,6 +1003,8 @@ function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
 function toast(t){const el=$('toast');el.textContent=t;el.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>el.hidden=true,2200);}
 
 // ---- state ----
+const IS_MAC=/Mac|iPhone|iPad|iPod/i.test(navigator.userAgentData?.platform||navigator.platform||navigator.userAgent),KM=IS_MAC?'⌘':'Ctrl+',KA=IS_MAC?'⌥':'Alt';
+const kbd=t=>IS_MAC?t:t.replace(/⌘/g,'Ctrl+').replace(/⌥/g,'Alt');
 let songs=[], setlists=[], curId=lsGet('cb_cur',null), curSet=null, view='home', showTrash=false, trash=[];
 let prefs=lsGet('cb_prefs',{}), mode='auto', sb=null, online=false;
 const cur=()=>songs.find(s=>s.id===curId);
@@ -1182,14 +1189,16 @@ function renderHome(){
   $('homeView').innerHTML=`
   <section class="hhero">
     <div class="hin">
-      <div class="htitle"><span class="eyebrow">和弦室 · ChordRoom</span><h1>找譜、練歌、<span>一起改譜</span></h1>
-        <p>樂團的共用和弦譜。移調、看指型、上台看譜都在這裡。</p></div>
+      <div class="htitle"><span class="eyebrow">和弦室 · ChordRoom</span><h1>一起把<span>和弦譜</span>補齊</h1>
+        <p>${wip?`還有 <b>${wip}</b> 首歌在等和弦。補一首 +2 分，被別人確認 +5 分。`:'所有歌都有和弦了，幫忙校對看看準不準。'}</p></div>
       <form class="hsearch" id="hsearch" role="search"><input type="search" id="hq" placeholder="搜尋歌名或歌手" aria-label="搜尋歌名或歌手" autocomplete="off"><button class="primary">搜尋</button></form>
       <div class="hchips">${topArtists.map(a=>`<button type="button" class="chip" data-art="${esc(a)}">${esc(a)}</button>`).join('')}</div>
-      <div class="hacts"><button class="primary" id="heroNew">＋ 收進一首歌</button><span class="small hhint">在任何歌詞或和弦網按 ⌘A ⌘C，回來按 ⌘V</span></div>
+      <div class="hacts"><button class="primary" id="heroHelp">🙌 幫忙補譜</button><button id="heroNew">＋ 收進一首歌</button><span class="small hhint">${kbd('在和弦網按 ⌘A ⌘C，回來按 ⌘V')}</span></div>
     </div>
     <aside class="hside">
-      <div class="hstats"><div><b>${songs.length}</b><span>首歌</span></div><div><b>${songs.length-wip}</b><span>首有和弦</span></div><a href="#/songs" id="wipLink"><b>${wip}</b><span>等和弦</span></a></div>
+      <div class="hprog"><div class="hp1"><span><b>${songs.length-wip}</b> / ${songs.length} 首有和弦</span><span class="small">${Math.round((songs.length-wip)/Math.max(1,songs.length)*100)}%</span></div>
+        <div class="bar"><i style="width:${(songs.length-wip)/Math.max(1,songs.length)*100}%"></i></div>
+        <div class="small" id="weekHelp">本週貢獻讀取中…</div><div class="htop" id="heroTop"></div></div>
       ${pick?`<a class="hfeat" href="#/song/${pick.id}">${artOf(pick)?`<img src="${artOf(pick)}" alt="" onerror="this.remove()">`:''}<span><span class="small">${seen.some(hasChords)?'繼續練':'最新上架'}</span><b>${esc(pick.title)}</b><span class="small">${esc(pick.artist||'')}${hasChords(pick)?' · '+KEYS[pick.key]+' 調':''}</span></span><span class="go">→</span></a>`:''}
     </aside>
   </section>
@@ -1201,7 +1210,7 @@ function renderHome(){
   <div class="hcols"><section><div class="sechead"><h3>貢獻榜</h3><span class="small">改和弦 +2・確認校對 +5</span></div><div id="lbBox" class="card lb"><div class="empty">讀取中…</div></div></section>
   <section><div class="sechead"><h3>求譜許願池</h3><button class="primary" id="reqBtn">＋ 許願</button></div><div id="reqBox" class="card lb"><div class="empty">讀取中…</div></div></section></div>
 `;
-  $('heroNew').onclick=()=>openInbox('');document.querySelectorAll('.hchips [data-art]').forEach(b=>b.onclick=()=>{$('q').value=b.dataset.art;filt={status:'',key:-1};nav('#/songs');});$('heroAuto')&&($('heroAuto').onclick=openAuto);
+  $('heroNew').onclick=()=>openInbox('');$('heroHelp').onclick=()=>{filt={status:'wip',key:-1};$('q').value='';nav('#/songs');};weekStats();document.querySelectorAll('.hchips [data-art]').forEach(b=>b.onclick=()=>{$('q').value=b.dataset.art;filt={status:'',key:-1};nav('#/songs');});$('heroAuto')&&($('heroAuto').onclick=openAuto);
   $('hsearch').onsubmit=e=>{e.preventDefault();$('q').value=$('hq').value;filt={status:'',key:-1};nav('#/songs');};
   $('wipLink')&&($('wipLink').onclick=e=>{e.preventDefault();filt={status:'wip',key:-1};$('q').value='';nav('#/songs');});
   $('rankTabs').onclick=e=>{const b=e.target.closest('[data-d]');if(b){rankDays=+b.dataset.d;drawRank();}};
@@ -1367,10 +1376,10 @@ function renderSheet(){const s=cur();if(!s)return;queueMicrotask(()=>{if(editing
   if(isEditing()&&!hasLyrics){$('sheetHint').textContent='';$('sheet').innerHTML=`<div class="guide"><b>三步驟完成一首歌</b>
     <ol><li><b>貼上歌詞</b>：下方「歌詞」，一行一句。</li><li><b>上傳 Demo</b>：下方「Demo」，會自動抓調性、BPM，把和弦配到歌詞上。</li><li><b>點字修正</b>：點譜上任何一個字就能加或改和弦。</li></ol>
     <button class="primary" id="guideText">開始貼歌詞</button></div>`;$('guideText').onclick=()=>openDrawer('text');return;}
-  if(isEditing()){$('sheetHint').textContent=`點字加和弦・拖和弦換位置・點 × 或 ⌥+點 刪和弦・原調 ${KEYS[s.key]}`;$('sheet').innerHTML=(looseChordLines(s.src)>=2?`<div class="fixbar"><span>這首的和弦是寫在歌詞<b>上一行</b>的文字，還沒放到字上。</span><button class="primary" onclick="fixLooseSheet()">一鍵把和弦放到歌詞上</button></div>`:'')+tapHTML(s);}
+  if(isEditing()){$('sheetHint').textContent=kbd(`點字加和弦・拖和弦換位置・點 × 或 ⌥+點 刪和弦・原調 ${KEYS[s.key]}`);$('sheet').innerHTML=(looseChordLines(s.src)>=2?`<div class="fixbar"><span>這首的和弦是寫在歌詞<b>上一行</b>的文字，還沒放到字上。</span><button class="primary" onclick="fixLooseSheet()">一鍵把和弦放到歌詞上</button></div>`:'')+tapHTML(s);}
   else{const p=prefOf(s.id);$('sheetHint').textContent='';const ab=autoBars(s.src);
     const noCh=hasLyrics&&!hasChords(s),wv2=noCh&&WISH.find(r=>r.song_id===s.id||inNz(r.title)===inNz(s.title)),noSec=noCh&&!s.src.split('\n').some(l=>secMatch(l));
-    $('sheet').innerHTML=(noCh?`<div class="fixbar waitbar"><span><b>🟡 這首還沒有和弦</b><br><span class="small">歌詞已經存好。${wv2?`${wv2.votes} 人許願中。`:''}有和弦網的譜可以直接貼上（⌘V），會彈的話也可以自己加。</span></span>
+    $('sheet').innerHTML=(noCh?`<div class="fixbar waitbar"><span><b>🟡 這首還沒有和弦</b><br><span class="small">歌詞已經存好。${wv2?`${wv2.votes} 人許願中。`:''}有和弦網的譜可以直接貼上（${kbd('⌘V')}），會彈的話也可以自己加。</span></span>
       <span class="row">${noSec?'<button onclick="doAutoSec()">自動分段</button>':''}<button onclick="wish(cur().title,cur().artist)">🙏 許願</button><button onclick="openEditor(true)">✎ 自己加和弦</button></span></div>`:'')+(ab&&!hasLyrics?`<div class="fixbar"><span>這首只有自動扒的和弦，還沒有歌詞。</span><button class="primary" onclick="openLyr()">貼歌詞，自動對和弦</button></div>`:'')+(hasLyrics||s.src.trim()?sheetHTML(s,p.shift,p.capo,true):`<div class="empty">這首還沒有歌詞和和弦。<button class="primary" onclick="openEditor(true)">✎ 開始編輯</button></div>`);}}
 // 段落標籤：點「＋ 標段落」或段落名稱，選一個就好
 const SEC_PRESETS=['Intro','Verse','Pre-Chorus','Chorus','Interlude','Bridge','Solo','Outro'];
@@ -2124,7 +2133,7 @@ function inPlan(s,P){const hasLy=x=>x.split('\n').some(l=>isLyricLine(l));
   if(P.kind==='chords'&&s&&hasLy(s.src)&&!hasChords(s)){const b=inBars(r.src);if(b.length)return {src:alignLyrics(b,s.src,0,0),key:r.key,msg:'這首已經有歌詞：把這份和弦依小節對到歌詞上'};}
   if(!s)return {src:r.src,key:r.key,msg:'新增這首歌，存入這份和弦譜'};
   return {src:r.src,key:r.key,msg:hasChords(s)?'用這份譜取代原本的譜（舊版可還原）':s.src.trim()?'用這份譜（含歌詞）取代原本只有歌詞的內容':'存入這份和弦譜'};}
-function openInbox(text,hint={}){IN.hint=hint;IN.sure=false;$('inText').value=text||'';$('inTitle').value=hint.title||'';$('inArtist').value=hint.artist||'';$('inDlg').hidden=false;inUpdate(true);
+function openInbox(text,hint={}){document.querySelectorAll('#inDlg .kb').forEach(b=>b.textContent=kbd(b.textContent));IN.hint=hint;IN.sure=false;$('inText').value=text||'';$('inTitle').value=hint.title||'';$('inArtist').value=hint.artist||'';$('inDlg').hidden=false;inUpdate(true);
   if(!text){setTimeout(()=>$('inText').focus(),30);return;}
   // 有把握又不會蓋掉現有內容：直接存，不用再按
   const p=IN.plan;if(me&&IN.sure&&IN.s&&p?.src&&!/取代/.test(p.msg))$('inGo').click();}
@@ -2184,6 +2193,13 @@ function applyTheme(){let t='auto';try{t=localStorage.getItem('cb_theme')||'auto
 $('thBtn').onclick=()=>{let t='auto';try{t=localStorage.getItem('cb_theme')||'auto';}catch(_){}
   const n={auto:'light',light:'dark',dark:'auto'}[t];try{localStorage.setItem('cb_theme',n);}catch(_){}applyTheme();toast({auto:'跟系統設定',light:'淺色模式',dark:'深色模式'}[n]);};
 applyTheme();
+// 首頁：本週誰幫忙補譜
+async function weekStats(){if(!sb||!$('weekHelp'))return;const since=new Date(Date.now()-7*864e5).toISOString();
+  const {data,error}=await sb.from('credits').select('who,pts,reason').gte('at',since).in('reason',['edit','verify']);if(!$('weekHelp'))return;
+  if(error||!data){$('weekHelp').textContent='';return;}
+  const by={};data.forEach(r=>{if(r.who==='自動扒和弦')return;by[r.who]=(by[r.who]||0)+r.pts;});const top=Object.entries(by).sort((a,b)=>b[1]-a[1]);
+  $('weekHelp').textContent=top.length?`本週 ${top.length} 人幫忙補譜、校對`:'本週還沒有人補譜，來當第一個！';
+  $('heroTop').innerHTML=top.slice(0,3).map(([w,p],i)=>`<span class="tchip">${['🥇','🥈','🥉'][i]} ${esc(w)} <b>+${p}</b></span>`).join('');}
 // ---- 點和弦看吉他指型（指型資料：chords-db，MIT） ----
 let FDB=null;
 const fdb=()=>FDB||(FDB=fetch('https://cdn.jsdelivr.net/npm/@tombatossals/chords-db@0.5.1/lib/guitar.json').then(r=>r.json()).catch(()=>{FDB=null;return null;}));
