@@ -1288,7 +1288,7 @@ function tapHTML(s){
     const m=secMatch(l);
     if(m){const h=secHead(m[1]);return `<div class="sec" data-row="${i}"><button class="secname" data-secedit="${i}" aria-label="段落：點一下改名或移動，按住拖到別句"><span class="grip">⠿</span>${esc(h.name)}</button>${h.ref?' <span class="rep">再一次・內容跟前面一樣</span>':''}${h.rep>1?` <span class="rep">×${h.rep}</span>`:''}<span class="secacts">${h.ref||sectionHasLyrics(all,i)?'':`<button class="addch" data-addafter="${i}">＋ 加和弦</button>`}</span></div>`;}
     if(isChordOnly(l)){const t=chordTokens(l),rp=lineRep(l);return `<div class="cline" data-row="${i}"><span class="barsep" data-gl="${i}" data-gap="0">|</span>`+t.map((n,ci)=>{const cs=n.trim().split(/\s+/),bt=barBeats(cs);
-  return `<span class="cbar${cs.length>1?' multi':''}" data-cl="${i}" data-ci="${ci}">`+cs.map((c,si)=>`<button class="cchip${ulCls(c)}" data-cl="${i}" data-ci="${ci}" data-si="${si}" style="flex:${bt[si]} 1 0">${esc(stripB(c))}<span class="cdel" data-del aria-hidden="true">×</span></button>`).join('')+`</span><span class="barsep" data-gl="${i}" data-gap="${ci+1}">|</span>`;}).join('')+(rp>1?`<span class="rep big">×${rp}</span>`:'')+`<button class="cchip add" data-cl="${i}" data-ci="-1" aria-label="加一個和弦">＋</button></div>`;}
+  return `<span class="cbar${cs.length>1?' multi':''}" data-cl="${i}" data-ci="${ci}">`+cs.map((c,si)=>`<button class="cchip${ulCls(c)}" data-cl="${i}" data-ci="${ci}" data-si="${si}" style="flex:${bt[si]} 1 0">${esc(stripB(c))}<span class="cdel" data-del aria-hidden="true">×</span></button>`).join('')+`</span><span class="barsep" data-gl="${i}" data-gap="${ci+1}">|</span>`;}).join('')+(rp>1?`<span class="rep big" title="整行重複 ${rp} 次">整行 ×${rp}</span>`:'')+`<button class="cchip add" data-cl="${i}" data-ci="-1" aria-label="加一個和弦">＋</button></div>`;}
     if(/^\s*>/.test(l))return `<div><span class="note">${esc(l.replace(/^\s*>\s?/,''))}</span></div>`;
     if(!l.trim())return '<div class="ln gap"></div>';
     const cells=cellsOf(l);let pre='';
@@ -1499,7 +1499,7 @@ function openPopup(o,el){
   const li=lineOfSel(),si=li!=null?sectionOf(li):-1,isLyric=o.l!=null&&!o.start,isCl=o.cl!=null;
   const r=isCl?lineRep(cur().src.split('\n')[o.cl]):0,b=(act,t,cls)=>`<button data-act="${act}"${cls?` class="${cls}"`:''}>${t}</button>`;
   const multi=isCl&&info.cs&&info.cs.length>1,cb=multi?info.cs[o.si]:'';
-  $('pkLine').innerHTML=(multi?`<span class="beatseg">${b('beat0','平分',cb.match(/[_=]$/)?'':'on')}${b('beat1','<u>1 拍</u>',cb.endsWith('_')?'on':'')}${b('beat2','<u class="dbl">半拍</u>',cb.endsWith('=')?'on':'')}</span>`:'')+(isCl&&o.ci>=0&&info.chord?b('inbar','同一小節再加一個',multi?'':'primary'):'')+(isCl?b('rep',r>1?`重複 ×${r}`:'設定重複')+b('dupline','複製這行到下面'):'')+
+  $('pkLine').innerHTML=(multi?`<span class="beatseg">${b('beat0','平分',cb.match(/[_=]$/)?'':'on')}${b('beat1','<u>1 拍</u>',cb.endsWith('_')?'on':'')}${b('beat2','<u class="dbl">半拍</u>',cb.endsWith('=')?'on':'')}</span>`:'')+(isCl&&o.ci>=0&&info.chord?b('inbar','同一小節再加一個',multi?'':'primary'):'')+(isCl?b('rep',r>1?`整行重複 ×${r}`:'整行重複')+(o.ci>=0&&o.ci<chordTokens(cur().src.split('\n')[o.cl]).length-1?b('split','↵ 從這裡換行'):'')+b('dupline','複製這行到下面'):'')+
     (isLyric?b('secstart','從這句開始新段落')+b('copyline','複製這行和弦')+(lineClip?b('pasteline','貼上到這行'):''):'')+
     (si>=0?b('copysec','複製這段和弦')+(secClip?b('pastesec','貼上到這段'):''):'');
   $('pkLine').hidden=!$('pkLine').innerHTML;$('pkEdit').hidden=!info.chord;
@@ -1518,7 +1518,7 @@ function renderPalette(){
     rec.map(n=>`<button class="pkey rec" data-key="${esc(n)}"${info?'':' disabled'}><b>${esc(n)}</b><small>最近</small></button>`).join('')+
     `<button class="pkey other" data-other="1"${info?'':' disabled'}><b>其他…</b><small>7、sus、/低音</small></button>`;
   const li=lineOfSel(),si=li!=null?sectionOf(li):-1,isLyric=sel?.l!=null;
-  const clActs=sel?.cl!=null?(()=>{const r=lineRep(cur().src.split('\n')[sel.cl]);return `<button data-act="rep">${r>1?'重複 ×'+r:'設定重複'}</button><button data-act="dupline">複製這行到下面</button>`;})():'';
+  const clActs=sel?.cl!=null?(()=>{const r=lineRep(cur().src.split('\n')[sel.cl]);const n=chordTokens(cur().src.split('\n')[sel.cl]).length;return `<button data-act="rep">${r>1?'整行重複 ×'+r:'整行重複'}</button>${sel.ci>=0&&sel.ci<n-1?'<button data-act="split">↵ 從這裡換行</button>':''}<button data-act="dupline">複製這行到下面</button>`;})():'';
   $('palActs').innerHTML=clActs+(info?.chord?`<button data-act="left" aria-label="往前">←</button><button data-act="right" aria-label="往後">→</button><button data-act="del" class="danger">刪除</button>`:'')+
     (sel?`<span class="menuwrap"><button data-act="copymenu">複製／貼上 ▾</button><span class="menu up" id="palMenu" hidden>`+
       (isLyric?`<button data-act="copyline">複製這行的和弦</button>${lineClip?'<button data-act="pasteline">貼上到這行</button>':''}`:'')+
@@ -1537,6 +1537,8 @@ function palAct(a){if(!a||!sel)return;
   else if(a==='pasteline'){const k={...sel};pasteLine(sel.l);select(k,true);}
   else if(a==='copysec'){copySection(sectionOf(lineOfSel()));closePicker();}
   else if(a==='pastesec'){const k={...sel};pasteSection(sectionOf(lineOfSel()));select(k,true);}
+  else if(a==='split'){const lines=cur().src.split('\n'),t=chordTokens(lines[sel.cl]),rp=lineRep(lines[sel.cl]);
+    lines.splice(sel.cl,1,chordLine(t.slice(0,sel.ci+1),0),chordLine(t.slice(sel.ci+1),rp));const k={cl:sel.cl+1,ci:0};commitLines(lines);select(k,true);toast('已換行');}
   else if(a==='rep'){const lines=cur().src.split('\n'),r=lineRep(lines[sel.cl]),nr=r<2?2:r>=4?0:r+1;lines[sel.cl]=chordLine(chordTokens(lines[sel.cl]),nr);const k={...sel};commitLines(lines);select(k,true);toast(nr?`這行重複 ${nr} 次`:'取消重複');}
   else if(a==='dupline'){const lines=cur().src.split('\n');lines.splice(sel.cl+1,0,lines[sel.cl]);const k={cl:sel.cl+1,ci:0};commitLines(lines);select(k);toast('已複製一行，改幾個不一樣的和弦就好');}
   else if(/^beat[012]$/.test(a)&&sel.si!=null){const lines=cur().src.split('\n'),t=chordTokens(lines[sel.cl]),cs=t[sel.ci].trim().split(/\s+/);
