@@ -578,12 +578,12 @@ body.secmoving #sheet [data-row]:hover{box-shadow:inset 0 3px 0 var(--accent)}
   --body:"Inter","Noto Sans TC",system-ui,sans-serif; --r:14px;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
-  --bg:#0a0b0e; --panel:#121318; --fg:#ececef; --muted:#8b8e98; --line:rgba(255,255,255,.07);
-  --accent:#8b8cff; --accent-fg:#0a0b0e; --chord:#f5b64c; --soft:rgba(139,140,255,.1); --note:#1d1a12; --warn:#ff7a66;
+  --bg:#16181d; --panel:#1f2229; --fg:#e8e9ec; --muted:#9a9ea8; --line:rgba(255,255,255,.08);
+  --accent:#9b9cff; --accent-fg:#16181d; --chord:#f2b35a; --soft:rgba(155,156,255,.12); --note:#2a2619; --warn:#ff8a78;
   --shadow:0 1px 0 rgba(255,255,255,.03) inset,0 20px 40px -24px rgba(0,0,0,.8)}}
 :root[data-theme="dark"]{
-  --bg:#0a0b0e; --panel:#121318; --fg:#ececef; --muted:#8b8e98; --line:rgba(255,255,255,.07);
-  --accent:#8b8cff; --accent-fg:#0a0b0e; --chord:#f5b64c; --soft:rgba(139,140,255,.1); --note:#1d1a12; --warn:#ff7a66;
+  --bg:#16181d; --panel:#1f2229; --fg:#e8e9ec; --muted:#9a9ea8; --line:rgba(255,255,255,.08);
+  --accent:#9b9cff; --accent-fg:#16181d; --chord:#f2b35a; --soft:rgba(155,156,255,.12); --note:#2a2619; --warn:#ff8a78;
   --shadow:0 1px 0 rgba(255,255,255,.03) inset,0 20px 40px -24px rgba(0,0,0,.8)}
 body{background:radial-gradient(1200px 600px at 85% -10%,color-mix(in srgb,var(--accent) 10%,transparent),transparent 60%),radial-gradient(900px 500px at -10% 10%,color-mix(in srgb,var(--chord) 7%,transparent),transparent 60%),var(--bg);background-attachment:fixed;letter-spacing:-.005em;-webkit-font-smoothing:antialiased}
 h1,h2,h3{letter-spacing:-.02em}
@@ -622,6 +622,7 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:var(
 .cover img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
 .cover{border-radius:16px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+.thbtn{font-size:16px;padding:6px 10px!important}
 </style>
 </head>
 <body>
@@ -642,7 +643,7 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:var(
   <nav class="nav" aria-label="主選單"><a href="#/" data-nav="home">首頁</a><a href="#/songs" data-nav="songs">歌曲</a><a href="#/sets" data-nav="sets">歌單</a></nav>
   <input type="search" id="q" placeholder="搜尋歌名" aria-label="搜尋歌名" autocomplete="off">
   <button class="quiet" id="newBtn">＋ 新歌</button>
-  <button class="me" id="meBtn" title="更改名字"><span class="sync" id="sync">連線中…</span><b id="meName"></b></button>
+  <button class="me" id="meBtn" title="更改名字"><span class="sync" id="sync">連線中…</span><button type="button" class="ghost thbtn" id="thBtn" aria-label="切換深淺色" title="切換深淺色">◐</button><b id="meName"></b></button>
 </div></header>
 <div class="app">
   <main>
@@ -2157,6 +2158,13 @@ async function cleanAuto(){const L=songs.filter(x=>x.updatedBy===AUTO_NAME);
     const {error}=await sb.from('songs').update({src,key:0,bpm:0,status:'',updated_by:me,updated_at:new Date().toISOString()}).eq('id',s.id);
     if(!error){Object.assign(s,{src,key:0,bpm:0,status:'',updatedBy:me,updatedAt:Date.now()});n++;}}
   cacheAll();toast(`已清除 ${n} 首的自動和弦`);render();}
+// 深淺色：自動（跟系統）→ 淺色 → 深色，記在這台裝置
+function applyTheme(){let t='auto';try{t=localStorage.getItem('cb_theme')||'auto';}catch(_){}
+  if(t==='auto')document.documentElement.removeAttribute('data-theme');else document.documentElement.setAttribute('data-theme',t);
+  const b=$('thBtn');if(b){b.textContent={auto:'◐',light:'☀',dark:'☾'}[t];b.title={auto:'跟系統',light:'淺色',dark:'深色'}[t]+'（點一下切換）';}}
+$('thBtn').onclick=()=>{let t='auto';try{t=localStorage.getItem('cb_theme')||'auto';}catch(_){}
+  const n={auto:'light',light:'dark',dark:'auto'}[t];try{localStorage.setItem('cb_theme',n);}catch(_){}applyTheme();toast({auto:'跟系統設定',light:'淺色模式',dark:'深色模式'}[n]);};
+applyTheme();
 // ---- 點和弦看吉他指型（指型資料：chords-db，MIT） ----
 let FDB=null;
 const fdb=()=>FDB||(FDB=fetch('https://cdn.jsdelivr.net/npm/@tombatossals/chords-db@0.5.1/lib/guitar.json').then(r=>r.json()).catch(()=>{FDB=null;return null;}));
