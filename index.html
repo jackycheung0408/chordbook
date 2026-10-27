@@ -623,6 +623,7 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:var(
 .cover{border-radius:16px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 .thbtn{font-size:16px;padding:6px 10px!important}
+.sg.pick{width:0;overflow:visible}.sg.pick .c{transform:translateX(calc(-100% + .2ch));padding-right:.4ch;opacity:.95}
 </style>
 </head>
 <body>
@@ -1057,8 +1058,11 @@ function sheetHTML(s,shift,capo,mark){
     if(r.gap) return '<div class="ln gap"></div>';
     if(r.bars) return `<div class="barline${r.again?' again':''}">`+r.bars.map((b,bi)=>(bi?'<span class="bsep">|</span>':'')+`<span class="bar1">`+(cs=>{const bt=barBeats(cs);return cs.map((c,j)=>{const out=mark&&!inKey(stripB(c),s.key);return `<span class="bc${out?' out':''}${ulCls(c)}" style="flex:${bt[j]} 1 0">${esc(xpose(stripB(c),sh,fk,s.key))}</span>`;}).join('');})(b.trim().split(/\s+/))+'</span>').join('')+`${r.rep>1?`<span class="barrep">×${r.rep}</span>`:''}</div>`;
     const noc=!r.segs.some(g=>g.c);
-    return `<div class="ln${r.only?' only':''}${r.again?' again':''}${noc?' noc':''}">`+r.segs.map((g,gi)=>{if(gi===0&&g.c&&g.l===' ')g={...g,l:''};
+    return `<div class="ln${r.only?' only':''}${r.again?' again':''}${noc?' noc':''}">`+(r.segs[0]?.c&&/^\s/.test(r.segs[0].l)&&r.segs[0].l.trim()?[{c:r.segs[0].c,l:''},{c:'',l:r.segs[0].l.replace(/^\s+/,'')},...r.segs.slice(1)]:r.segs).map((g,gi,all)=>{const pick=gi===0&&g.c&&!g.l.trim()&&all.length>1;
+      if(pick&&all[1])all[1]={...all[1],l:all[1].l.replace(/^\s+/,'')};
       const out=mark&&g.c&&!inKey(g.c,s.key);
+      // 開始唱之前的和弦：掛在第一個字左上方，不把歌詞往後推
+      if(pick)return `<span class="sg pick"><span class="c${out?' out':''}">${esc(xpose(g.c,sh,fk,s.key))}</span><span class="l">&#8203;</span></span>`;
       return `<span class="sg"><span class="c${out?' out':''}"${out?' title="調外和弦"':''}>${esc(g.c?xpose(g.c,sh,fk,s.key):'')}</span><span class="l">${esc(g.l)||' '}</span></span>`;}).join('')+'</div>';
   }).join('');}
 function textOut(s,shift,capo){
