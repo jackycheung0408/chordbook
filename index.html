@@ -569,6 +569,7 @@ body.secmoving #sheet [data-row]:hover{box-shadow:inset 0 3px 0 var(--accent)}
 .headmeta .pill{font-family:var(--mono);font-size:13px;padding:2px 10px;border-radius:99px;border:1px solid var(--line);color:var(--muted)}.headmeta .pill b{color:var(--chord)}.headmeta .pill.ok{color:var(--fg)}
 #memoShow{background:transparent;border:0;border-left:3px solid var(--chord);border-radius:0;padding:4px 0 4px 14px;display:flex;gap:12px;align-items:baseline;flex-wrap:wrap}
 #memoShow .mlbl{font-size:12px;color:var(--chord);font-weight:700;white-space:nowrap}#memoShow .mtxt{flex:1;min-width:200px}
+.crumbs{display:flex;gap:14px;align-items:center;flex-wrap:wrap}#setNav{display:flex;gap:14px;align-items:center}
 </style>
 </head>
 <body>
@@ -610,7 +611,7 @@ body.secmoving #sheet [data-row]:hover{box-shadow:inset 0 3px 0 var(--accent)}
 
     <!-- 單首歌 -->
     <div class="view" id="songView" hidden>
-      <a class="crumb" href="#/songs">← 歌曲</a>
+      <div class="crumbs"><a class="crumb" id="crumb" href="#/songs">← 歌曲</a><span id="setNav"></span></div>
       <div class="head">
         <div style="display:grid;gap:6px;min-width:0">
           <h2 id="h">—</h2>
@@ -1192,8 +1193,8 @@ function noteView(id){lsSet('cb_seen',[id,...lsGet('cb_seen',[]).filter(x=>x!==i
   if(viewedNow.has(id)||!sb)return;viewedNow.add(id);sb.from('song_views').insert({song_id:id}).then(()=>{rankCache={};},()=>{});}
 function route(){
   const h=location.hash.replace(/^#\/?/,'').split('/');
-  const prev=view+curId+curSet;
-  if(h[0]==='song'&&h[1]){view='song';curId=h[1];lsSet('cb_cur',curId);noteView(curId);}
+  const prev=view+curId+curSet,pv=view,ps=curSet;
+  if(h[0]==='song'&&h[1]){if(pv==='set')backTo={set:ps};else if(pv==='home')backTo={home:1};else if(pv!=='song')backTo=null;view='song';curId=h[1];lsSet('cb_cur',curId);noteView(curId);}
   else if(h[0]==='set'&&h[1]){view='set';curSet=h[1];}
   else if(h[0]==='sets')view='sets';else if(h[0]==='songs')view='songs';else view='home';
   if(view!=='song'&&editing)openEditor(false);
@@ -1201,6 +1202,16 @@ function route(){
   if(prev!==view+curId+curSet)window.scrollTo({top:0});
   render();}
 window.addEventListener('hashchange',route);
+let backTo=null;
+// 從歌單或首頁進來的歌：返回鍵回到原處；從歌單進來還有上一首／下一首
+function drawCrumb(){const c=$('crumb'),n=$('setNav');if(!c)return;n.innerHTML='';
+  const st=backTo?.set&&setlists.find(x=>x.id===backTo.set);
+  if(st){c.href='#/set/'+st.id;c.textContent='← '+(st.name||'歌單');
+    const ids=(st.items||[]).map(it=>it.song||it.id||it),i=ids.indexOf(curId);
+    if(i>=0){const a=ids[i-1]&&song(ids[i-1]),b=ids[i+1]&&song(ids[i+1]);
+      n.innerHTML=`<span class="small">${i+1} / ${ids.length}</span>`+(a?`<a class="crumb" href="#/song/${a.id}">‹ ${esc(a.title)}</a>`:'')+(b?`<a class="crumb" href="#/song/${b.id}">${esc(b.title)} ›</a>`:'');}}
+  else if(backTo?.home){c.href='#/';c.textContent='← 首頁';}
+  else{c.href='#/songs';c.textContent='← 歌曲';}}
 const nav=h=>{if(location.hash===h)route();else location.hash=h;};
 function render(){
   renderList();
@@ -1213,6 +1224,7 @@ function render(){
   const p=prefOf(s.id),pk=mod(s.key+p.shift),fk=mod(pk-p.capo);
   $('h').textContent=s.title||'未命名';
   const u=/^https?:\/\//.test(s.url||'')?s.url:'';
+  drawCrumb();
   $('headmeta').innerHTML=[s.artist?`<a class="hartist" href="#/songs" data-artist="${esc(s.artist)}">${esc(s.artist)}</a>`:'',hasChords(s)?`<span class="pill">Key <b>${KEYS[s.key]}</b></span>`:'',s.bpm?`<span class="pill">♩ <b>${s.bpm}</b></span>`:'',s.status==='verified'?'<span class="pill ok">✅ 已校對</span>':''].filter(Boolean).join('');
   $('headmeta').querySelector('[data-artist]')?.addEventListener('click',e=>{e.preventDefault();$('q').value=e.currentTarget.dataset.artist;filt={status:'',key:-1};nav('#/songs');});
   // 編輯中：標題區直接改歌名、歌手、原調、BPM（沿用資訊面板的欄位與存檔）
