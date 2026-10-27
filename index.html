@@ -4,6 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>和弦室 ChordRoom</title>
+<meta name="description" content="樂團的共用和弦譜：找譜、移調、看指型、一起改譜。">
+<meta property="og:title" content="和弦室 ChordRoom">
+<meta property="og:description" content="樂團的共用和弦譜：找譜、移調、看指型、一起改譜。">
+<meta property="og:type" content="website">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <meta name="theme-color" content="#22385a">
@@ -1566,7 +1570,7 @@ function openPopup(o,el){
   const li=lineOfSel(),si=li!=null?sectionOf(li):-1,isLyric=o.l!=null&&!o.start,isCl=o.cl!=null;
   const r=isCl?lineRep(cur().src.split('\n')[o.cl]):0,b=(act,t,cls)=>`<button data-act="${act}"${cls?` class="${cls}"`:''}>${t}</button>`;
   const multi=isCl&&info.cs&&info.cs.length>1,cb=multi?info.cs[o.si]:'';
-  $('pkLine').innerHTML=(multi?`<span class="beatseg">${b('beat0','平分',cb.match(/[_=]$/)?'':'on')}${b('beat1','<u>1 拍</u>',cb.endsWith('_')?'on':'')}${b('beat2','<u class="dbl">半拍</u>',cb.endsWith('=')?'on':'')}</span>`:'')+(isCl&&o.ci>=0&&info.chord?b('inbar','同一小節再加一個',multi?'':'primary'):'')+(isCl?b('rep',r>1?`整行重複 ×${r}`:'整行重複')+(o.ci>=0&&o.ci<chordTokens(cur().src.split('\n')[o.cl]).length-1?b('split','↵ 從這裡換行'):'')+b('dupline','複製這行到下面'):'')+
+  $('pkLine').innerHTML=(multi?`<span class="beatseg">${b('beat0','平分',cb.match(/[_=]$/)?'':'on')}${b('beat1','<u>1 拍</u>',cb.endsWith('_')?'on':'')}${b('beat2','<u class="dbl">半拍</u>',cb.endsWith('=')?'on':'')}</span>`:'')+(isCl&&o.ci>=0&&info.chord?b('inbar','同一小節再加一個',multi?'':'primary'):'')+(info?.chord&&!/\s/.test(info.chord.trim())?b('replall',`全部 ${esc(stripB(info.chord.trim()))} → …`):'')+(isCl?b('rep',r>1?`整行重複 ×${r}`:'整行重複')+(o.ci>=0&&o.ci<chordTokens(cur().src.split('\n')[o.cl]).length-1?b('split','↵ 從這裡換行'):'')+b('dupline','複製這行到下面'):'')+
     (isLyric?b('secstart','從這句開始新段落')+b('copyline','複製這行和弦')+(lineClip?b('pasteline','貼上到這行'):''):'')+
     (si>=0?b('copysec','複製這段和弦')+(secClip?b('pastesec','貼上到這段'):''):'');
   $('pkLine').hidden=!$('pkLine').innerHTML;$('pkEdit').hidden=!info.chord;
@@ -1586,7 +1590,8 @@ function renderPalette(){
     `<button class="pkey other" data-other="1"${info?'':' disabled'}><b>其他…</b><small>7、sus、/低音</small></button>`;
   const li=lineOfSel(),si=li!=null?sectionOf(li):-1,isLyric=sel?.l!=null;
   const clActs=sel?.cl!=null?(()=>{const r=lineRep(cur().src.split('\n')[sel.cl]);const n=chordTokens(cur().src.split('\n')[sel.cl]).length;return `<button data-act="rep">${r>1?'整行重複 ×'+r:'整行重複'}</button>${sel.ci>=0&&sel.ci<n-1?'<button data-act="split">↵ 從這裡換行</button>':''}<button data-act="dupline">複製這行到下面</button>`;})():'';
-  $('palActs').innerHTML=clActs+(info?.chord?`<button data-act="left" aria-label="往前">←</button><button data-act="right" aria-label="往後">→</button><button data-act="del" class="danger">刪除</button>`:'')+
+  const rn=info?.chord&&!/\s/.test(info.chord.trim())?stripB(info.chord.trim()):null;
+  $('palActs').innerHTML=clActs+(rn&&typeof rn==='string'?`<button data-act="replall" title="把這首歌裡所有的 ${esc(rn)} 一次換掉">全部 ${esc(rn)} → …</button>`:'')+(info?.chord?`<button data-act="left" aria-label="往前">←</button><button data-act="right" aria-label="往後">→</button><button data-act="del" class="danger">刪除</button>`:'')+
     (sel?`<span class="menuwrap"><button data-act="copymenu">複製／貼上 ▾</button><span class="menu up" id="palMenu" hidden>`+
       (isLyric?`<button data-act="copyline">複製這行的和弦</button>${lineClip?'<button data-act="pasteline">貼上到這行</button>':''}`:'')+
       (si>=0?`<button data-act="copysec">複製這段的和弦</button>${secClip?'<button data-act="pastesec">貼上到這段</button>':''}`:'')+
@@ -1596,7 +1601,13 @@ $('palette').addEventListener('click',e=>{const b=e.target.closest('button');if(
   if(d.key){chordAt(d.key);return;}
   if(d.other){pk={...sel};const info=selInfo();fillPicker(info.chord?`修改 ${info.chord}`:`${info.where}`,info.chord,selEl(sel));$('pkLine').hidden=true;$('pkEdit').hidden=true;return;}
   palAct(d.act);});
+function replaceAll(from,to){const esc2=x=>x.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  const re=new RegExp('(^|[\\[\\s])'+esc2(from)+'(?=[_=]?[\\]\\s])','g');let n=0;
+  const src=cur().src.replace(/\[[^\]]*\]/g,tok=>tok.replace(re,(m,p)=>{n++;return p+to;}));
+  if(!n){toast('沒有找到 '+from);return;}saveSong({src});$('src').value=src;closePicker();render();toast(`已把 ${n} 個 ${from} 換成 ${to}，不對可以從「以前的版本」還原`);}
 function palAct(a){if(!a||!sel)return;
+  if(a==='replall'){const info=selInfo();const from=info?.chord&&!/\s/.test(info.chord.trim())?stripB(info.chord.trim()):null;
+    if(!from)return;const to=prompt(`把這首歌所有的 ${from} 換成：`,from);if(!to||!to.trim()||to.trim()===from)return;replaceAll(from,to.trim());return;}
   if(a==='left'||a==='right'){pk={...sel};moveChord(a==='left'?-1:1);}
   else if(a==='del'){pk={...sel};const keep={...sel};removeChord();select(keep.l!=null?keep:null);}
   else if(a==='secstart'){const l=sel.l;closePicker();openSecMenu(document.querySelector(`.tc[data-l="${l}"]`)||$('sheet'),l);}
@@ -2178,7 +2189,7 @@ let FDB=null;
 const fdb=()=>FDB||(FDB=fetch('https://cdn.jsdelivr.net/npm/@tombatossals/chords-db@0.5.1/lib/guitar.json').then(r=>r.json()).catch(()=>{FDB=null;return null;}));
 const F_KEY={'C':'C','C#':'Csharp','Db':'Csharp','D':'D','D#':'Eb','Eb':'Eb','E':'E','F':'F','F#':'Fsharp','Gb':'Fsharp','G':'G','G#':'Ab','Ab':'Ab','A':'A','A#':'Bb','Bb':'Bb','B':'B'};
 const F_SUF={'':'major','M':'major','maj':'major','m':'minor','min':'minor','-':'minor','7':'7','maj7':'maj7','M7':'maj7','m7':'m7','min7':'m7','sus4':'sus4','sus':'sus4','sus2':'sus2','7sus4':'7sus4','dim':'dim','dim7':'dim7','aug':'aug','+':'aug','6':'6','m6':'m6','9':'9','add9':'add9','madd9':'madd9','m9':'m9','maj9':'maj9','m7b5':'m7b5','11':'11','13':'13','mmaj7':'mmaj7','7b9':'7b9','7#9':'7#9','69':'69'};
-async function fingerFor(name){const m=name.replace(/[_=()]/g,'').match(/^([A-G][#b]?)([^/]*)(?:\/([A-G][#b]?))?$/);if(!m)return null;
+async function fingerFor(name){const m=name.replace(/[_=()°*\s]/g,'').match(/^([A-G][#b]?)([^/]*)(?:\/([A-G][#b]?))?$/);if(!m)return null;
   const db=await fdb();if(!db)return null;const k=F_KEY[m[1]];let suf=F_SUF[m[2]]??null;if(!k||suf==null)return null;
   if(m[3]){const b=m[3].replace('A#','Bb').replace('D#','Eb').replace('Db','C#').replace('Gb','F#').replace('G#','G#');const ss=(suf==='minor'?'m/':'/')+b;
     const hit=(db.chords[k]||[]).find(c=>c.suffix===ss);if(hit)return hit;}
@@ -2201,9 +2212,13 @@ async function showFinger(el){document.querySelector('.fpop')?.remove();const na
     pop.innerHTML=`<div class="fh"><b>${esc(nm)}</b><button class="ghost" data-fx aria-label="關閉">✕</button></div>${fingerSVG(p)}
       <div class="fh"><button data-fp="-1" aria-label="上一個按法">‹</button><span class="small">按法 ${pi%P.length+1}/${P.length}</span><button data-fp="1" aria-label="下一個按法">›</button></div>
       ${names.length>1?`<div class="fh">${names.map((n,i)=>`<button data-fn="${i}"${i===ni?' class="primary"':''}>${esc(n.replace(/[_=]/g,''))}</button>`).join('')}</div>`:''}`;place();};
-  pop.onclick=e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.fx!=null){pop.remove();return;}
+  pop.onclick=e=>{e.stopPropagation();const b=e.target.closest('button');if(!b)return;if(b.dataset.fx!=null){pop.remove();return;}
     if(b.dataset.fp){const n=pi+ +b.dataset.fp;pi=n<0?99:n;}if(b.dataset.fn){ni=+b.dataset.fn;pi=0;}draw();};
   draw();}
+let fHov=null;
+document.addEventListener('mouseover',e=>{if(!matchMedia('(hover:hover)').matches||isEditing())return;const el=e.target.closest?.('#sheet .c,#sheet .bc');
+  if(el&&el.textContent.trim()){clearTimeout(fHov);fHov=setTimeout(()=>{const p=document.querySelector('.fpop');if(p&&p.dataset.for===el.textContent.trim())return;showFinger(el).then(()=>{const q=document.querySelector('.fpop');if(q)q.dataset.for=el.textContent.trim();});},250);}
+  else if(!e.target.closest?.('.fpop')){clearTimeout(fHov);}});
 document.addEventListener('click',e=>{const el=e.target.closest('#sheet .c,#sheet .bc,#stage .c,#stage .bc');
   if(el&&!isEditing()){showFinger(el);return;}if(!e.target.closest('.fpop'))document.querySelector('.fpop')?.remove();});
 
