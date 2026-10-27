@@ -637,6 +637,7 @@ input:focus,select:focus,textarea:focus{outline:none!important;border-color:var(
 .hprog .bar{height:8px;border-radius:99px;background:color-mix(in srgb,var(--fg) 8%,transparent);overflow:hidden}.hprog .bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--accent),var(--chord))}
 .htop{display:flex;gap:6px;flex-wrap:wrap}.tchip{font-size:13px;padding:3px 10px;border-radius:99px;background:var(--soft)}.tchip b{color:var(--accent)}
 .htitle p b{color:var(--fg)}
+button.pill.like{cursor:pointer;background:transparent;font-family:var(--mono)}button.pill.like.on{background:var(--soft);border-color:var(--accent);color:var(--accent)}button.pill.like.on b{color:var(--accent)}
 </style>
 </head>
 <body>
@@ -1174,7 +1175,7 @@ function cover(x,big){const title=typeof x==='string'?x:x.title,h=hashStr(title)
   const u=typeof x==='string'?'':artOf(x);
   return `<span class="cover${big?' big':''}" style="--c1:hsl(${a} 45% 34%);--c2:hsl(${b} 55% 22%)"${typeof x==='string'?'':` data-artk="${esc(artKey(x))}"`}><span>${esc(ch)}</span>${u?`<img src="${u}" alt="" loading="lazy" onerror="if(this.src!==OWN_PIC)this.src=OWN_PIC;else this.remove()">`:''}</span>`;}
 function homeCard(x,rank){return `<a class="hcard" href="#/song/${x.id}">${cover(x)}${rank?`<span class="rank">${rank}</span>`:''}${hasChords(x)?'':'<span class="nochord pin">還沒有和弦</span>'}
-  <b>${esc(x.title||'未命名')}</b><span class="sub">${esc(x.artist||'自創曲')}</span><span class="meta"><span class="k">${keyLbl(x)}</span>${x.bpm?`<span>♩${x.bpm}</span>`:''}</span></a>`;}
+  <b>${esc(x.title||'未命名')}</b><span class="sub">${esc(x.artist||'自創曲')}</span><span class="meta"><span class="k">${keyLbl(x)}</span>${x.bpm?`<span>♩${x.bpm}</span>`:''}${LK[x.id]?`<span>👍${LK[x.id]}</span>`:''}</span></a>`;}
 let rankDays=7,rankCache={};
 async function loadRank(days){const c=rankCache[days];if(c&&Date.now()-c.at<60000)return c.rows;
   if(!sb||!online)return [];const {data}=await sb.rpc('song_view_counts',{days});rankCache[days]={at:Date.now(),rows:data||[]};return data||[];}
@@ -1203,7 +1204,7 @@ function renderHome(){
     </aside>
   </section>
   ${seen.length?`<div class="sechead"><h3>最近看過</h3></div><div class="hscroll">${seen.map(x=>homeCard(x)).join('')}</div>`:''}
-  <div class="sechead"><h3>熱門排行</h3><span class="seg" id="rankTabs"><button data-d="7">本週</button><button data-d="30">本月</button><button data-d="90">本季</button><button data-d="0">全部</button></span></div>
+  <div class="sechead"><h3>熱門排行</h3><span class="seg" id="rankTabs"><button data-d="7">本週</button><button data-d="30">本月</button><button data-d="90">本季</button><button data-d="0">全部</button><button data-d="-1">👍 最多讚</button></span></div>
   <ol class="rlist" id="rankRow"><li class="empty">讀取中…</li></ol>
   <div class="sechead"><h3>最新上架</h3><a href="#/songs">全部歌曲 →</a></div>
   ${latest.length?`<div class="hscroll">${latest.map(x=>homeCard(x)).join('')}</div>`:'<div class="empty card">還沒有歌。按「新增歌曲」開始。</div>'}
@@ -1216,12 +1217,12 @@ function renderHome(){
   $('rankTabs').onclick=e=>{const b=e.target.closest('[data-d]');if(b){rankDays=+b.dataset.d;drawRank();}};
   drawRank();drawCredits();$('reqBtn').onclick=askRequest;}
 async function drawRank(){document.querySelectorAll('#rankTabs [data-d]').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.d===rankDays));
-  const raw=(await loadRank(rankDays)).map(r=>({x:song(r.song_id),n:r.n})).filter(r=>r.x);if(!$('rankRow'))return;
+  const raw=(rankDays<0?Object.entries(LK).sort((a,b)=>b[1]-a[1]).map(([id,n])=>({song_id:id,n})):await loadRank(rankDays)).map(r=>({x:song(r.song_id),n:r.n})).filter(r=>r.x);if(!$('rankRow'))return;
   // 有譜的優先，其次照瀏覽數；不足 10 首用最新上架補
   let rows=[...raw.filter(r=>hasChords(r.x)),...raw.filter(r=>!hasChords(r.x))];
   if(rows.length<10)songs.filter(x=>hasChords(x)&&!rows.some(r=>r.x===x)).sort((a,b)=>b.updatedAt-a.updatedAt).slice(0,10-rows.length).forEach(x=>rows.push({x,n:0}));
   rows=rows.slice(0,10);
-  $('rankRow').innerHTML=rows.length?rows.map(({x,n},i)=>`<li><a class="rrow" href="#/song/${x.id}"><b class="rn${i<3?' top':''}">${i+1}</b>${artOf(x)?`<img src="${artOf(x)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">`:'<span class="rimg"></span>'}<span class="rt"><b>${esc(x.title)}</b><span class="small">${esc(x.artist||'')}</span></span><span class="rk">${hasChords(x)?KEYS[x.key]:'<span class="small">待和弦</span>'}</span><span class="small rv">${n?n+' 次':''}</span></a></li>`).join(''):'<li class="empty">還沒有紀錄。</li>';}
+  $('rankRow').innerHTML=rows.length?rows.map(({x,n},i)=>`<li><a class="rrow" href="#/song/${x.id}"><b class="rn${i<3?' top':''}">${i+1}</b>${artOf(x)?`<img src="${artOf(x)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">`:'<span class="rimg"></span>'}<span class="rt"><b>${esc(x.title)}</b><span class="small">${esc(x.artist||'')}</span></span><span class="rk">${hasChords(x)?KEYS[x.key]:'<span class="small">待和弦</span>'}</span><span class="small rv">${n?(rankDays<0?'👍 '+n:n+' 次'):''}</span></a></li>`).join(''):'<li class="empty">還沒有紀錄。</li>';}
 function renderSets(){$('setList').innerHTML=setlists.length?setlists.map(setCard).join(''):'<div class="empty card">還沒有歌單。按「＋ 新歌單」排練習或演出的順序。</div>';}
 function renderList(){
   document.querySelectorAll('.nav [data-nav]').forEach(a=>{const on=a.dataset.nav===view||(a.dataset.nav==='songs'&&view==='song')||(a.dataset.nav==='sets'&&view==='set');on?a.setAttribute('aria-current','page'):a.removeAttribute('aria-current');});
@@ -1234,7 +1235,7 @@ const isAdmin=()=>lbOk&&lb.length>0&&scoreOf(me)>=200;
 const scoreOf=w=>lb.find(x=>x.who===w)?.pts||0;
 function badges(r){const b=[];if(r.verified>=100)b.push('🏅 百首校對者');else if(r.verified>=10)b.push('✅ 十首校對者');
   if(r.edits>=50)b.push('✍️ 勤勞改譜');if(r.top_artist&&r.edits+r.verified>=5)b.push(`🎤 ${r.top_artist} 專家`);return b;}
-async function loadCredits(){if(!sb)return;const {data,error}=await sb.rpc('leaderboard');if(error){lbOk=false;return;}lb=data||[];showMe();
+async function loadCredits(){if(!sb)return;const {data,error}=await sb.rpc('leaderboard');if(error){lbOk=false;return;}lb=data||[];showMe();loadLikes();
   sb.from('song_requests').select('*').eq('done',false).order('votes',{ascending:false}).order('at').limit(50).then(({data})=>{if(data)WISH=data;});
   cleanupBtn();}
 async function drawCredits(){await loadCredits();if(!$('lbBox')||!sb)return;
@@ -1299,7 +1300,8 @@ function render(){
   $('h').textContent=s.title||'未命名';
   const u=/^https?:\/\//.test(s.url||'')?s.url:'';
   drawCrumb();
-  $('headmeta').innerHTML=[s.artist?`<a class="hartist" href="#/songs" data-artist="${esc(s.artist)}">${esc(s.artist)}</a>`:'',hasChords(s)?`<span class="pill">Key <b>${KEYS[s.key]}</b></span>`:'',s.bpm?`<span class="pill">♩ <b>${s.bpm}</b></span>`:'',s.status==='verified'?'<span class="pill ok">✅ 已校對</span>':''].filter(Boolean).join('');
+  $('headmeta').innerHTML=[s.artist?`<a class="hartist" href="#/songs" data-artist="${esc(s.artist)}">${esc(s.artist)}</a>`:'',hasChords(s)?`<span class="pill">Key <b>${KEYS[s.key]}</b></span>`:'',hasChords(s)?`<button type="button" id="likeBtn" class="pill like"></button>`:'',s.bpm?`<span class="pill">♩ <b>${s.bpm}</b></span>`:'',s.status==='verified'?'<span class="pill ok">✅ 已校對</span>':''].filter(Boolean).join('');
+  $('likeBtn')&&($('likeBtn').onclick=toggleLike,drawLike());
   $('headmeta').querySelector('[data-artist]')?.addEventListener('click',e=>{e.preventDefault();$('q').value=e.currentTarget.dataset.artist;filt={status:'',key:-1};nav('#/songs');});
   // 編輯中：標題區直接改歌名、歌手、原調、BPM（沿用資訊面板的欄位與存檔）
   const hf=$('headmeta').parentElement;let ih=$('inlineHead');
@@ -2200,6 +2202,18 @@ async function weekStats(){if(!sb||!$('weekHelp'))return;const since=new Date(Da
   const by={};data.forEach(r=>{if(r.who==='自動扒和弦')return;by[r.who]=(by[r.who]||0)+r.pts;});const top=Object.entries(by).sort((a,b)=>b[1]-a[1]);
   $('weekHelp').textContent=top.length?`這週有 ${top.length} 位樂手一起編譜`:'這週還沒有人動筆，來當第一個！';
   $('heroTop').innerHTML=top.slice(0,3).map(([w,p],i)=>`<span class="tchip">${['🥇','🥈','🥉'][i]} ${esc(w)} <b>+${p}</b></span>`).join('');}
+// ---- 👍 給譜按讚 ----
+let LK={},MYLK=new Set(),LKok=false;
+async function loadLikes(){if(!sb)return;const {data,error}=await sb.rpc('like_counts');if(error)return;LKok=true;LK={};(data||[]).forEach(r=>LK[r.song_id]=+r.n);
+  if(me){const {data:m}=await sb.from('song_likes').select('song_id').eq('who',me);MYLK=new Set((m||[]).map(r=>r.song_id));}
+  if(view==='song')drawLike();}
+function drawLike(){const b=$('likeBtn');if(!b)return;b.hidden=!LKok;const s=cur();const n=LK[s.id]||0,on=MYLK.has(s.id);
+  b.className='pill like'+(on?' on':'');b.innerHTML=`👍 <b>${n}</b>`;b.title=on?'收回讚':'這份譜很好用，按個讚（編者 +1 分）';}
+async function toggleLike(){const s=cur();if(!me){askName();return;}
+  const on=MYLK.has(s.id);on?MYLK.delete(s.id):MYLK.add(s.id);LK[s.id]=(LK[s.id]||0)+(on?-1:1);drawLike();
+  const {data,error}=await sb.rpc('toggle_like',{p_song:s.id,p_who:me});
+  if(error){toast('按讚失敗：'+error.message);on?MYLK.add(s.id):MYLK.delete(s.id);LK[s.id]+=(on?1:-1);drawLike();return;}
+  LK[s.id]=data;drawLike();if(!on&&s.updatedBy&&s.updatedBy!==me)toast(`謝謝！${s.updatedBy} +1 分`);}
 // ---- 點和弦看吉他指型（指型資料：chords-db，MIT） ----
 let FDB=null;
 const fdb=()=>FDB||(FDB=fetch('https://cdn.jsdelivr.net/npm/@tombatossals/chords-db@0.5.1/lib/guitar.json').then(r=>r.json()).catch(()=>{FDB=null;return null;}));
