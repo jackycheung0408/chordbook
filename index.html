@@ -562,6 +562,13 @@ body.secmoving #sheet [data-row]:hover{box-shadow:inset 0 3px 0 var(--accent)}
 .tapbtn{padding:4px 12px;border-radius:8px;font-weight:700;min-width:64px}
 #editMenu hr{border:0;border-top:1px solid var(--line);margin:4px 0}
 #editMenu svg{vertical-align:-3px;margin-right:6px}
+.cdel{display:none;position:absolute;top:-6px;right:-8px;width:16px;height:16px;line-height:15px;border-radius:50%;font-size:12px;text-align:center;background:var(--warn);color:#fff;cursor:pointer;z-index:2}
+.tc,.cchip{position:relative}.tc:hover .cdel,.cchip:hover .cdel,.tc.sel .cdel,.cchip.sel .cdel{display:block}
+@media(hover:none){.tc.sel .cdel,.cchip.sel .cdel{display:block;width:22px;height:22px;line-height:21px;top:-10px;right:-10px}}
+.headmeta{gap:8px!important;margin-top:6px}.hartist{color:var(--fg);text-decoration:none;font-size:15px;margin-right:4px}.hartist:hover{text-decoration:underline}
+.headmeta .pill{font-family:var(--mono);font-size:13px;padding:2px 10px;border-radius:99px;border:1px solid var(--line);color:var(--muted)}.headmeta .pill b{color:var(--chord)}.headmeta .pill.ok{color:var(--fg)}
+#memoShow{background:transparent;border:0;border-left:3px solid var(--chord);border-radius:0;padding:4px 0 4px 14px;display:flex;gap:12px;align-items:baseline;flex-wrap:wrap}
+#memoShow .mlbl{font-size:12px;color:var(--chord);font-weight:700;white-space:nowrap}#memoShow .mtxt{flex:1;min-width:200px}
 </style>
 </head>
 <body>
@@ -1206,7 +1213,8 @@ function render(){
   const p=prefOf(s.id),pk=mod(s.key+p.shift),fk=mod(pk-p.capo);
   $('h').textContent=s.title||'未命名';
   const u=/^https?:\/\//.test(s.url||'')?s.url:'';
-  $('headmeta').innerHTML=[s.artist?`<span>${esc(s.artist)}</span>`:'',`<span class="fact">Key <b>${KEYS[s.key]}</b></span>`,s.bpm?`<span class="fact">♩ <b>${s.bpm}</b></span>`:''].join('');
+  $('headmeta').innerHTML=[s.artist?`<a class="hartist" href="#/songs" data-artist="${esc(s.artist)}">${esc(s.artist)}</a>`:'',hasChords(s)?`<span class="pill">Key <b>${KEYS[s.key]}</b></span>`:'',s.bpm?`<span class="pill">♩ <b>${s.bpm}</b></span>`:'',s.status==='verified'?'<span class="pill ok">✅ 已校對</span>':''].filter(Boolean).join('');
+  $('headmeta').querySelector('[data-artist]')?.addEventListener('click',e=>{e.preventDefault();$('q').value=e.currentTarget.dataset.artist;filt={status:'',key:-1};nav('#/songs');});
   // 編輯中：標題區直接改歌名、歌手、原調、BPM（沿用資訊面板的欄位與存檔）
   const hf=$('headmeta').parentElement;let ih=$('inlineHead');
   if(isEditing()){if(!ih){ih=document.createElement('div');ih.id='inlineHead';ih.className='ihead';hf.appendChild(ih);
@@ -1227,7 +1235,7 @@ function render(){
   $('songFoot').innerHTML=[wb,st,ed.length?`<span>校對：${ed.map(esc).join('、')}</span>`:'',`<span>${s.updatedBy?esc(s.updatedBy)+' 更新・':''}${ago(s.updatedAt)}</span>`,'<span>移調與 Capo 只存給你自己</span>',u?`<a class="srclink" href="${esc(u)}" target="_blank" rel="noopener">原始連結 ↗</a>`:''].filter(Boolean).join('<span class="dot">·</span>');
   $('vfyBtn')&&($('vfyBtn').onclick=verifySong);$('wishBtn')&&($('wishBtn').onclick=()=>wish(s.title,s.artist));$('autoOneBtn')&&($('autoOneBtn').onclick=()=>autoOne(s));
   if(s.audio_url){if($('player').dataset.src!==s.audio_url){$('player').src=s.audio_url;$('player').dataset.src=s.audio_url;}$('player').hidden=false;}else{$('player').hidden=true;}
-  $('memoShow').hidden=!s.memo;$('memoShow').innerHTML=s.memo?`<span class="lbl">給團員</span>${esc(s.memo)}`:'';
+  $('memoShow').hidden=!s.memo;$('memoShow').innerHTML=s.memo?`<span class="mlbl">📝 給團員</span><span class="mtxt">${esc(s.memo)}</span>`:'';
   $('origShow').textContent=KEYS[s.key];
   $('playKey').textContent=keyName(pk);
   $('semis').textContent=(p.shift>0?'+':p.shift<0?'':'±')+p.shift;
@@ -1268,21 +1276,21 @@ function tapHTML(s){
     const m=secMatch(l);
     if(m){const h=secHead(m[1]);return `<div class="sec" data-row="${i}"><button class="secname" data-secedit="${i}" aria-label="段落：點一下改名或移動，按住拖到別句"><span class="grip">⠿</span>${esc(h.name)}</button>${h.ref?' <span class="rep">再一次・內容跟前面一樣</span>':''}${h.rep>1?` <span class="rep">×${h.rep}</span>`:''}<span class="secacts">${h.ref||sectionHasLyrics(all,i)?'':`<button class="addch" data-addafter="${i}">＋ 加和弦</button>`}</span></div>`;}
     if(isChordOnly(l)){const t=chordTokens(l),rp=lineRep(l);return `<div class="cline" data-row="${i}"><span class="barsep" data-gl="${i}" data-gap="0">|</span>`+t.map((n,ci)=>{const cs=n.trim().split(/\s+/),bt=barBeats(cs);
-  return `<span class="cbar${cs.length>1?' multi':''}" data-cl="${i}" data-ci="${ci}">`+cs.map((c,si)=>`<button class="cchip${ulCls(c)}" data-cl="${i}" data-ci="${ci}" data-si="${si}" style="flex:${bt[si]} 1 0">${esc(stripB(c))}</button>`).join('')+`</span><span class="barsep" data-gl="${i}" data-gap="${ci+1}">|</span>`;}).join('')+(rp>1?`<span class="rep big">×${rp}</span>`:'')+`<button class="cchip add" data-cl="${i}" data-ci="-1" aria-label="加一個和弦">＋</button></div>`;}
+  return `<span class="cbar${cs.length>1?' multi':''}" data-cl="${i}" data-ci="${ci}">`+cs.map((c,si)=>`<button class="cchip${ulCls(c)}" data-cl="${i}" data-ci="${ci}" data-si="${si}" style="flex:${bt[si]} 1 0">${esc(stripB(c))}<span class="cdel" data-del aria-hidden="true">×</span></button>`).join('')+`</span><span class="barsep" data-gl="${i}" data-gap="${ci+1}">|</span>`;}).join('')+(rp>1?`<span class="rep big">×${rp}</span>`:'')+`<button class="cchip add" data-cl="${i}" data-ci="-1" aria-label="加一個和弦">＋</button></div>`;}
     if(/^\s*>/.test(l))return `<div><span class="note">${esc(l.replace(/^\s*>\s?/,''))}</span></div>`;
     if(!l.trim())return '<div class="ln gap"></div>';
     const cells=cellsOf(l);let pre='';
     {let j=i-1;while(j>=0&&!all[j].trim()&&j>=i-1)j--;const p=all[i-1];
      }
     return pre+`<div class="tl" data-row="${i}"><div class="tcells"><button class="tc start" data-l="${i}" data-start="1" aria-label="開始唱之前的和弦"><span class="tch"></span><span class="tly">＋</span></button>`+
-      cells.map((c,k)=>`<button class="tc${c.end?' end':''}${c.tail?' tail':''}" data-l="${i}" data-k="${k}" aria-label="${c.end?'行尾，唱完後的和弦':c.tail?'唱完後的和弦':esc(c.ch)}${c.chord?' 和弦 '+esc(c.chord.name):''}"><span class="tch">${c.chord?esc(c.chord.name):''}</span><span class="tly">${c.end?'＋':c.ch===' '?' ':esc(c.ch)}</span></button>`).join('')+`</div></div>`;
+      cells.map((c,k)=>`<button class="tc${c.end?' end':''}${c.tail?' tail':''}" data-l="${i}" data-k="${k}" aria-label="${c.end?'行尾，唱完後的和弦':c.tail?'唱完後的和弦':esc(c.ch)}${c.chord?' 和弦 '+esc(c.chord.name):''}"><span class="tch">${c.chord?esc(c.chord.name):''}</span>${c.chord?'<span class="cdel" data-del aria-hidden="true">×</span>':''}<span class="tly">${c.end?'＋':c.ch===' '?' ':esc(c.ch)}</span></button>`).join('')+`</div></div>`;
   }).join('');}
 function renderSheet(){const s=cur();if(!s)return;queueMicrotask(()=>{if(editing)markSel();});
   const hasLyrics=s.src.split('\n').some(l=>isLyricLine(l));$('secBar').hidden=!isEditing()||!hasLyrics;
   if(isEditing()&&!hasLyrics){$('sheetHint').textContent='';$('sheet').innerHTML=`<div class="guide"><b>三步驟完成一首歌</b>
     <ol><li><b>貼上歌詞</b>：下方「歌詞」，一行一句。</li><li><b>上傳 Demo</b>：下方「Demo」，會自動抓調性、BPM，把和弦配到歌詞上。</li><li><b>點字修正</b>：點譜上任何一個字就能加或改和弦。</li></ol>
     <button class="primary" id="guideText">開始貼歌詞</button></div>`;$('guideText').onclick=()=>openDrawer('text');return;}
-  if(isEditing()){$('sheetHint').textContent=`點字加和弦・按住和弦可以拖到別的字・原調 ${KEYS[s.key]}`;$('sheet').innerHTML=(looseChordLines(s.src)>=2?`<div class="fixbar"><span>這首的和弦是寫在歌詞<b>上一行</b>的文字，還沒放到字上。</span><button class="primary" onclick="fixLooseSheet()">一鍵把和弦放到歌詞上</button></div>`:'')+tapHTML(s);}
+  if(isEditing()){$('sheetHint').textContent=`點字加和弦・拖和弦換位置・點 × 或 ⌥+點 刪和弦・原調 ${KEYS[s.key]}`;$('sheet').innerHTML=(looseChordLines(s.src)>=2?`<div class="fixbar"><span>這首的和弦是寫在歌詞<b>上一行</b>的文字，還沒放到字上。</span><button class="primary" onclick="fixLooseSheet()">一鍵把和弦放到歌詞上</button></div>`:'')+tapHTML(s);}
   else{const p=prefOf(s.id);$('sheetHint').textContent='';const ab=autoBars(s.src);
     const noCh=hasLyrics&&!hasChords(s),wv2=noCh&&WISH.find(r=>r.song_id===s.id||inNz(r.title)===inNz(s.title)),noSec=noCh&&!s.src.split('\n').some(l=>secMatch(l));
     $('sheet').innerHTML=(noCh?`<div class="fixbar waitbar"><span><b>🟡 這首還沒有和弦</b><br><span class="small">歌詞已經存好。${wv2?`${wv2.votes} 人許願中。`:''}有和弦網的譜可以直接貼上（⌘V），會彈的話也可以自己加。</span></span>
@@ -1537,6 +1545,11 @@ function pasteLine(i){if(!lineClip)return;const lines=cur().src.split('\n');let 
 $('sheet').addEventListener('click',e=>{
   if(!isEditing())return;
   if(justDragged){justDragged=false;return;}
+  // 刪和弦：點和弦右上角的 ×，或按住 ⌥ 點和弦
+  {const dl=e.target.closest('[data-del]'),host=e.target.closest('.tc,.cchip');
+    if(host&&(dl||e.altKey)&&!host.classList.contains('add')){const d=host.dataset;
+      if(host.classList.contains('cchip'))pk=d.si!=null?{cl:+d.cl,ci:+d.ci,si:+d.si}:{cl:+d.cl,ci:+d.ci};else if(host.querySelector('.tch')?.textContent.trim())pk={l:+d.l,k:+d.k};else pk=null;
+      if(pk){e.preventDefault();e.stopPropagation();$('pk').hidden=true;removeChord();pk=null;return;}}}
   const cp=e.target.closest('[data-copy]'),ps=e.target.closest('[data-paste]'),tc=e.target.closest('.tc');
   const aa=e.target.closest('[data-addafter]'),cc=e.target.closest('.cchip');
   const stg=e.target.closest('[data-sectag],[data-secedit]');if(stg){openSecMenu(stg);return;}
